@@ -1,0 +1,136 @@
+"""Tests for schema/site.schema.json and schema/platform.schema.json.
+
+These check the schema definitions themselves, independent of profiles.py's
+loader (which does not exist yet). A schema that is too loose would let a
+broken profile through to load without any error; a schema that is too
+strict would reject a legitimate profile. Both failure modes defeat the
+point of validating on load.
+"""
+
+import json
+from pathlib import Path
+from typing import Any
+
+import jsonschema
+import pytest
+
+SCHEMA_DIR = Path(__file__).parent.parent / "schema"
+
+# Mirrors the example in SCHEMA.md A.1, minus the jsonc comments.
+VALID_SITE_PROFILE: dict[str, Any] = {
+    "schema_version": 1,
+    "id": "ornek",
+    "name": "Örnek Dekant",
+    "base_url": "https://ornek-site.com",
+    "enabled": True,
+    "platform": "shopify",
+    "strategy": "httpx",
+    "extraction": "jsonld",
+    "rate_limit_ms": 800,
+    "timeout_s": 20,
+    "search": {
+        "url_template": "{base_url}/search?q={query}",
+    },
+    "product": {
+        "title": None,
+        "price": None,
+        "in_stock": None,
+        "variant_container": ".variant-select",
+    },
+    "variant_rules": {
+        "size_from": "title",
+        "size_pattern": r"(\d+[.,]?\d*)\s*(ml|cc)",
+        "exclude_keywords": ["tester", "full şişe", "orijinal şişe", "kutulu", "set"],
+        "max_size_ml": 30,
+    },
+    "shipping": {
+        "free_shipping_threshold_kurus": 75000,
+        "shipping_cost_kurus": 8900,
+        "notes": "Havale ile %3 indirim",
+    },
+    "discovered_at": "2026-08-07T11:22:00Z",
+    "needs_review": ["variant_rules.size_pattern"],
+}
+
+# Mirrors the example in SCHEMA.md A.2.
+VALID_PLATFORM_TEMPLATE: dict[str, Any] = {
+    "schema_version": 1,
+    "name": "shopify",
+    "fingerprint": {"any": ["cdn.shopify.com", "Shopify.theme", "/cart/add"]},
+    "defaults": {
+        "extraction": "endpoint",
+        "search": {"url_template": "{base_url}/search?q={query}"},
+        "endpoint": {
+            "product_json": "{product_url}.js",
+            "variants_path": "variants",
+            "field_map": {
+                "size_raw": "title",
+                "price": "price",
+                "in_stock": "available",
+            },
+        },
+    },
+}
+
+
+def _load_schema(filename: str) -> dict[str, Any]:
+    return json.loads((SCHEMA_DIR / filename).read_text())
+
+
+def _site_validator() -> jsonschema.Draft202012Validator:
+    schema = _load_schema("site.schema.json")
+    jsonschema.Draft202012Validator.check_schema(schema)
+    return jsonschema.Draft202012Validator(schema)
+
+
+def _platform_validator() -> jsonschema.Draft202012Validator:
+    schema = _load_schema("platform.schema.json")
+    jsonschema.Draft202012Validator.check_schema(schema)
+    return jsonschema.Draft202012Validator(schema)
+
+
+def test_site_schema_accepts_the_documented_example() -> None:
+    _site_validator().validate(VALID_SITE_PROFILE)
+
+
+def test_platform_schema_accepts_the_documented_example() -> None:
+    _platform_validator().validate(VALID_PLATFORM_TEMPLATE)
+
+
+@pytest.mark.parametrize(
+    "missing_field", ["shipping", "variant_rules", "discovered_at"]
+)
+def test_site_schema_rejects_a_missing_required_field(missing_field: str) -> None:
+    broken = {k: v for k, v in VALID_SITE_PROFILE.items() if k != missing_field}
+    with pytest.raises(jsonschema.ValidationError):
+        _site_validator().validate(broken)
+
+
+def test_site_schema_rejects_css_extraction_without_selectors() -> None:
+    # extraction=css needs real selectors; leaving search at its jsonld shape
+    # (just a url_template) would silently produce zero scraped results.
+    broken = {**VALID_SITE_PROFILE, "extraction": "css"}
+    with pytest.raises(jsonschema.ValidationError):
+        _site_validator().validate(broken)
+
+
+def test_site_schema_rejects_endpoint_extraction_without_endpoint_block() -> None:
+    broken = {**VALID_SITE_PROFILE, "extraction": "endpoint"}
+    with pytest.raises(jsonschema.ValidationError):
+        _site_validator().validate(broken)
+
+
+def test_site_schema_rejects_trailing_slash_on_base_url() -> None:
+    # A trailing slash would double up when the engine builds
+    # "{base_url}/search?q=..." from the search.url_template.
+    broken = {**VALID_SITE_PROFILE, "base_url": "https://ornek-site.com/"}
+    with pytest.raises(jsonschema.ValidationError):
+        _site_validator().validate(broken)
+
+
+def test_site_schema_rejects_wrong_timestamp_format() -> None:
+    # A "+03:00" offset instead of "Z" would silently break the
+    # lexicographic "most recent" ordering the database relies on.
+    broken = {**VALID_SITE_PROFILE, "discovered_at": "2026-08-07T11:22:00+03:00"}
+    with pytest.raises(jsonschema.ValidationError):
+        _site_validator().validate(broken)

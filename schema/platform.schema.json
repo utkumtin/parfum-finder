@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://parfum-finder/schema/platform.schema.json",
+  "title": "Platform template",
+  "description": "Known defaults for one e-commerce platform, deep-merged into a site profile that references it by name. The site profile always wins on conflicts.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "any": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      },
+      "required": ["any"]
+    },
+    "defaults": {
+      "type": "object",
+      "description": "A partial site profile fragment. Only the keys this platform actually standardizes need to be present here."
+    }
+  },
+  "required": ["schema_version", "name", "fingerprint", "defaults"]
+}
