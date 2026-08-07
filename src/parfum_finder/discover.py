@@ -20,8 +20,14 @@ search URL now makes it possible in principle, but running one needs a query ter
 and a way to read the results, and neither belongs to the fingerprint step.
 Guessing here would produce a trial that measures the guess rather than the site.
 
-TODO: per-field confidence scores, and writing the profile out with the
-low-confidence fields listed for review.
+Each field the run can put a value on is scored high, medium or low, and the
+ones below high come back out as needs_review, spelled with the dotted names a
+profile uses. Fields nothing here measures at all, shipping above all, are not
+scored and not listed: they are entered by hand afterward, and a review list
+that also held them would bury the two or three guesses worth checking under
+the fields nobody ever claimed to know.
+
+TODO: writing the profile out with its needs_review list.
 """
 
 from __future__ import annotations
@@ -32,7 +38,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from curl_cffi import CurlError
@@ -63,6 +69,16 @@ from parfum_finder.store import now_iso
 # question that only accepts a template forces a pick, which is the same wrong
 # answer as picking silently, just with a person's name on it.
 PlatformChooser = Callable[[tuple[str, ...]], str | None]
+
+# How much of this run stands behind one field's value. "high" is measured on
+# this site's own pages and needs no second look. "medium" is a value that came
+# from somewhere trustworthy but was never tested here, a platform template's
+# default above all: right for the other sites on that platform, unproven for
+# this one. "low" is a value somebody supplied by hand, or one the page's own
+# evidence argues against. Three words rather than a number, because there is
+# no measurement here fine enough to justify the fourth digit of a score, and a
+# profile has nowhere to store one anyway.
+Confidence = Literal["high", "medium", "low"]
 
 _FETCH_ERROR_TYPES: tuple[type[Exception], ...] = (
     httpx.RequestError,
@@ -134,6 +150,23 @@ class PageTrial:
 
 
 @dataclass(frozen=True)
+class FieldConfidence:
+    """One field this run can fill in, with how far it can be trusted.
+
+    `field` is the dotted name the field has in a site profile, not a label for
+    reading, so the low-confidence ones can be copied into a profile's
+    needs_review list without anyone having to translate them back first.
+    """
+
+    field: str
+    value: str
+    confidence: Confidence
+    # What the score rests on, in one line. A score with no evidence behind it
+    # is just an opinion, and nobody can argue with an opinion or correct it.
+    evidence: str
+
+
+@dataclass(frozen=True)
 class DiscoveryReport:
     url: str
     strategy_report: ProbeReport
@@ -167,6 +200,21 @@ class DiscoveryReport:
     def platform(self) -> str | None:
         """The template this site's profile would be based on, if any."""
         return _resolve_platform(self.platform_matches, self.chosen_platform)
+
+    @property
+    def fields(self) -> tuple[FieldConfidence, ...]:
+        """Every profile field this run can put a value on, scored."""
+        return score_fields(self)
+
+    @property
+    def needs_review(self) -> tuple[str, ...]:
+        """The scored fields a person still has to confirm, in profile order.
+
+        Anything below high goes in. A value that was inherited rather than
+        measured is not wrong, it is unchecked, and the difference between the
+        two only shows up on the site where the inheritance does not hold.
+        """
+        return tuple(f.field for f in self.fields if f.confidence != "high")
 
 
 def _resolve_platform(matches: tuple[str, ...], chosen: str | None) -> str | None:
@@ -385,6 +433,112 @@ def _match_platforms(
     )
 
 
+def score_fields(report: DiscoveryReport) -> tuple[FieldConfidence, ...]:
+    """Score every profile field this run can fill in, in profile order.
+
+    Only fields the run actually puts a value on are here. A field nothing
+    touched, shipping and the variant rules above all, is not a low-confidence
+    field, it is an empty one, and mixing the two would hide the handful of
+    values worth checking among the ones nobody ever claimed to know.
+
+    Nothing is scored at all when no page was read. There is no evidence for
+    any field then, and an empty review list would read as "all confirmed"
+    rather than "nothing was looked at".
+    """
+    if not report.trials:
+        return ()
+
+    fields: list[FieldConfidence] = []
+    strategy = report.trial_strategy
+    if strategy is not None:
+        fields.append(
+            FieldConfidence(
+                "strategy",
+                strategy,
+                "low" if report.forced_strategy else "high",
+                "given on the command line, so this site never showed that it "
+                "needs this rung"
+                if report.forced_strategy
+                else "the cheapest rung that came back with a usable page",
+            )
+        )
+    if report.platform is not None:
+        fields.append(
+            FieldConfidence(
+                "platform",
+                report.platform,
+                "low" if report.chosen_platform else "high",
+                f"picked by hand out of {len(report.platform_matches)} templates "
+                "whose fingerprints all claimed this page"
+                if report.chosen_platform
+                else "the only template whose markers appear on the entry page",
+            )
+        )
+
+    # An inherited value is right for the sites the template was written from
+    # and unproven here, so it never reaches high. It sinks further when the
+    # template itself was a judgement call: a field cannot be surer than the
+    # platform it was inherited from.
+    inherited: Confidence = "low" if report.chosen_platform else "medium"
+    evidence = f"supplied by platforms/{report.platform}.json, not measured here"
+    if report.chosen_platform:
+        evidence += ", and that template was picked by hand"
+    fields.extend(
+        FieldConfidence(path, value, inherited, evidence)
+        for path, value in _flatten_defaults(report.applied_defaults)
+    )
+
+    named = {f.field for f in fields}
+    if "extraction" not in named:
+        fields.extend(_score_extraction(report))
+    return tuple(fields)
+
+
+def _score_extraction(report: DiscoveryReport) -> list[FieldConfidence]:
+    """Read the extraction layer off the page, for a site no template covers.
+
+    Judged on the product page when one was given, because that is the page an
+    extraction layer has to work on. The entry page stands in otherwise, and a
+    front page carrying no product markup simply leaves the field unscored.
+    """
+    products = [t for t in report.trials if t.role == "product"]
+    page = products[0] if products else report.trials[0]
+    if not page.products:
+        return []
+    if _variant_prices_incomplete(page):
+        return [
+            FieldConfidence(
+                "extraction",
+                "jsonld",
+                "low",
+                "the page's JSON-LD declares a product, but the sizes on offer "
+                "are not all priced in it, so a lower layer is probably needed",
+            )
+        ]
+    return [
+        FieldConfidence(
+            "extraction",
+            "jsonld",
+            "high",
+            f"{len(page.products)} JSON-LD product(s) with prices on {page.url}",
+        )
+    ]
+
+
+def _variant_prices_incomplete(trial: PageTrial) -> bool:
+    """Whether the page offers sizes whose prices it does not all carry.
+
+    True both when a single price sits next to a size selector and when every
+    price on offer comes from a range. A range names its two ends and says
+    nothing about the sizes between them, so neither case gives a price per ml
+    that can be compared against another site's.
+    """
+    if not trial.variant_control_present:
+        return False
+    price_count = sum(len(collect_prices(p)) for p in trial.products)
+    return price_count <= 1 or not any(_has_exact_price(p) for p in trial.products)
+
+
 def _save_fixture(fixtures_dir: Path, role: str, html: str) -> tuple[Path, str]:
     """Write one page and return where it landed plus its digest.
 
@@ -477,6 +631,8 @@ def format_report(report: DiscoveryReport) -> str:
     lines.extend(_format_choice(report))
     lines.append("")
     lines.extend(_format_fingerprint(report))
+    lines.append("")
+    lines.extend(_format_confidence(report))
     for index, trial in enumerate(report.trials):
         lines.append("")
         # Only the first trial is the page the strategy was measured on. The
@@ -574,16 +730,66 @@ def _format_fingerprint(report: DiscoveryReport) -> list[str]:
     return lines
 
 
-def _format_defaults(defaults: dict[str, Any] | None, prefix: str = "") -> list[str]:
-    """Flatten a template's defaults to one dotted key per line."""
-    lines = []
+def _format_confidence(report: DiscoveryReport) -> list[str]:
+    """The scored fields, then the review list in the form a profile wants it.
+
+    The review list is printed as JSON so it can go into a profile's
+    needs_review as it stands. Retyping it by hand is where a field quietly
+    falls off the list.
+    """
+    fields = report.fields
+    if not fields:
+        return [
+            "field confidence: nothing scored. No page was read, so no field "
+            "has any evidence behind it. An empty review list here would mean "
+            "nothing was looked at, not that everything checks out."
+        ]
+    name_width = max(len(f.field) for f in fields)
+    value_width = max(len(f.value) for f in fields)
+    lines = ["field confidence"]
+    lines.extend(
+        f"  {f.field:<{name_width}}  {f.confidence:<6}  "
+        f"{f.value:<{value_width}}  ({f.evidence})"
+        for f in fields
+    )
+    review = report.needs_review
+    lines.append(f"needs_review: {json.dumps(list(review))}")
+    if review:
+        lines.append(
+            "  Confirm each of these by hand before the profile is trusted. "
+            "Fields nothing here measures, shipping above all, are not on the "
+            "list and still have to be written by hand."
+        )
+    else:
+        lines.append(
+            "  Every field above was measured on this site. Shipping and the "
+            "variant rules are still yours to write: they are never scraped, "
+            "so this run never claimed them."
+        )
+    return lines
+
+
+def _format_defaults(defaults: dict[str, Any] | None) -> list[str]:
+    """Render a template's defaults as one dotted key per line."""
+    return [f"{path} = {value}" for path, value in _flatten_defaults(defaults)]
+
+
+def _flatten_defaults(
+    defaults: dict[str, Any] | None, prefix: str = ""
+) -> list[tuple[str, str]]:
+    """A template's defaults as (dotted path, value) pairs.
+
+    The dotted path is the name the field has in a site profile, which is what
+    both the report and the review list have to speak.
+    """
+    pairs: list[tuple[str, str]] = []
     for key, value in (defaults or {}).items():
         path = f"{prefix}{key}"
         if isinstance(value, dict):
-            lines.extend(_format_defaults(value, f"{path}."))
+            pairs.extend(_flatten_defaults(value, f"{path}."))
         else:
-            lines.append(f"{path} = {value}")
-    return lines
+            pairs.append((path, str(value)))
+    return pairs
 
 
 def _format_trial(
@@ -643,14 +849,13 @@ def _warnings(trial: PageTrial, *, measured: bool) -> list[str]:
     """
     warnings = []
     price_count = sum(len(collect_prices(p)) for p in trial.products)
-    exact_price = any(_has_exact_price(p) for p in trial.products)
-    if trial.variant_control_present and price_count <= 1:
+    if _variant_prices_incomplete(trial) and price_count <= 1:
         warnings.append(
             f"WARNING: the markup offers a size selector but only {price_count} "
             "price could be read. The other sizes are probably fetched by a "
             "later request, so this page alone gives a wrong price per ml."
         )
-    elif trial.variant_control_present and not exact_price:
+    elif _variant_prices_incomplete(trial):
         warnings.append(
             "WARNING: the markup offers a size selector and every price here "
             "comes from a range, not from an offer of its own. A range only "

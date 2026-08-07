@@ -642,6 +642,176 @@ async def test_no_page_read_means_no_fingerprint_claim(
     assert "platform fingerprint: not run" in format_report(report)
 
 
+def _score(report: DiscoveryReport, field: str) -> tuple[str, str]:
+    """One field's confidence and value, or a clear failure if it went unscored."""
+    scored = {f.field: f for f in report.fields}
+    assert field in scored, f"{field} was not scored at all: {sorted(scored)}"
+    return scored[field].confidence, scored[field].value
+
+
+async def test_a_measured_strategy_and_a_single_template_need_no_review(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Both values came off this site's own pages, and a template that supplies
+    # nothing cannot hand down an unchecked field. Nothing is left to confirm.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+
+    report = await discover(f"{server_url}/product", platforms_dir=tmp_path)
+
+    assert _score(report, "strategy") == ("high", "httpx")
+    assert _score(report, "platform") == ("high", "shopify")
+    assert report.needs_review == ()
+
+
+async def test_an_inherited_field_is_never_more_than_medium(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The template's search URL is right for the sites it was written from.
+    # Nothing here ran a search on this one, so it stays a claim to check.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(
+        tmp_path,
+        "shopify",
+        ["cdn.shopify.com"],
+        {"search": {"url_template": "{base_url}/search?q={query}"}},
+    )
+
+    report = await discover(f"{server_url}/product", platforms_dir=tmp_path)
+
+    confidence, value = _score(report, "search.url_template")
+    assert confidence == "medium"
+    # The dotted name is the one a profile uses, so the list can be pasted in
+    # as it stands instead of translated back field by field.
+    assert value == "{base_url}/search?q={query}"
+    assert report.needs_review == ("search.url_template",)
+
+
+async def test_a_field_cannot_be_surer_than_the_platform_it_came_from(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The template was a judgement call between two that both matched, so
+    # everything inherited from it rests on that call, not on a measurement.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(
+        tmp_path, "shopify", ["cdn.shopify.com"], {"extraction": "endpoint"}
+    )
+    _write_template(tmp_path, "ticimax", ["test product"])
+
+    report = await discover(
+        f"{server_url}/product",
+        platforms_dir=tmp_path,
+        chooser=lambda candidates: "shopify",
+    )
+
+    assert _score(report, "platform") == ("low", "shopify")
+    assert _score(report, "extraction") == ("low", "endpoint")
+
+
+async def test_a_strategy_given_by_hand_is_not_a_measured_one(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # httpx was measured and works here. The run was told to use playwright
+    # anyway, so the profile would carry a rung this site never showed it needs.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+
+    report = await discover(
+        f"{server_url}/product", strategy="curl_cffi", platforms_dir=tmp_path
+    )
+
+    assert _score(report, "strategy") == ("low", "curl_cffi")
+    assert "strategy" in report.needs_review
+
+
+async def test_extraction_is_read_off_the_page_when_no_template_covers_it(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # No template matched, so nothing was inherited, but the page itself is
+    # evidence: it declares a JSON-LD product with a price.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+
+    report = await discover(f"{server_url}/product", platforms_dir=tmp_path)
+
+    assert _score(report, "extraction") == ("high", "jsonld")
+    assert report.needs_review == ()
+
+
+async def test_a_page_that_hides_its_other_sizes_scores_extraction_low(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # JSON-LD is present, so the naive read is that the top rung works. The
+    # page also offers sizes it does not price, which is exactly the case
+    # where that read produces a wrong price per ml.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+
+    report = await discover(
+        f"{server_url}/variant-single-price", platforms_dir=tmp_path
+    )
+
+    assert _score(report, "extraction") == ("low", "jsonld")
+    assert "extraction" in report.needs_review
+
+
+async def test_the_product_page_decides_the_extraction_layer(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The entry page is a listing with no product markup. Scoring the layer on
+    # it would leave the field unscored for a site whose product pages are fine.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+
+    report = await discover(
+        f"{server_url}/cards",
+        product_url=f"{server_url}/product",
+        platforms_dir=tmp_path,
+    )
+
+    assert _score(report, "extraction") == ("high", "jsonld")
+
+
+async def test_nothing_is_scored_when_no_page_was_read(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # No rung qualified, so there is no evidence for any field. An empty review
+    # list here would read as "all confirmed" when nothing was looked at.
+    _fake_probe(
+        monkeypatch,
+        _attempt("httpx", status_code=503, jsonld_products=0, markup_nodes=0),
+        _attempt("curl_cffi", status_code=503, jsonld_products=0, markup_nodes=0),
+        _attempt("playwright", jsonld_products=0, markup_nodes=0),
+    )
+
+    report = await discover(f"{server_url}/product", platforms_dir=tmp_path)
+
+    assert report.fields == ()
+    assert report.needs_review == ()
+    assert "field confidence: nothing scored" in format_report(report)
+
+
+async def test_the_review_list_is_printed_ready_to_paste_into_a_profile(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Retyping this list by hand is where a field quietly falls off it, so the
+    # report prints the JSON array a profile's needs_review holds.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(
+        tmp_path,
+        "shopify",
+        ["cdn.shopify.com"],
+        {"search": {"url_template": "{base_url}/search?q={query}"}},
+    )
+
+    report = await discover(
+        f"{server_url}/product", strategy="httpx", platforms_dir=tmp_path
+    )
+
+    assert 'needs_review: ["strategy", "search.url_template"]' in format_report(report)
+    # Shipping is never scraped, so it was never claimed and is not a field
+    # awaiting review. It still has to be written by hand, and the report says
+    # that in words rather than leaving the empty spot to imply it.
+    assert not [f for f in report.needs_review if f.startswith("shipping")]
+
+
 async def test_a_broken_template_stops_the_run_before_any_request(
     server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
