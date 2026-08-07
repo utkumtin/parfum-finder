@@ -35,7 +35,7 @@
 
 ```
 src/parfum_finder/
-├── normalize.py      # sayı/ml parse + format, JSON-LD normalizasyonu
+├── normalize.py      # sayı/ml parse + format
 ├── profiles.py       # profil yükleme, jsonschema doğrulama, platform şablonu merge
 ├── fetch.py          # httpx / curl_cffi / playwright — tek arayüz
 ├── probe.py          # strateji ölçümü: her stratejiyi dener, kanıtlı rapor üretir
@@ -112,7 +112,7 @@ yukarıdan aşağı dener, **çalışan en üst katmanı** profile yazar.
 SEO için konur, tema değişse bile korunur. `name`, `offers.price`, `offers.availability`,
 çoğu zaman `hasVariant` hazır gelir.
 
-Ele alınacak varyasyonlar (`normalize.py`): kök dizi, `@graph` sarmalayıcı, tek `Offer`
+Ele alınacak varyasyonlar (`extract.py`): kök dizi, `@graph` sarmalayıcı, tek `Offer`
 vs `AggregateOffer`, `availability` değerinin `https://schema.org/InStock` /
 `InStock` / `in_stock` biçimleri.
 
