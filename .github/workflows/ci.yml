@@ -20,8 +20,11 @@ jobs:
       # --locked fails the build if uv.lock is out of sync with pyproject.toml,
       # instead of silently resolving a different dependency set than what
       # was committed.
+      # The browser extra is installed so mypy type-checks the playwright code
+      # paths instead of treating them as Any. The chromium binary itself is not
+      # needed for type checking.
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --locked --extra browser
 
       - name: Lint
         run: uv run ruff check .
