@@ -1,0 +1,20 @@
+{
+  "entry_url": "https://decantall.com/",
+  "captured_at": "2026-08-07T13:56:37Z",
+  "strategy": "playwright",
+  "measured_strategy": "httpx",
+  "pages": {
+    "search": {
+      "url": "https://decantall.com/search?s=arancia",
+      "status_code": 200,
+      "bytes": 603241,
+      "sha256": "c1ed7662c8ba6d1ec612d69d026083946213ca6201d31646544f6dd641cab68f"
+    },
+    "product": {
+      "url": "https://decantall.com/acqua-di-parma-arancia-di-capri",
+      "status_code": 200,
+      "bytes": 787173,
+      "sha256": "447f8e6903df8c9d1591fb41fe3a2c89508ca1b794b62dd1f0c53f9878d20e45"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "entry_url": "https://www.dekantdoktoru.com/",
+  "captured_at": "2026-08-07T13:56:58Z",
+  "strategy": "httpx",
+  "measured_strategy": "httpx",
+  "pages": {
+    "search": {
+      "url": "https://www.dekantdoktoru.com/arama/blossom",
+      "status_code": 200,
+      "bytes": 218422,
+      "sha256": "7fd9783e95829afaa9fd830c1cce1802b9f3a808be521d63db1052e2a820e877"
+    },
+    "product": {
+      "url": "https://www.dekantdoktoru.com/urun/amouage-blossom-love",
+      "status_code": 200,
+      "bytes": 274884,
+      "sha256": "32e744513430bee08814f5fd9161446958b0c015333ccabbe41f496f0edb421b"
+    }
+  }
+}

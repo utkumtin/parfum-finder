@@ -1,0 +1,20 @@
+{
+  "entry_url": "https://www.vencosmetic.com/",
+  "captured_at": "2026-08-07T13:56:25Z",
+  "strategy": "httpx",
+  "measured_strategy": "httpx",
+  "pages": {
+    "search": {
+      "url": "https://www.vencosmetic.com/arama?k=hibiscus",
+      "status_code": 200,
+      "bytes": 57325,
+      "sha256": "0aee2af32ed3ac79f1014e430ae0fed9fa48d5c5967496ea263fb2d1c6e900eb"
+    },
+    "product": {
+      "url": "https://www.vencosmetic.com/amouage-love-hibiscus",
+      "status_code": 200,
+      "bytes": 101332,
+      "sha256": "290c41cc29444bc256df35a43e65ace65858448f209f903cb77c194720996835"
+    }
+  }
+}

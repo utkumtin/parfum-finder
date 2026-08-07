@@ -18,13 +18,15 @@ yazıldı. Bir alan "bilinmiyor" ise öyle yazıldı, tahmin edilmedi.
 | `luxurydekant` | luxurydekant.com.tr | WooCommerce | `httpx` | 3 — gömülü JS | **C** |
 | `dekantparfum` | www.dekantparfum.com.tr | İdeasoft | `httpx` | 2 — JSON endpoint | **B** |
 | `dekantdoktoru` | www.dekantdoktoru.com | İdeasoft | `httpx` | 2 — JSON endpoint | **B** |
-| `ruxangroup` | ruxangroup.com | WooCommerce | `httpx` | 1 — JSON-LD | yok (dekant satmıyor) |
+| `ruxangroup` | ruxangroup.com | WooCommerce | `httpx` | 3 — gömülü JS | **C** |
 
 ### Turun üç ana sonucu
 
-1. **Altı sitenin hiçbiri `curl_cffi` veya `playwright` gerektirmiyor.** Hepsi `httpx` ile
-   200 dönüyor, bot koruması ya da JS ile doldurulan gövde yok. Ölçüm her site için üç
-   rungu da denedi; `playwright` hiçbir yerde `httpx`'in göremediği bir şey göstermedi.
+1. **Ürün sayfaları için hiçbir site `curl_cffi` veya `playwright` gerektirmiyor.** Hepsi
+   `httpx` ile 200 dönüyor, bot koruması yok. Tek istisna `decantall`'ın **arama sayfası**:
+   ürün sayfası `httpx` ile tam gelirken arama sonuçları tarayıcıda üretiliyor
+   (`httpx` 760 KB kabuk, aranan ürün yok; `playwright` 603 KB, ürün var). Yani strateji
+   site başına değil, **sayfa başına** değişebiliyor; profil şeması bunu karşılamalı.
 
 2. **Katman 1 (JSON-LD) tek başına hiçbir sitede yetmiyor.** Ölçüde ayrışmış fiyat üretebilen
    tek katman hiçbir yerde JSON-LD değil. Detay aşağıda, ama kısaca: iki site sayfada hiç
@@ -32,9 +34,10 @@ yazıldı. Bir alan "bilinmiyor" ise öyle yazıldı, tahmin edilmedi.
    etiketlerini vermiyor. Yani `extraction: "jsonld"` yazan bir profil bu altı site için
    ya boş ya yanlış ₺/ml üretir.
 
-3. **Varyant deseni ikiye ayrılıyor:** üç site deseni C (tüm varyant fiyatları sayfadaki bir
-   JSON blob'unda), iki site deseni B (fiyatlar ayrı bir istekle geliyor). Desen A (her ölçü
-   ayrı arama sonucu satırı) hiçbir sitede saf haliyle görülmedi. Bu, M4'ün "arama sayfası
+3. **Varyant deseni ikiye ayrılıyor:** dört site deseni C (tüm varyant fiyatları sayfadaki
+   bir JSON blob'unda), iki site deseni B (fiyatlar ayrı bir istekle geliyor). Desen A (her
+   ölçü ayrı arama sonucu satırı) hiçbir sitede görülmedi; İdeasoft'ta her ölçü ayrı bir ürün
+   olmasına rağmen arama sonuçlarında sadece ana ürün listeleniyor. Bu, M4'ün "arama sayfası
    yeter" kestirmesini kullanamayacağı anlamına geliyor: her sitede ürün sayfasına ya da
    endpoint'e inmek gerekiyor.
 
@@ -170,18 +173,60 @@ B'nin doğru çözümü: `playwright`'a düşmeden bütün ölçülerin fiyat ve
 
 - **Platform:** **WooCommerce** (Woodmart teması).
 - **Strateji:** `httpx`.
-- **Katman:** 1 (JSON-LD). Ürün sayfası tek `Offer` ve tek fiyat veriyor, `sku` dolu, stok
-  durumu okunabiliyor. Basit ürün olduğu için bu yeterli.
-- **Varyant deseni:** yok — ve **bu site dekant satmıyor.**
-  - Dört ürün sayfasında `variations_form` / `data-product_variations` bulunamadı, hepsi
-    "simple product".
-  - `product-sitemap.xml`'deki 24 slug'ın hiçbirinde ml geçmiyor; bir tanesi doğrudan
-    `ard-alzaafaran-parfum-80ml-edp`.
-  - Örnek ürün (`lattafa-maani`) 1000,00 TL, tek fiyat, stokta değil.
-  - Sonuç: tam şişe satan bir Arap markaları mağazası. `sites/targets.txt` zaten
-    "Sadece arap markalari var" notunu düşmüş.
-  - **Karar kullanıcıya ait:** dekant karşılaştırma listesinde kalacak mı? Kalırsa ₺/ml
-    kolonu bu site için tam şişe fiyatı üzerinden hesaplanır ve diğerleriyle kıyaslanamaz.
+- **Katman:** 3 (gömülü JS state), `luxurydekant` ile aynı mekanizma:
+  `data-product_variations` içinde `attribute_pa_hacim` + `display_price` + `is_in_stock`.
+- **Varyant deseni:** **C**.
+- **Katalog karışık, ve bu turda dikkat isteyen tek nokta bu.** Mağazada hem "simple" hem
+  "variable" ürünler var:
+  - `/magaza/` listesindeki 24 üründe `product_type_variable` 24, `product_type_simple` 0.
+  - `product-category/ard-alzaafaran/` listesinde ise 3 variable, 19 simple.
+  - Variable olanlar dekant ölçülerini taşıyor. Örnek `lattafa-khamrah`: 5ml = 150,
+    10ml = 290, 30mldekant = 825, 100ml = 2550.
+  - Simple olanlar tek boyda tam şişe (örn. `lattafa-maani`, 1000,00 TL, stokta değil).
+- **Katman 1 neden yetmiyor:** Variable üründe JSON-LD tek `Offer` veriyor ve o offer
+  100 ml'nin fiyatını taşıyor. Aralık bile değil, tek bir sayı; yani JSON-LD'ye bakan bir
+  çıkarım dekant fiyatı yerine tam şişe fiyatını okur ve hata sessiz kalır.
+- **Ölçü etiketleri temiz değil:** `30mldekant` gibi bitişik yazımlar var, `variant_rules`
+  ml çıkarımı bunu tolere etmeli.
+
+---
+
+## Arama URL şablonları
+
+Her biri gerçek bir sorguyla **ve** anlamsız bir kontrol sorgusuyla denendi; kontrol sorgusu
+sonuç döndürseydi şablon geçersiz sayılırdı (venco'da `/?s=` ve `/?q=` tam bu şekilde elendi,
+ikisi de anasayfayı döndürüyordu).
+
+| Site | Şablon |
+|---|---|
+| `venco` | `{base}/arama?k={query}` |
+| `decantall` | `{base}/search?s={query}` — **sonuçlar tarayıcıda üretiliyor** |
+| `luxurydekant` | `{base}/?s={query}&post_type=product` |
+| `dekantparfum` | `{base}/arama/{query}` |
+| `dekantdoktoru` | `{base}/arama/{query}` |
+| `ruxangroup` | `{base}/?s={query}&post_type=product` |
+
+Platform başına toplanınca: WooCommerce `?s=...&post_type=product`, İdeasoft `/arama/<sorgu>`
+(sorgu yol parçası, query string değil). İkisi de M3'te platform şablonuna yazılabilir.
+`venco` ve `decantall` platform şablonu olmadığı için kendi profillerinde durur.
+
+---
+
+## Fixture'lar
+
+`fixtures/<id>/` altında her site için `search.html`, `product.html` ve `meta.json`.
+`discover <url> --id <slug> --search-url ... --product-url ...` ile üretildi, elle
+kopyalanmadı. `meta.json` her sayfanın kaynak URL'sini, HTTP durumunu, boyutunu, sha256'sını
+ve yakalama anını tutuyor; `strategy` ile `measured_strategy` ayrı yazılıyor, böylece elle
+verilmiş bir strateji ölçülmüş gibi görünmüyor.
+
+Toplam 3,9 MB ham HTML. `decantall` `--strategy playwright` ile çekildi, çünkü arama sayfası
+`httpx` ile boş kabuk dönüyor ve boş kabuk fixture'ı doğrulamayı yanlış yeşile boyardı.
+
+Kapsam dışı bırakılan: İdeasoft'un `/product/related-options` cevabı fixture olarak
+kaydedilmedi. Kaydetmek `discover`'a platforma özel POST gövdesi kurmayı gerektirirdi;
+o iş platform şablonlarıyla birlikte M3'e ait. Bunun bedeli, M5'te İdeasoft'un katman 2'sinin
+offline doğrulanamayacak olması.
 
 ---
 
@@ -204,10 +249,10 @@ varyantlı gösteriyordu.
 
 ## Açık kalan sorular (M3 / M4 girdisi)
 
-1. **Arama URL şablonu hiçbir site için bilinmiyor.** İdeasoft'ta arama formunun `action`'ı boş
-   ve denenen `?/arama?q=`, `/search?q=`, `/index.php?do=search` yolları sonuç döndürmedi.
-   `discover`'ın uçtan uca denemesinin arama yarısı hâlâ eksik; bu şablonlar M3'te platform
-   şablonlarına yazılmalı.
+1. **Sayfa başına strateji.** `decantall`'ın ürün sayfası `httpx`, arama sayfası `playwright`
+   istiyor. Profil şeması şu an site başına tek strateji tutuyor; M3'te bunun sayfa rolüne
+   göre ayrışması gerekecek, yoksa `decantall` ya boş arama sonucu döndürür ya da her istek
+   gereksiz yere tarayıcı açar.
 2. **`venco`'nun platformunun adı.** HTML grep'i ve yanıt başlıkları denendi, ikisi de adı
    yazmıyor. `_ecom_code` çerezi ayırt edici görünüyor ama tek başına isim kanıtı değil.
 3. **`probe`'un fingerprint'i ikas ve `venco`'yu tanımıyor**, ikisi de `-` dönüyor. İdeasoft
@@ -215,17 +260,22 @@ varyantlı gösteriyordu.
 4. **İdeasoft `price` / `sale_price` ayrımı** doğrulanmadı (yukarıya bakın).
 5. **Kargo bilgisi hiç toplanmadı** — tasarım gereği. Ücretsiz kargo eşiği, kargo ücreti ve
    notlar her site için elle girilecek.
-6. **`ruxangroup` listede kalacak mı?**
+6. **`ruxangroup`'ta hangi ürünler dekant taşıyor?** Katalog karışık: kimi ürün variable ve
+   ölçüleri var, kimi simple ve sadece tam şişe. Arama sonuçlarında ikisi yan yana çıkıyor,
+   yani `variant_rules` tam şişe satırlarını elemek zorunda. Oran ölçülmedi, sadece iki
+   liste sayfasında bakıldı.
 
 ## Bu raporun M3 ve M4'e söyledikleri
 
-- **M3'te yazılacak platform şablonları:** `ideasoft` (iki site birden, endpoint'i belli),
-  `woocommerce` (iki site, biri variable biri simple), `ikas` (bir site). `venco`'nun platformu
+- **M3'te yazılacak platform şablonları:** `ideasoft` (iki site birden, endpoint'i ve arama
+  şablonu belli), `woocommerce` (iki site, ikisi de aynı `data-product_variations` deseni),
+  `ikas` (bir site). `venco`'nun platformu
   adlandırılamadığı için şablonsuz, site profiliyle sürülür. Karşılaşılmayan platform
   (Shopify, Ticimax, Opencart) için şablon yazılmaz.
-- **M4'te merdivenin öncelikli katmanları:** `endpoint` (İdeasoft) ve `embedded_json` (diğer üçü).
-  `jsonld` altı sitenin hiçbirinde tek başına yeterli değil; `css` katmanına ise hiçbir site
-  için ihtiyaç görünmüyor.
+- **M4'te merdivenin öncelikli katmanları:** `endpoint` (İdeasoft) ve `embedded_json`
+  (diğer dördü). `jsonld` altı sitenin hiçbirinde tek başına yeterli değil; `css` katmanına
+  ise hiçbir site için ihtiyaç görünmüyor.
 - **`variant_rules` için gerçek veri:** ölçü etiketleri `3 ml`, `3ml`, `10 ml ` (sonda boşluk),
-  `2,7 ml - metal sprey`, `1 ML` biçimlerinde geliyor. Dekant dışı filtresi için sitelerde
-  30 ml'lik varyantlar mevcut (`luxurydekant` 30ml, `dekantdoktoru` 30 ml).
+  `2,7 ml - metal sprey`, `1 ML`, `30mldekant` biçimlerinde geliyor. Dekant dışı filtresi
+  için sitelerde 30 ml ve üzeri varyantlar mevcut (`luxurydekant` 30ml, `dekantdoktoru` 30 ml,
+  `ruxangroup` 100ml).

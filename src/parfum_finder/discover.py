@@ -24,8 +24,11 @@ and writing the profile out with the low-confidence fields listed for review.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 
 import httpx
 from curl_cffi import CurlError
@@ -40,6 +43,7 @@ from parfum_finder.fetch import (
 )
 from parfum_finder.probe import ProbeAttempt, ProbeReport, probe
 from parfum_finder.probe import format_report as format_probe_report
+from parfum_finder.store import now_iso
 
 # What a request that never completed looks like, as opposed to a request that
 # came back with a bad status. Kept apart from PlaywrightNotInstalled, which is
@@ -106,6 +110,11 @@ class PageTrial:
     html_chars: int | None
     products: tuple[JsonLdProduct, ...]
     variant_control_present: bool
+    # The name this page was saved under, "search" or "product", and where it
+    # landed. Both stay None when the page was only read and not kept.
+    role: str | None = None
+    fixture_path: Path | None = None
+    sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,21 +126,44 @@ class DiscoveryReport:
     # profile, which is the one thing this whole command exists to avoid.
     chosen_strategy: Strategy | None
     trials: tuple[PageTrial, ...]
+    # Set only when the caller overrode the measurement. The measured winner
+    # stays in chosen_strategy so the report can print both and a reader can
+    # see that the override was a decision, not a measurement.
+    forced_strategy: Strategy | None = None
+    fixtures_dir: Path | None = None
+
+    @property
+    def trial_strategy(self) -> Strategy | None:
+        """The strategy the trials actually ran with."""
+        return self.forced_strategy or self.chosen_strategy
 
 
 async def discover(
-    url: str, *, product_url: str | None = None, timeout_s: int = 20
+    url: str,
+    *,
+    product_url: str | None = None,
+    search_url: str | None = None,
+    timeout_s: int = 20,
+    strategy: Strategy | None = None,
+    fixtures_dir: Path | None = None,
 ) -> DiscoveryReport:
     """Measure the strategies a site needs, then read its JSON-LD with the winner.
 
-    `product_url` is optional and takes a second page from the same site, so a
-    listing URL and one product page can be compared in a single report. That
-    comparison is what tells a reader whether each size is its own product or
-    one product carries all the sizes.
+    `product_url` and `search_url` are optional and each take one more page from
+    the same site. A listing URL and one product page compared in a single report
+    is what tells a reader whether each size is its own product or one product
+    carries all the sizes.
 
     The winning strategy is fetched again for the trial rather than reusing the
     HTML from the measurement, which costs one extra request per page and buys
-    an independent confirmation that the chosen strategy really works.
+    an independent confirmation that the chosen strategy really works. `strategy`
+    overrides that pick for the trials, which is needed when one page of a site
+    needs a heavier rung than its front page did.
+
+    `fixtures_dir` turns the trials into a golden capture: the search and product
+    pages are written there as HTML alongside a meta.json recording where each
+    came from. The first URL is never saved, because it is the page the strategies
+    were measured against and nothing extracts from it.
 
     Raises PlaywrightNotInstalled, uncaught, if the playwright rung cannot run
     on this machine. The measurement is only honest if every rung was actually
@@ -140,16 +172,33 @@ async def discover(
     """
     strategy_report = await probe(url, timeout_s=timeout_s)
     chosen = _choose_strategy(strategy_report)
+    used = strategy or chosen
     trials: tuple[PageTrial, ...] = ()
-    if chosen is not None:
-        urls = [url] if product_url is None else [url, product_url]
-        trials = tuple([await _trial(u, chosen, timeout_s=timeout_s) for u in urls])
-    return DiscoveryReport(
+    if used is not None:
+        targets: list[tuple[str, str | None]] = [(url, None)]
+        if search_url is not None:
+            targets.append((search_url, "search"))
+        if product_url is not None:
+            targets.append((product_url, "product"))
+        trials = tuple(
+            [
+                await _trial(
+                    u, used, timeout_s=timeout_s, role=role, fixtures_dir=fixtures_dir
+                )
+                for u, role in targets
+            ]
+        )
+    report = DiscoveryReport(
         url=url,
         strategy_report=strategy_report,
         chosen_strategy=chosen,
         trials=trials,
+        forced_strategy=strategy,
+        fixtures_dir=fixtures_dir,
     )
+    if fixtures_dir is not None:
+        _write_meta(report)
+    return report
 
 
 def _choose_strategy(report: ProbeReport) -> Strategy | None:
@@ -177,7 +226,14 @@ def _qualifies(attempt: ProbeAttempt) -> bool:
     return bool(attempt.jsonld_product_count) or bool(attempt.product_markup_nodes)
 
 
-async def _trial(url: str, strategy: Strategy, *, timeout_s: int) -> PageTrial:
+async def _trial(
+    url: str,
+    strategy: Strategy,
+    *,
+    timeout_s: int,
+    role: str | None = None,
+    fixtures_dir: Path | None = None,
+) -> PageTrial:
     try:
         result = await fetch(url, strategy, timeout_s=timeout_s)
     except PlaywrightNotInstalled:
@@ -192,7 +248,13 @@ async def _trial(url: str, strategy: Strategy, *, timeout_s: int) -> PageTrial:
             html_chars=None,
             products=(),
             variant_control_present=False,
+            role=role,
         )
+
+    fixture_path = None
+    digest = None
+    if role is not None and fixtures_dir is not None:
+        fixture_path, digest = _save_fixture(fixtures_dir, role, result.html)
 
     tree = HTMLParser(result.html)
     return PageTrial(
@@ -202,6 +264,62 @@ async def _trial(url: str, strategy: Strategy, *, timeout_s: int) -> PageTrial:
         html_chars=len(result.html),
         products=extract_jsonld_products(result.html),
         variant_control_present=bool(tree.css(_VARIANT_CONTROL_SELECTOR)),
+        role=role,
+        fixture_path=fixture_path,
+        sha256=digest,
+    )
+
+
+def _save_fixture(fixtures_dir: Path, role: str, html: str) -> tuple[Path, str]:
+    """Write one page and return where it landed plus its digest.
+
+    Saved as UTF-8 with the newlines the server sent, so the file on disk stays
+    byte-comparable with a later capture of the same page. The digest is what
+    makes "did this site change" answerable without diffing megabytes of markup.
+    """
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    path = fixtures_dir / f"{role}.html"
+    data = html.encode("utf-8")
+    path.write_bytes(data)
+    return path, hashlib.sha256(data).hexdigest()
+
+
+def _write_meta(report: DiscoveryReport) -> None:
+    """Record where each saved page came from, next to the pages themselves.
+
+    Without this a fixture is an anonymous blob: nobody can tell which URL it
+    is, how old it is, or whether the strategy that fetched it is still the one
+    the profile claims. Validation needs all three to say anything trustworthy
+    about a page it did not fetch itself.
+    """
+    assert report.fixtures_dir is not None
+    pages = {
+        trial.role: {
+            "url": trial.url,
+            "status_code": trial.status_code,
+            "bytes": len(trial.fixture_path.read_bytes()),
+            "sha256": trial.sha256,
+        }
+        for trial in report.trials
+        if trial.role is not None and trial.fixture_path is not None
+    }
+    if not pages:
+        # A run that names a fixtures directory but saves nothing into it is a
+        # mistake worth stopping on, not an empty directory to discover later.
+        raise ValueError(
+            f"no page was saved to {report.fixtures_dir}. Pass --search-url or "
+            "--product-url, and check the trial output above for a failed fetch."
+        )
+    report.fixtures_dir.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "entry_url": report.url,
+        "captured_at": now_iso(),
+        "strategy": report.trial_strategy,
+        "measured_strategy": report.chosen_strategy,
+        "pages": pages,
+    }
+    (report.fixtures_dir / "meta.json").write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
 
 
@@ -247,20 +365,46 @@ def format_report(report: DiscoveryReport) -> str:
         # Only the first trial is the page the strategy was measured on. The
         # second one borrows that verdict, which changes what an empty result
         # there is allowed to mean.
-        lines.extend(_format_trial(trial, report.chosen_strategy, measured=index == 0))
+        lines.extend(_format_trial(trial, report.trial_strategy, measured=index == 0))
+    if report.fixtures_dir is not None:
+        lines.append("")
+        lines.extend(_format_fixtures(report))
     return "\n".join(lines)
+
+
+def _format_fixtures(report: DiscoveryReport) -> list[str]:
+    lines = [f"fixtures: {report.fixtures_dir}"]
+    for trial in report.trials:
+        if trial.fixture_path is None or trial.sha256 is None:
+            continue
+        lines.append(
+            f"  {trial.fixture_path.name}  {trial.html_chars} chars  "
+            f"sha256:{trial.sha256[:12]}  <- {trial.url}"
+        )
+    lines.append("  meta.json")
+    return lines
 
 
 def _format_choice(report: DiscoveryReport) -> list[str]:
     qualified = [a.strategy for a in report.strategy_report.attempts if _qualifies(a)]
     lines = [f"qualified (2xx + product evidence): {', '.join(qualified) or 'none'}"]
-    if report.chosen_strategy is None:
+    if report.chosen_strategy is None and report.forced_strategy is None:
         lines.append(
             "chosen strategy: NONE. No rung returned a usable page, so nothing "
             "was tried. Read the table above and check the URL by hand."
         )
+    elif report.chosen_strategy is None:
+        lines.append(
+            "chosen strategy: NONE. No rung returned a usable page, so the "
+            "trials below rest on the command line alone, not on a measurement."
+        )
     else:
         lines.append(f"chosen strategy: {report.chosen_strategy} (cheapest qualifying)")
+    if report.forced_strategy is not None:
+        lines.append(
+            f"trials ran with: {report.forced_strategy} (given on the command "
+            "line, not measured)"
+        )
     return lines
 
 

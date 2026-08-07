@@ -5,6 +5,8 @@ so an argparse wiring mistake (wrong dest, subcommand never dispatched, url
 argument dropped) actually fails here instead of only showing up by hand.
 """
 
+from pathlib import Path
+
 import pytest
 from conftest import requires_playwright
 
@@ -77,11 +79,20 @@ def test_discover_flags_reach_discover(
     seen: dict[str, object] = {}
 
     async def fake_discover(
-        url: str, *, product_url: str | None = None, timeout_s: int = 20
+        url: str,
+        *,
+        product_url: str | None = None,
+        search_url: str | None = None,
+        timeout_s: int = 20,
+        strategy: str | None = None,
+        fixtures_dir: Path | None = None,
     ) -> DiscoveryReport:
         seen["url"] = url
         seen["product_url"] = product_url
+        seen["search_url"] = search_url
         seen["timeout_s"] = timeout_s
+        seen["strategy"] = strategy
+        seen["fixtures_dir"] = fixtures_dir
         return DiscoveryReport(
             url=url,
             strategy_report=ProbeReport(url=url, attempts=()),
@@ -98,6 +109,12 @@ def test_discover_flags_reach_discover(
             "http://example.invalid",
             "--product-url",
             "http://example.invalid/p/1",
+            "--search-url",
+            "http://example.invalid/search?q=x",
+            "--id",
+            "ornek",
+            "--strategy",
+            "playwright",
             "--timeout",
             "3",
         ],
@@ -108,8 +125,29 @@ def test_discover_flags_reach_discover(
     assert seen == {
         "url": "http://example.invalid",
         "product_url": "http://example.invalid/p/1",
+        "search_url": "http://example.invalid/search?q=x",
         "timeout_s": 3,
+        "strategy": "playwright",
+        # The slug becomes a directory under fixtures/, never a bare name that
+        # would land wherever the command happened to be run from.
+        "fixtures_dir": cli.FIXTURES_DIR / "ornek",
     }
+
+
+def test_id_without_a_page_to_save_is_a_usage_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # --id on its own would create fixtures/<slug>/ with nothing in it, and an
+    # empty directory reads like a captured site to whoever finds it next.
+    monkeypatch.setattr(
+        "sys.argv",
+        ["parfum-finder", "discover", "http://example.invalid", "--id", "ornek"],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code != 0
 
 
 def test_no_subcommand_exits_with_usage_error() -> None:

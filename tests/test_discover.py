@@ -11,6 +11,9 @@ browser: discover() re-raises when playwright cannot run, so anything that lets
 the real probe() through needs a working playwright setup.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 from conftest import requires_playwright
 
@@ -181,6 +184,86 @@ async def test_range_only_pricing_next_to_a_size_selector_is_flagged(
     assert len(collect_prices(trial.products[0])) == 2
     text = format_report(report)
     assert "every price here comes from a range" in text
+
+
+async def test_fixtures_are_written_with_the_metadata_that_dates_them(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Offline validation reads these files instead of the live site, so a saved
+    # page is only worth having if the URL it came from, the moment it was taken
+    # and the strategy that fetched it travel with it. Without those three a
+    # later "the profile still works" claim rests on a page nobody can place.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+
+    report = await discover(
+        f"{server_url}/cards",
+        search_url=f"{server_url}/cards",
+        product_url=f"{server_url}/product",
+        fixtures_dir=tmp_path / "ornek",
+    )
+
+    assert (tmp_path / "ornek" / "search.html").exists()
+    assert "Test Product" in (tmp_path / "ornek" / "product.html").read_text()
+    meta = json.loads((tmp_path / "ornek" / "meta.json").read_text())
+    assert meta["strategy"] == "httpx"
+    assert meta["pages"]["product"]["url"].endswith("/product")
+    assert meta["pages"]["product"]["sha256"] == report.trials[-1].sha256
+    # The entry URL is measured against, not extracted from, so it is not kept.
+    assert not (tmp_path / "ornek" / "cards.html").exists()
+    # What was written has to be visible in the run's own output, otherwise a
+    # capture that quietly saved the wrong page only shows up much later.
+    text = format_report(report)
+    assert "product.html" in text and "search.html" in text
+
+
+async def test_the_entry_page_is_never_saved_as_a_fixture(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # A fixtures directory naming no saved page is a silent miss: the command
+    # looks like it captured a site and leaves an empty directory behind.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+
+    with pytest.raises(ValueError, match="no page was saved"):
+        await discover(f"{server_url}/cards", fixtures_dir=tmp_path / "ornek")
+
+
+async def test_strategy_override_replaces_the_measured_pick_for_the_trials(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Some sites render one page in the browser and serve the rest as plain
+    # HTML. Measuring the front page then capturing a JS-rendered search page
+    # with the same rung would save an empty shell as if it were the real page.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    used: list[str] = []
+
+    async def spy_fetch(url: str, strategy: Strategy, *, timeout_s: int = 20) -> object:
+        used.append(strategy)
+        return await real_fetch(url, strategy, timeout_s=timeout_s)
+
+    real_fetch = discover_module.fetch
+    monkeypatch.setattr(discover_module, "fetch", spy_fetch)
+
+    report = await discover(f"{server_url}/product", strategy="curl_cffi")
+
+    assert used == ["curl_cffi"]
+    assert report.chosen_strategy == "httpx"
+    assert report.trial_strategy == "curl_cffi"
+    assert "trials ran with: curl_cffi" in format_report(report)
+
+
+async def test_override_still_runs_trials_when_no_strategy_qualified(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Measurement calls a page unusable when it carries nothing product-like,
+    # which is the normal verdict for a front page. Refusing to fetch anything
+    # after that would make the override useless exactly where it is needed.
+    _fake_probe(monkeypatch, _attempt("httpx", jsonld_products=0, markup_nodes=0))
+
+    report = await discover(f"{server_url}/product", strategy="httpx")
+
+    assert report.chosen_strategy is None
+    assert [p.name for p in report.trials[0].products] == ["Test Product"]
+    assert "rest on the command line alone" in format_report(report)
 
 
 async def test_page_without_jsonld_is_flagged_as_needing_a_lower_layer(

@@ -14,11 +14,20 @@ subparsers cover this without adding a dependency.
 
 import argparse
 import asyncio
+from pathlib import Path
+from typing import get_args
 
 from parfum_finder.discover import discover
 from parfum_finder.discover import format_report as format_discovery_report
+from parfum_finder.fetch import Strategy
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.probe import probe
+
+# Golden fixtures live outside the installed package, next to sites/ and
+# platforms/, because they are project data a person edits and reviews.
+FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent / "fixtures"
+
+STRATEGIES = get_args(Strategy)
 
 
 def main() -> None:
@@ -55,6 +64,35 @@ def main() -> None:
         ),
     )
     discover_parser.add_argument(
+        "--search-url",
+        metavar="URL",
+        help=(
+            "a search results page from the same site, normally the site's own "
+            "search URL with a perfume name in it. Read like the other pages, "
+            "and saved as search.html when --id is given."
+        ),
+    )
+    discover_parser.add_argument(
+        "--id",
+        dest="site_id",
+        metavar="SLUG",
+        help=(
+            "save the pages fetched below as golden fixtures under "
+            "fixtures/<slug>/, next to a meta.json naming their source URLs. "
+            "Needs at least one of --search-url / --product-url."
+        ),
+    )
+    discover_parser.add_argument(
+        "--strategy",
+        choices=STRATEGIES,
+        help=(
+            "fetch the pages with this strategy instead of the measured winner. "
+            "The measurement still runs and is still reported. Needed when one "
+            "page of a site needs a heavier strategy than its front page did, "
+            "for instance a search page rendered in the browser."
+        ),
+    )
+    discover_parser.add_argument(
         "--timeout",
         type=int,
         default=20,
@@ -68,7 +106,21 @@ def main() -> None:
         probe_report = asyncio.run(probe(args.url, timeout_s=args.timeout))
         print(format_probe_report(probe_report))
     elif args.command == "discover":
+        if args.site_id and not (args.search_url or args.product_url):
+            # Saving nothing under a slug would leave an empty directory that
+            # looks like a captured site on the next person's disk.
+            discover_parser.error(
+                "--id needs at least one page to save: pass --search-url "
+                "and/or --product-url"
+            )
         discovery = asyncio.run(
-            discover(args.url, product_url=args.product_url, timeout_s=args.timeout)
+            discover(
+                args.url,
+                product_url=args.product_url,
+                search_url=args.search_url,
+                timeout_s=args.timeout,
+                strategy=args.strategy,
+                fixtures_dir=FIXTURES_DIR / args.site_id if args.site_id else None,
+            )
         )
         print(format_discovery_report(discovery))
