@@ -7,18 +7,20 @@ the extracted fields with evidence and a confidence score. Low-confidence fields
 flagged for manual review, and shipping data is never guessed. It's always entered
 by hand afterward.
 
-This first version does the measurement and the JSON-LD trial only, and it writes
-nothing to disk. It reads a page, says which fetch strategy it picked and why, shows
-what the page's JSON-LD actually declares, and flags the case where the markup offers
-a size selector but only one price could be read. A human reads that output and
-writes down what the site is really doing.
+This version does the measurement, the platform fingerprint and the JSON-LD trial,
+and it writes no profile to disk. It reads a page, says which fetch strategy it
+picked and why, says which platform template recognizes the markup and what that
+template would hand a profile, shows what the page's JSON-LD actually declares,
+and flags the case where the markup offers a size selector but only one price
+could be read. A human reads that output and writes down what the site is really
+doing.
 
-The sample-search half of the trial is missing on purpose: a search needs the site's
-search URL template, which comes from a profile or a platform template, and neither
-exists yet. Guessing a template here would produce a trial that measures the guess
-rather than the site.
+The sample-search half of the trial is still missing. A template that supplies a
+search URL now makes it possible in principle, but running one needs a query term
+and a way to read the results, and neither belongs to the fingerprint step.
+Guessing here would produce a trial that measures the guess rather than the site.
 
-TODO: platform fingerprinting plus template application, per-field confidence scores,
+TODO: choosing between several matching templates, per-field confidence scores,
 and writing the profile out with the low-confidence fields listed for review.
 """
 
@@ -29,6 +31,7 @@ import json
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import httpx
 from curl_cffi import CurlError
@@ -43,6 +46,7 @@ from parfum_finder.fetch import (
 )
 from parfum_finder.probe import ProbeAttempt, ProbeReport, probe
 from parfum_finder.probe import format_report as format_probe_report
+from parfum_finder.profiles import DEFAULT_PLATFORMS_DIR, load_platform_templates
 from parfum_finder.store import now_iso
 
 # What a request that never completed looks like, as opposed to a request that
@@ -110,6 +114,10 @@ class PageTrial:
     html_chars: int | None
     products: tuple[JsonLdProduct, ...]
     variant_control_present: bool
+    # Platform templates whose fingerprint matched this page, in name order.
+    # Per page rather than per site because the answer can differ: a search page
+    # fetched as an empty shell carries none of the markers its product page does.
+    platform_matches: tuple[str, ...]
     # The name this page was saved under, "search" or "product", and where it
     # landed. Both stay None when the page was only read and not kept.
     role: str | None = None
@@ -131,11 +139,27 @@ class DiscoveryReport:
     # see that the override was a decision, not a measurement.
     forced_strategy: Strategy | None = None
     fixtures_dir: Path | None = None
+    # The entry page's template matches. Empty both when nothing matched and
+    # when no page was read at all; `trials` tells those two apart, and the
+    # report spells out which one happened rather than leaving it to the reader.
+    platform_matches: tuple[str, ...] = ()
+    # The matched template's defaults, filled only when exactly one matched.
+    applied_defaults: dict[str, Any] | None = None
 
     @property
     def trial_strategy(self) -> Strategy | None:
         """The strategy the trials actually ran with."""
         return self.forced_strategy or self.chosen_strategy
+
+    @property
+    def platform(self) -> str | None:
+        """The one template this site is on, or None if zero or several matched.
+
+        Several matches is not a tie to be broken by ordering. Two platforms
+        cannot both be true, so one of the fingerprints is wrong, and applying
+        either one would write a guess into the profile.
+        """
+        return self.platform_matches[0] if len(self.platform_matches) == 1 else None
 
 
 async def discover(
@@ -146,6 +170,7 @@ async def discover(
     timeout_s: int = 20,
     strategy: Strategy | None = None,
     fixtures_dir: Path | None = None,
+    platforms_dir: Path = DEFAULT_PLATFORMS_DIR,
 ) -> DiscoveryReport:
     """Measure the strategies a site needs, then read its JSON-LD with the winner.
 
@@ -165,11 +190,21 @@ async def discover(
     came from. The first URL is never saved, because it is the page the strategies
     were measured against and nothing extracts from it.
 
+    Every template in `platforms_dir` is matched against the entry page. Exactly
+    one match names the platform and its defaults are reported as the base a
+    profile would start from; anything else applies nothing, on purpose.
+
     Raises PlaywrightNotInstalled, uncaught, if the playwright rung cannot run
     on this machine. The measurement is only honest if every rung was actually
     tried, so an incomplete setup has to stop the run rather than quietly leave
     playwright out of the comparison.
+
+    Raises ValueError, uncaught, if any template in `platforms_dir` is broken.
+    It is raised before the first request, because a run that fingerprints
+    against half a library reports "no platform" for a site whose template is
+    sitting right there, unreadable.
     """
+    templates = load_platform_templates(platforms_dir)
     strategy_report = await probe(url, timeout_s=timeout_s)
     chosen = _choose_strategy(strategy_report)
     used = strategy or chosen
@@ -183,11 +218,19 @@ async def discover(
         trials = tuple(
             [
                 await _trial(
-                    u, used, timeout_s=timeout_s, role=role, fixtures_dir=fixtures_dir
+                    u,
+                    used,
+                    timeout_s=timeout_s,
+                    role=role,
+                    fixtures_dir=fixtures_dir,
+                    templates=templates,
                 )
                 for u, role in targets
             ]
         )
+    # The entry page is the one the site is judged on. A search or product page
+    # given on the command line can be a rendered shell that lost the markers.
+    matches = trials[0].platform_matches if trials else ()
     report = DiscoveryReport(
         url=url,
         strategy_report=strategy_report,
@@ -195,6 +238,10 @@ async def discover(
         trials=trials,
         forced_strategy=strategy,
         fixtures_dir=fixtures_dir,
+        platform_matches=matches,
+        applied_defaults=(
+            templates[matches[0]]["defaults"] if len(matches) == 1 else None
+        ),
     )
     if fixtures_dir is not None:
         _write_meta(report)
@@ -231,6 +278,7 @@ async def _trial(
     strategy: Strategy,
     *,
     timeout_s: int,
+    templates: dict[str, dict[str, Any]],
     role: str | None = None,
     fixtures_dir: Path | None = None,
 ) -> PageTrial:
@@ -248,6 +296,7 @@ async def _trial(
             html_chars=None,
             products=(),
             variant_control_present=False,
+            platform_matches=(),
             role=role,
         )
 
@@ -264,9 +313,29 @@ async def _trial(
         html_chars=len(result.html),
         products=extract_jsonld_products(result.html),
         variant_control_present=bool(tree.css(_VARIANT_CONTROL_SELECTOR)),
+        platform_matches=_match_platforms(result.html, templates),
         role=role,
         fixture_path=fixture_path,
         sha256=digest,
+    )
+
+
+def _match_platforms(
+    html: str, templates: dict[str, dict[str, Any]]
+) -> tuple[str, ...]:
+    """Every template with at least one of its markers somewhere in the page.
+
+    Case-insensitive, because a marker is usually a path or a domain that a theme
+    is free to write either way, and matching on case would turn a real platform
+    into an unrecognized one. Substring matching over the raw HTML rather than
+    parsed markup: markers live in script bodies, attribute values and comments
+    just as often as in tags.
+    """
+    lowered = html.lower()
+    return tuple(
+        name
+        for name, template in sorted(templates.items())
+        if any(marker.lower() in lowered for marker in template["fingerprint"]["any"])
     )
 
 
@@ -360,6 +429,8 @@ def format_report(report: DiscoveryReport) -> str:
     lines.append(format_probe_report(report.strategy_report))
     lines.append("")
     lines.extend(_format_choice(report))
+    lines.append("")
+    lines.extend(_format_fingerprint(report))
     for index, trial in enumerate(report.trials):
         lines.append("")
         # Only the first trial is the page the strategy was measured on. The
@@ -408,6 +479,54 @@ def _format_choice(report: DiscoveryReport) -> list[str]:
     return lines
 
 
+def _format_fingerprint(report: DiscoveryReport) -> list[str]:
+    if not report.trials:
+        return [
+            "platform fingerprint: not run. No page was read, so no markup was "
+            "matched against the templates. The platform column in the table "
+            "above is probe's own coarse guess, not a template match."
+        ]
+    matched = ", ".join(report.platform_matches) or "none"
+    lines = [f"platform fingerprint: {matched}"]
+    if len(report.platform_matches) > 1:
+        lines.append(
+            "  WARNING: more than one template matched, so none was applied. "
+            "Two platforms cannot both be right, which means one of these "
+            "fingerprints is wrong. Read the markers by hand and fix the "
+            "template that does not belong before trusting anything below."
+        )
+    elif report.platform is None:
+        lines.append(
+            "  no template applies, so nothing is inherited. Every field of "
+            "this site's profile has to come from the trials below."
+        )
+    elif supplied := _format_defaults(report.applied_defaults):
+        lines.append(f"  applying platforms/{report.platform}.json:")
+        lines.extend(f"    {line}" for line in supplied)
+        lines.append("  every other field is still this site's own work.")
+    else:
+        # A template can be all fingerprint and no defaults, which is a real
+        # state while a platform is only half understood. An "applying" header
+        # with nothing under it would read as a rendering bug instead.
+        lines.append(
+            f"  platforms/{report.platform}.json recognizes this site but "
+            "supplies no field yet, so nothing is inherited."
+        )
+    return lines
+
+
+def _format_defaults(defaults: dict[str, Any] | None, prefix: str = "") -> list[str]:
+    """Flatten a template's defaults to one dotted key per line."""
+    lines = []
+    for key, value in (defaults or {}).items():
+        path = f"{prefix}{key}"
+        if isinstance(value, dict):
+            lines.extend(_format_defaults(value, f"{path}."))
+        else:
+            lines.append(f"{path} = {value}")
+    return lines
+
+
 def _format_trial(
     trial: PageTrial, strategy: Strategy | None, *, measured: bool
 ) -> list[str]:
@@ -422,6 +541,7 @@ def _format_trial(
         lines.append(f"    {index}. {_format_product(product)}")
     present = "yes" if trial.variant_control_present else "no"
     lines.append(f"  variant control in markup: {present}")
+    lines.append(f"  platform markers: {', '.join(trial.platform_matches) or 'none'}")
     lines.extend(f"  {w}" for w in _warnings(trial, measured=measured))
     return lines
 

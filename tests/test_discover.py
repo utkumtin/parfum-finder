@@ -13,6 +13,7 @@ the real probe() through needs a working playwright setup.
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import requires_playwright
@@ -389,3 +390,160 @@ async def test_real_measurement_picks_httpx_for_a_plain_page(
     )
     assert report.chosen_strategy == "httpx"
     assert [p.name for p in report.trials[0].products] == ["Test Product"]
+
+
+def _write_template(
+    platforms_dir: Path,
+    name: str,
+    markers: list[str],
+    defaults: dict[str, Any] | None = None,
+) -> Path:
+    """A platform template built around markers the local server really serves.
+
+    Templates written here rather than reused from platforms/: this file tests
+    the fingerprint rule, and pinning it to whichever platforms the project
+    happens to ship would make an unrelated template edit fail these tests.
+    """
+    platforms_dir.mkdir(parents=True, exist_ok=True)
+    path = platforms_dir / f"{name}.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": name,
+                "fingerprint": {"any": markers},
+                "defaults": defaults or {},
+            }
+        )
+    )
+    return path
+
+
+async def test_fingerprint_names_the_template_that_recognizes_the_page(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(
+        tmp_path,
+        "shopify",
+        ["cdn.shopify.com"],
+        {"search": {"url_template": "{base_url}/search?q={query}"}},
+    )
+
+    report = await discover(f"{server_url}/product", platforms_dir=tmp_path)
+
+    assert report.platform == "shopify"
+    assert report.applied_defaults == {
+        "search": {"url_template": "{base_url}/search?q={query}"}
+    }
+    # A reader has to see what the template hands over, not just its name.
+    # Inheriting a field silently is how a wrong template survives review.
+    assert "search.url_template = {base_url}/search?q={query}" in format_report(report)
+
+
+async def test_a_page_no_template_recognizes_inherits_nothing(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+
+    report = await discover(f"{server_url}/cards", platforms_dir=tmp_path)
+
+    assert report.platform_matches == ()
+    assert report.platform is None
+    assert report.applied_defaults is None
+    assert "no template applies" in format_report(report)
+
+
+async def test_a_template_with_no_defaults_says_so_instead_of_listing_nothing(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # A template that only knows how to recognize its platform is a real state
+    # while that platform is half understood, and the report has to name it
+    # rather than print an "applying" heading with an empty list under it.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+
+    report = await discover(f"{server_url}/product", platforms_dir=tmp_path)
+
+    assert report.platform == "shopify"
+    text = format_report(report)
+    assert "supplies no field yet" in text
+    assert "applying platforms/shopify.json" not in text
+
+
+async def test_several_matching_templates_apply_nothing(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Both markers sit in the same page. A site is on one platform, so a second
+    # match means a fingerprint is wrong, and applying either template would
+    # hand the profile fields taken from the wrong platform.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+    _write_template(tmp_path, "ticimax", ["test product"], {"extraction": "jsonld"})
+
+    report = await discover(f"{server_url}/product", platforms_dir=tmp_path)
+
+    assert report.platform_matches == ("shopify", "ticimax")
+    assert report.platform is None
+    assert report.applied_defaults is None
+    text = format_report(report)
+    assert "WARNING: more than one template matched" in text
+    assert "extraction = jsonld" not in text
+
+
+async def test_the_entry_page_decides_the_platform_not_a_later_one(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The listing carries no marker and the product page does. The site verdict
+    # follows the entry page, but the per-page evidence stays visible, because
+    # a marker present on one page and missing on another is itself a finding.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+
+    report = await discover(
+        f"{server_url}/cards",
+        product_url=f"{server_url}/product",
+        platforms_dir=tmp_path,
+    )
+
+    listing, product = report.trials
+    assert listing.platform_matches == ()
+    assert product.platform_matches == ("shopify",)
+    assert report.platform is None
+
+
+async def test_no_page_read_means_no_fingerprint_claim(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Nothing qualified, so no page was read. Reporting "no platform" here would
+    # read as a measured answer when nothing was measured at all.
+    _fake_probe(
+        monkeypatch,
+        _attempt("httpx", status_code=503, jsonld_products=0, markup_nodes=0),
+        _attempt("curl_cffi", status_code=503, jsonld_products=0, markup_nodes=0),
+        _attempt("playwright", jsonld_products=0, markup_nodes=0),
+    )
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+
+    report = await discover(f"{server_url}/product", platforms_dir=tmp_path)
+
+    assert report.trials == ()
+    assert report.platform_matches == ()
+    assert "platform fingerprint: not run" in format_report(report)
+
+
+async def test_a_broken_template_stops_the_run_before_any_request(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Fingerprinting against half a library reports "no platform" for a site
+    # whose template is sitting right there, unreadable. That is a wrong answer
+    # dressed as a measured one, so the run stops instead.
+    async def never_called(url: str, *, timeout_s: int = 20) -> None:
+        raise AssertionError("the templates must be read before anything is fetched")
+
+    monkeypatch.setattr(discover_module, "probe", never_called)
+    (tmp_path / "shopify.json").write_text("{not valid json")
+
+    with pytest.raises(ValueError, match="invalid JSON"):
+        await discover(f"{server_url}/product", platforms_dir=tmp_path)

@@ -11,7 +11,12 @@ from typing import Any
 
 import pytest
 
-from parfum_finder.profiles import deep_merge, load_platform_template, load_site_profile
+from parfum_finder.profiles import (
+    deep_merge,
+    load_platform_template,
+    load_platform_templates,
+    load_site_profile,
+)
 
 SHOPIFY_TEMPLATE: dict[str, Any] = {
     "schema_version": 1,
@@ -116,6 +121,47 @@ def test_load_platform_template_rejects_a_broken_template(tmp_path: Path) -> Non
     _write_json(tmp_path / "broken.json", broken)
     with pytest.raises(ValueError, match="invalid profile"):
         load_platform_template("broken", tmp_path)
+
+
+def test_load_platform_templates_keys_them_by_file_name(tmp_path: Path) -> None:
+    _write_json(tmp_path / "shopify.json", SHOPIFY_TEMPLATE)
+    _write_json(
+        tmp_path / "bare.json",
+        {
+            "schema_version": 1,
+            "name": "bare",
+            "fingerprint": {"any": ["bare-marker"]},
+            "defaults": {},
+        },
+    )
+
+    templates = load_platform_templates(tmp_path)
+
+    # The file name is what a site profile's "platform" field refers to, so it
+    # has to be the key a caller looks a template up by.
+    assert sorted(templates) == ["bare", "shopify"]
+
+
+def test_load_platform_templates_rejects_a_name_that_disagrees_with_its_file(
+    tmp_path: Path,
+) -> None:
+    # A template calling itself something its file is not can never be reached:
+    # "platform": "ticimax" in a site profile looks for ticimax.json.
+    _write_json(tmp_path / "ticimax.json", SHOPIFY_TEMPLATE)
+
+    with pytest.raises(ValueError, match="but its file is"):
+        load_platform_templates(tmp_path)
+
+
+def test_load_platform_templates_stops_on_one_broken_file(tmp_path: Path) -> None:
+    # Skipping the broken one would hand the caller a library it believes is
+    # complete, and a platform that dropped out of it is indistinguishable from
+    # a platform that was never in it.
+    _write_json(tmp_path / "shopify.json", SHOPIFY_TEMPLATE)
+    (tmp_path / "broken.json").write_text("{not valid json")
+
+    with pytest.raises(ValueError, match="invalid JSON"):
+        load_platform_templates(tmp_path)
 
 
 def test_load_site_profile_with_no_platform_validates_the_raw_file(

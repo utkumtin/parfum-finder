@@ -46,6 +46,32 @@ def load_platform_template(
     return template
 
 
+def load_platform_templates(
+    platforms_dir: Path = DEFAULT_PLATFORMS_DIR,
+) -> dict[str, dict[str, Any]]:
+    """Load every template in the directory, keyed by file name without ".json".
+
+    One unreadable template stops the whole load instead of being skipped. A
+    caller that matches a page against this library believes the library is
+    complete, and a platform that quietly dropped out of it looks exactly like a
+    platform that was never in it.
+
+    A template whose "name" disagrees with its file name is also an error: site
+    profiles reference a platform by file name, so the two have to be the same
+    string or the reference points at a template nobody can find.
+    """
+    templates: dict[str, dict[str, Any]] = {}
+    for path in sorted(platforms_dir.glob("*.json")):
+        template = load_platform_template(path.stem, platforms_dir)
+        if template["name"] != path.stem:
+            raise ValueError(
+                f"{path}: template is named {template['name']!r} but its file is "
+                f"{path.stem!r}. A site profile can only reference the file name."
+            )
+        templates[path.stem] = template
+    return templates
+
+
 def load_site_profile(
     path: Path, platforms_dir: Path = DEFAULT_PLATFORMS_DIR
 ) -> dict[str, Any]:
