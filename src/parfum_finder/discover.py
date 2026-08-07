@@ -20,14 +20,15 @@ search URL now makes it possible in principle, but running one needs a query ter
 and a way to read the results, and neither belongs to the fingerprint step.
 Guessing here would produce a trial that measures the guess rather than the site.
 
-TODO: choosing between several matching templates, per-field confidence scores,
-and writing the profile out with the low-confidence fields listed for review.
+TODO: per-field confidence scores, and writing the profile out with the
+low-confidence fields listed for review.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -56,6 +57,13 @@ from parfum_finder.store import now_iso
 # the site refused us. Playwright's own error type only exists once the package
 # is installed, so it is added conditionally and this module stays importable
 # without the extra.
+# Asked which of several matching templates to apply, and free to answer None
+# for "none of them". The caller owns how the question is put, so a terminal can
+# prompt and a test can answer without one. Declining has to stay possible: a
+# question that only accepts a template forces a pick, which is the same wrong
+# answer as picking silently, just with a person's name on it.
+PlatformChooser = Callable[[tuple[str, ...]], str | None]
+
 _FETCH_ERROR_TYPES: tuple[type[Exception], ...] = (
     httpx.RequestError,
     CurlError,
@@ -143,8 +151,12 @@ class DiscoveryReport:
     # when no page was read at all; `trials` tells those two apart, and the
     # report spells out which one happened rather than leaving it to the reader.
     platform_matches: tuple[str, ...] = ()
-    # The matched template's defaults, filled only when exactly one matched.
+    # The applied template's defaults, filled only when a platform was resolved.
     applied_defaults: dict[str, Any] | None = None
+    # Set only when several templates matched and someone picked between them.
+    # Kept apart from platform_matches so the report can still say that the
+    # fingerprints collided, which stays a template bug after the pick is made.
+    chosen_platform: str | None = None
 
     @property
     def trial_strategy(self) -> Strategy | None:
@@ -153,13 +165,43 @@ class DiscoveryReport:
 
     @property
     def platform(self) -> str | None:
-        """The one template this site is on, or None if zero or several matched.
+        """The template this site's profile would be based on, if any."""
+        return _resolve_platform(self.platform_matches, self.chosen_platform)
 
-        Several matches is not a tie to be broken by ordering. Two platforms
-        cannot both be true, so one of the fingerprints is wrong, and applying
-        either one would write a guess into the profile.
-        """
-        return self.platform_matches[0] if len(self.platform_matches) == 1 else None
+
+def _resolve_platform(matches: tuple[str, ...], chosen: str | None) -> str | None:
+    """Which of the matching templates gets applied, or None for none of them.
+
+    One match is the answer on its own. Several is not a tie to be broken by
+    ordering: two platforms cannot both be true, so one of the fingerprints is
+    wrong, and applying either one unasked would write a guess into the profile.
+    Someone has to say which, and `chosen` is that answer.
+    """
+    if chosen is not None:
+        return chosen
+    return matches[0] if len(matches) == 1 else None
+
+
+def _ask_chooser(
+    chooser: PlatformChooser | None, matches: tuple[str, ...]
+) -> str | None:
+    """Put the question only when there is one, and hold the answer to it.
+
+    An answer naming a template that did not match is not a choice between the
+    candidates, it is a different claim about the site, and letting it through
+    would apply a template whose markers are nowhere in the page. Raised rather
+    than ignored, because a chooser that answers off the list is broken and a
+    silently dropped answer looks exactly like a person declining.
+    """
+    if len(matches) < 2 or chooser is None:
+        return None
+    picked = chooser(matches)
+    if picked is not None and picked not in matches:
+        raise ValueError(
+            f"chooser picked {picked!r}, which is not one of the templates that "
+            f"matched this page: {', '.join(matches)}."
+        )
+    return picked
 
 
 async def discover(
@@ -171,6 +213,7 @@ async def discover(
     strategy: Strategy | None = None,
     fixtures_dir: Path | None = None,
     platforms_dir: Path = DEFAULT_PLATFORMS_DIR,
+    chooser: PlatformChooser | None = None,
 ) -> DiscoveryReport:
     """Measure the strategies a site needs, then read its JSON-LD with the winner.
 
@@ -192,7 +235,9 @@ async def discover(
 
     Every template in `platforms_dir` is matched against the entry page. Exactly
     one match names the platform and its defaults are reported as the base a
-    profile would start from; anything else applies nothing, on purpose.
+    profile would start from. Several matches ask `chooser` which one to apply,
+    and with no chooser, or one that declines, nothing is applied. No caller
+    ever gets the first match by default.
 
     Raises PlaywrightNotInstalled, uncaught, if the playwright rung cannot run
     on this machine. The measurement is only honest if every rung was actually
@@ -231,6 +276,8 @@ async def discover(
     # The entry page is the one the site is judged on. A search or product page
     # given on the command line can be a rendered shell that lost the markers.
     matches = trials[0].platform_matches if trials else ()
+    picked = _ask_chooser(chooser, matches)
+    platform = _resolve_platform(matches, picked)
     report = DiscoveryReport(
         url=url,
         strategy_report=strategy_report,
@@ -239,9 +286,8 @@ async def discover(
         forced_strategy=strategy,
         fixtures_dir=fixtures_dir,
         platform_matches=matches,
-        applied_defaults=(
-            templates[matches[0]]["defaults"] if len(matches) == 1 else None
-        ),
+        applied_defaults=templates[platform]["defaults"] if platform else None,
+        chosen_platform=picked,
     )
     if fixtures_dir is not None:
         _write_meta(report)
@@ -489,19 +535,32 @@ def _format_fingerprint(report: DiscoveryReport) -> list[str]:
     matched = ", ".join(report.platform_matches) or "none"
     lines = [f"platform fingerprint: {matched}"]
     if len(report.platform_matches) > 1:
+        # The collision survives the pick. Whoever chose one of these templates
+        # chose it for this run; two fingerprints claiming the same page is
+        # still a bug in one of them, and it stays a bug tomorrow.
         lines.append(
-            "  WARNING: more than one template matched, so none was applied. "
-            "Two platforms cannot both be right, which means one of these "
-            "fingerprints is wrong. Read the markers by hand and fix the "
-            "template that does not belong before trusting anything below."
+            "  WARNING: more than one template matched. Two platforms cannot "
+            "both be right, which means one of these fingerprints is wrong. "
+            "Read the markers by hand and fix the template that does not "
+            "belong, whatever gets applied below."
         )
-    elif report.platform is None:
+        if report.chosen_platform is None:
+            lines.append(
+                "  nobody picked between them, so nothing was applied. Every "
+                "field of this site's profile has to come from the trials below."
+            )
+    elif not report.platform_matches:
         lines.append(
             "  no template applies, so nothing is inherited. Every field of "
             "this site's profile has to come from the trials below."
         )
-    elif supplied := _format_defaults(report.applied_defaults):
-        lines.append(f"  applying platforms/{report.platform}.json:")
+    if report.platform is None:
+        return lines
+    # A pick is a claim someone made, not something the markup showed, so the
+    # report has to say which of the two this line rests on.
+    source = " (picked by hand, not measured)" if report.chosen_platform else ""
+    if supplied := _format_defaults(report.applied_defaults):
+        lines.append(f"  applying platforms/{report.platform}.json{source}:")
         lines.extend(f"    {line}" for line in supplied)
         lines.append("  every other field is still this site's own work.")
     else:
@@ -509,8 +568,8 @@ def _format_fingerprint(report: DiscoveryReport) -> list[str]:
         # state while a platform is only half understood. An "applying" header
         # with nothing under it would read as a rendering bug instead.
         lines.append(
-            f"  platforms/{report.platform}.json recognizes this site but "
-            "supplies no field yet, so nothing is inherited."
+            f"  platforms/{report.platform}.json{source} recognizes this site "
+            "but supplies no field yet, so nothing is inherited."
         )
     return lines
 

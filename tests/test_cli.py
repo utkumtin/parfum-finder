@@ -86,6 +86,7 @@ def test_discover_flags_reach_discover(
         timeout_s: int = 20,
         strategy: str | None = None,
         fixtures_dir: Path | None = None,
+        chooser: object = None,
     ) -> DiscoveryReport:
         seen["url"] = url
         seen["product_url"] = product_url
@@ -93,6 +94,7 @@ def test_discover_flags_reach_discover(
         seen["timeout_s"] = timeout_s
         seen["strategy"] = strategy
         seen["fixtures_dir"] = fixtures_dir
+        seen["chooser"] = chooser
         return DiscoveryReport(
             url=url,
             strategy_report=ProbeReport(url=url, attempts=()),
@@ -131,6 +133,9 @@ def test_discover_flags_reach_discover(
         # The slug becomes a directory under fixtures/, never a bare name that
         # would land wherever the command happened to be run from.
         "fixtures_dir": cli.FIXTURES_DIR / "ornek",
+        # Without this wired through, a page two templates recognize would
+        # apply neither and nobody at the terminal would ever be asked.
+        "chooser": cli.ask_which_platform,
     }
 
 
@@ -148,6 +153,81 @@ def test_id_without_a_page_to_save_is_a_usage_error(
         main()
 
     assert exc_info.value.code != 0
+
+
+def _answers(monkeypatch: pytest.MonkeyPatch, *typed: str) -> None:
+    """Sit a person at the terminal who types these lines, in order."""
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    remaining = list(typed)
+    monkeypatch.setattr("builtins.input", lambda prompt="": remaining.pop(0))
+
+
+def test_the_platform_prompt_returns_the_template_that_was_numbered(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _answers(monkeypatch, "2")
+
+    assert cli.ask_which_platform(("shopify", "ticimax")) == "ticimax"
+
+    # Answering by number only works if the numbers were on screen next to the
+    # names they stand for.
+    out = capsys.readouterr().out
+    assert "1. shopify" in out
+    assert "2. ticimax" in out
+
+
+@pytest.mark.parametrize("typed", ["0", ""])
+def test_the_platform_prompt_lets_a_person_pick_neither(
+    typed: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Two templates matching means one of them is wrong, and the person at the
+    # terminal may well know that neither fits. Enter is the same answer, so
+    # the safe option is also the one that takes the least effort.
+    _answers(monkeypatch, typed)
+
+    assert cli.ask_which_platform(("shopify", "ticimax")) is None
+
+
+def test_the_platform_prompt_asks_again_after_an_answer_it_cannot_use(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Treating a typo as "none of them" would apply nothing while the person
+    # believes they picked one, and the report would then disagree with what
+    # they remember answering.
+    _answers(monkeypatch, "9", "elma", "1")
+
+    assert cli.ask_which_platform(("shopify", "ticimax")) == "shopify"
+
+    assert capsys.readouterr().out.count("answer with a number") == 2
+
+
+def test_the_platform_prompt_treats_an_interrupt_as_no_answer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+    def interrupted(prompt: str = "") -> str:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("builtins.input", interrupted)
+
+    assert cli.ask_which_platform(("shopify", "ticimax")) is None
+
+
+def test_the_platform_prompt_picks_nothing_with_no_terminal_to_ask_at(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A piped or scheduled run has nobody watching. Defaulting to a template
+    # there would put a guess into a profile that no one reviews.
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    def never_asked(prompt: str = "") -> str:
+        raise AssertionError("nothing may be read when there is no terminal")
+
+    monkeypatch.setattr("builtins.input", never_asked)
+
+    assert cli.ask_which_platform(("shopify", "ticimax")) is None
+    assert capsys.readouterr().out == ""
 
 
 def test_no_subcommand_exits_with_usage_error() -> None:

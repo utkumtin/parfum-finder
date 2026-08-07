@@ -14,6 +14,7 @@ subparsers cover this without adding a dependency.
 
 import argparse
 import asyncio
+import sys
 from pathlib import Path
 from typing import get_args
 
@@ -28,6 +29,39 @@ from parfum_finder.probe import probe
 FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent / "fixtures"
 
 STRATEGIES = get_args(Strategy)
+
+
+def ask_which_platform(candidates: tuple[str, ...]) -> str | None:
+    """Ask at the terminal which of several matching templates to apply.
+
+    Asked while discover is still running, so the question appears above the
+    report rather than after it. Nothing of the report is lost by that: the
+    answer changes what the report says, so it has to be given first.
+
+    Without a terminal to ask at, there is no answer and nothing is applied.
+    A default pick here would put a guess into a piped or scripted run, where
+    nobody is watching the output to catch it.
+
+    Declining is a first-class answer, and so is an interrupt: someone who hits
+    Ctrl-C at this prompt has not chosen a template.
+    """
+    if not sys.stdin.isatty():
+        return None
+    print("\nseveral platform templates matched this page:")
+    for index, name in enumerate(candidates, start=1):
+        print(f"  {index}. {name}")
+    print("  0. none of them, apply nothing")
+    while True:
+        try:
+            answer = input(f"apply which template? [0-{len(candidates)}] ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return None
+        if answer in ("", "0"):
+            return None
+        if answer.isdigit() and 1 <= int(answer) <= len(candidates):
+            return candidates[int(answer) - 1]
+        print(f"answer with a number from 0 to {len(candidates)}.")
 
 
 def main() -> None:
@@ -121,6 +155,7 @@ def main() -> None:
                 timeout_s=args.timeout,
                 strategy=args.strategy,
                 fixtures_dir=FIXTURES_DIR / args.site_id if args.site_id else None,
+                chooser=ask_which_platform,
             )
         )
         print(format_discovery_report(discovery))

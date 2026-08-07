@@ -472,12 +472,14 @@ async def test_a_template_with_no_defaults_says_so_instead_of_listing_nothing(
     assert "applying platforms/shopify.json" not in text
 
 
-async def test_several_matching_templates_apply_nothing(
+async def test_several_matching_templates_apply_nothing_with_nobody_to_ask(
     server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     # Both markers sit in the same page. A site is on one platform, so a second
     # match means a fingerprint is wrong, and applying either template would
-    # hand the profile fields taken from the wrong platform.
+    # hand the profile fields taken from the wrong platform. With no chooser
+    # there is nobody to ask, which is the shape a piped or scripted run has,
+    # and the first match must not become the answer by default.
     _fake_probe(monkeypatch, _attempt("httpx"))
     _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
     _write_template(tmp_path, "ticimax", ["test product"], {"extraction": "jsonld"})
@@ -489,7 +491,114 @@ async def test_several_matching_templates_apply_nothing(
     assert report.applied_defaults is None
     text = format_report(report)
     assert "WARNING: more than one template matched" in text
+    assert "nobody picked between them" in text
     assert "extraction = jsonld" not in text
+
+
+async def test_the_picked_template_is_the_one_applied(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Picking the second one proves the answer is used rather than coincidentally
+    # matching what ordering would have produced anyway.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+    _write_template(tmp_path, "ticimax", ["test product"], {"extraction": "jsonld"})
+    asked: list[tuple[str, ...]] = []
+
+    def pick_ticimax(candidates: tuple[str, ...]) -> str:
+        asked.append(candidates)
+        return "ticimax"
+
+    report = await discover(
+        f"{server_url}/product", platforms_dir=tmp_path, chooser=pick_ticimax
+    )
+
+    assert asked == [("shopify", "ticimax")]
+    assert report.platform == "ticimax"
+    assert report.applied_defaults == {"extraction": "jsonld"}
+    text = format_report(report)
+    assert "extraction = jsonld" in text
+    # A pick is somebody's claim, not something the markup showed, and the
+    # report has to keep the two apart.
+    assert "picked by hand, not measured" in text
+
+
+async def test_a_pick_does_not_silence_the_collision(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Choosing one template settles this run. It does not make the other
+    # template's fingerprint right, and that is still the thing to go fix.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+    _write_template(tmp_path, "ticimax", ["test product"])
+
+    report = await discover(
+        f"{server_url}/product",
+        platforms_dir=tmp_path,
+        chooser=lambda candidates: "shopify",
+    )
+
+    text = format_report(report)
+    assert "WARNING: more than one template matched" in text
+    assert report.platform_matches == ("shopify", "ticimax")
+
+
+async def test_declining_to_pick_applies_nothing(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # "None of these" has to stay answerable. A prompt that only accepts a
+    # template forces a pick, which is the same wrong answer as choosing
+    # silently, only with somebody's name attached to it.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+    _write_template(tmp_path, "ticimax", ["test product"], {"extraction": "jsonld"})
+
+    report = await discover(
+        f"{server_url}/product",
+        platforms_dir=tmp_path,
+        chooser=lambda candidates: None,
+    )
+
+    assert report.platform is None
+    assert report.applied_defaults is None
+    assert "extraction = jsonld" not in format_report(report)
+
+
+async def test_a_single_match_is_never_put_to_a_chooser(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # One match is not a question. Asking anyway would train whoever runs this
+    # to hit enter through a prompt that occasionally matters.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+
+    def never_asked(candidates: tuple[str, ...]) -> str | None:
+        raise AssertionError("a single match must not be put to a chooser")
+
+    report = await discover(
+        f"{server_url}/product", platforms_dir=tmp_path, chooser=never_asked
+    )
+
+    assert report.platform == "shopify"
+    assert report.chosen_platform is None
+
+
+async def test_an_answer_outside_the_candidates_is_an_error(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Naming a template that did not match is not a choice between these two,
+    # it is a different claim about the site, and it would apply a template
+    # whose markers are nowhere in the page.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+    _write_template(tmp_path, "shopify", ["cdn.shopify.com"])
+    _write_template(tmp_path, "ticimax", ["test product"])
+
+    with pytest.raises(ValueError, match="not one of the templates"):
+        await discover(
+            f"{server_url}/product",
+            platforms_dir=tmp_path,
+            chooser=lambda candidates: "ideasoft",
+        )
 
 
 async def test_the_entry_page_decides_the_platform_not_a_later_one(
