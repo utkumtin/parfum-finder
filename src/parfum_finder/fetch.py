@@ -3,12 +3,14 @@
 Which strategy a given site needs is recorded on that site's profile, and that value
 comes from measurement, not a guess. `fetch()` only executes the strategy it is told
 to use; it does not retry, rate-limit, or try other strategies itself. Rate limiting is
-engine.py's job (per-site semaphore + rate_limit_ms delay, ARCHITECTURE.md §6). Trying
-each strategy in turn to see which one a site needs is probe's job, built on top of the
-single-strategy fetchers here.
+engine.py's job (per-site semaphore + rate_limit_ms delay). Trying each strategy in
+turn to see which one a site needs is probe's job, built on top of the single-strategy
+fetchers here.
 
-Playwright is an optional extra. If a profile requires it and it isn't installed, this
-raises a clear error rather than silently falling back to something weaker.
+Playwright is an optional extra, and it needs two things: the python package and a
+downloaded browser. If a profile requires it and either piece is missing, this raises a
+clear error naming the missing one, rather than silently falling back to something
+weaker.
 """
 
 from __future__ import annotations
@@ -29,6 +31,31 @@ DEFAULT_USER_AGENT = (
 )
 
 
+class PlaywrightNotInstalled(RuntimeError):
+    """The "playwright" strategy was requested but cannot run at all.
+
+    Covers both halves of the setup, because from the caller's side they are the
+    same condition: the python package may be missing, or the package may be
+    there while the browser binary was never downloaded. Either way the rung can
+    never succeed until someone installs something, which is different from a
+    site that merely refused this one request.
+
+    Its own type, distinct from other RuntimeErrors this module can raise, so a
+    caller like probe() can tell "the setup is incomplete, stop everything" apart
+    from an ordinary failed navigation attempt that should just be recorded and
+    moved past.
+    """
+
+
+class PlaywrightNoResponse(RuntimeError):
+    """Navigation completed but playwright returned no Response object.
+
+    Its own type rather than a bare RuntimeError, so callers can catch exactly
+    this failure mode as "record and move on" without also catching unrelated
+    RuntimeErrors that indicate a real bug elsewhere.
+    """
+
+
 @dataclass(frozen=True)
 class FetchResult:
     """One fetched page, uniform regardless of which strategy produced it."""
@@ -42,8 +69,9 @@ class FetchResult:
 async def fetch(url: str, strategy: Strategy, *, timeout_s: int = 20) -> FetchResult:
     """Fetch one URL using exactly the given strategy.
 
-    Raises RuntimeError if strategy is "playwright" and the optional browser extra
-    isn't installed.
+    Raises PlaywrightNotInstalled if strategy is "playwright" and playwright
+    can't run here, whether the package or its browser binary is the missing
+    piece.
     """
     if strategy == "httpx":
         return await _fetch_httpx(url, timeout_s=timeout_s)
@@ -85,16 +113,29 @@ async def _fetch_curl_cffi(url: str, *, timeout_s: int) -> FetchResult:
 
 async def _fetch_playwright(url: str, *, timeout_s: int) -> FetchResult:
     try:
+        from playwright.async_api import Error as PlaywrightError
         from playwright.async_api import async_playwright
     except ImportError as e:
-        raise RuntimeError(
+        raise PlaywrightNotInstalled(
             "strategy 'playwright' requires the optional browser extra: "
             "install with `uv sync --extra browser`, "
             "then `uv run playwright install chromium`"
         ) from e
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        try:
+            browser = await p.chromium.launch()
+        except PlaywrightError as e:
+            # A downloaded-browser check, not a navigation failure. Left as a
+            # plain error row it would read like the site was unreachable, and
+            # every other strategy would keep going as if playwright had been
+            # fairly measured and lost.
+            if "Executable doesn't exist" not in str(e):
+                raise
+            raise PlaywrightNotInstalled(
+                "strategy 'playwright' requires a downloaded browser: "
+                "run `uv run playwright install chromium`"
+            ) from e
         try:
             page = await browser.new_page(user_agent=DEFAULT_USER_AGENT)
             response = await page.goto(url, timeout=timeout_s * 1000)
@@ -103,7 +144,9 @@ async def _fetch_playwright(url: str, *, timeout_s: int) -> FetchResult:
             await browser.close()
 
     if response is None:
-        raise RuntimeError(f"playwright navigation to {url!r} produced no response")
+        raise PlaywrightNoResponse(
+            f"playwright navigation to {url!r} produced no response"
+        )
     return FetchResult(
         url=response.url,
         status_code=response.status,

@@ -38,6 +38,7 @@ src/parfum_finder/
 ├── normalize.py      # sayı/ml parse + format, JSON-LD normalizasyonu
 ├── profiles.py       # profil yükleme, jsonschema doğrulama, platform şablonu merge
 ├── fetch.py          # httpx / curl_cffi / playwright — tek arayüz
+├── probe.py          # strateji ölçümü: her stratejiyi dener, kanıtlı rapor üretir
 ├── extract.py        # çıkarım merdiveni: jsonld → endpoint → embedded → css
 ├── engine.py         # async orchestration, rate limiting, hata izolasyonu
 ├── matcher.py        # marka+konsantrasyon zorunlu + fuzzy isim
@@ -186,8 +187,6 @@ discover <url> [--id <slug>]
          fixtures/<id>/       (golden HTML örnekleri)
 ```
 
-Alanların tam tanımı: [`SCHEMA.md`](SCHEMA.md) §A.1.
-
 ### Platform şablon kütüphanesi
 
 `platforms/<name>.json` bir platformun bilinen desenlerini tutar: arama URL şablonu,
@@ -297,7 +296,7 @@ eşleşmemekten kötüdür — ucuz fiyat gibi görünür ve sepete yanlış ür
 
 - Her sonuç satırında **sitedeki ham başlık + eşleşme skoru** gösterilir
 - İkisi de saklanır: `match_score` → `products`, `raw_title` → `product_variants`
-  (varyant deseni A'da her ml'nin başlığı farklıdır — bkz. `SCHEMA.md` §B.2)
+  (varyant deseni A'da her ml'nin başlığı farklıdır)
 - **Düşük skorlu eşleşme sepete sessizce eklenemez** — TUI onay ister
 
 ---
@@ -369,7 +368,7 @@ Bu bir **sezgiseldir**, ispatlı optimal değildir. Yerel iyileştirme, eşik et
 büyük kısmını yakalar ama global optimumu garanti etmez.
 
 TUI bu satırı **"en iyi bulunan kombinasyon"** olarak etiketler, "matematiksel en ucuz"
-diye sunmaz. Aynı not `APP_FLOW.md`'de de yer alır.
+diye sunmaz.
 
 ### Eksik ürün politikası
 
@@ -418,12 +417,3 @@ Siteler değişir, profiller bayatlar. `validate` iki modda çalışır:
 
 Ek olarak her profilde `schema_version` ve `discovered_at` bulunur; belirli bir yaştan
 eski profiller TUI'de yaş rozetiyle işaretlenir.
-
----
-
-## 12. İlgili dokümanlar
-
-- Ürün kapsamı ve kabul kriterleri → [`PRD.md`](PRD.md)
-- Kütüphane seçimleri ve gerekçeleri → [`TECH_STACK.md`](TECH_STACK.md)
-- Ekranlar ve komutlar → [`APP_FLOW.md`](APP_FLOW.md)
-- Profil JSON şeması + SQLite şeması → [`SCHEMA.md`](SCHEMA.md)

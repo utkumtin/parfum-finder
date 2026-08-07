@@ -16,7 +16,7 @@ import pytest
 
 SCHEMA_DIR = Path(__file__).parent.parent / "schema"
 
-# Mirrors the example in SCHEMA.md A.1, minus the jsonc comments.
+# A minimal valid site profile: shopify platform, httpx strategy, jsonld extraction.
 VALID_SITE_PROFILE: dict[str, Any] = {
     "schema_version": 1,
     "id": "ornek",
@@ -52,7 +52,7 @@ VALID_SITE_PROFILE: dict[str, Any] = {
     "needs_review": ["variant_rules.size_pattern"],
 }
 
-# Mirrors the example in SCHEMA.md A.2.
+# A minimal valid platform template: shopify fingerprint plus endpoint-based defaults.
 VALID_PLATFORM_TEMPLATE: dict[str, Any] = {
     "schema_version": 1,
     "name": "shopify",

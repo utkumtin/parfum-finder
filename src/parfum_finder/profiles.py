@@ -24,7 +24,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
     """Recursively merge override onto base. override always wins on conflicts.
 
     Nested objects merge field by field; arrays and plain values are replaced
-    wholesale, never combined, per SCHEMA.md's platform merge rule.
+    wholesale, never combined.
     """
     merged = dict(base)
     for key, value in override.items():
