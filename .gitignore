@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# uv / venv
+.venv/
+
+# Test & lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data. Append-only price history, not source code.
+*.db
+*.db-journal
+
+# Editör/OS
+.env
+.DS_Store
