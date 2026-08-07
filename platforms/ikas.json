@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "name": "ikas",
+  "fingerprint": {
+    "any": ["cdn.myikas.com"]
+  },
+  "defaults": {
+    "extraction": "embedded_json"
+  }
+}

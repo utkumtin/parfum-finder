@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "name": "woocommerce",
+  "fingerprint": {
+    "any": ["woocommerce", "wp-content/plugins/woocommerce"]
+  },
+  "defaults": {
+    "extraction": "embedded_json",
+    "search": {
+      "url_template": "{base_url}/?s={query}&post_type=product"
+    }
+  }
+}

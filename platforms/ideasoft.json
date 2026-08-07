@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "ideasoft",
+  "fingerprint": {
+    "any": ["ideasoft logosu", "/idea/"]
+  },
+  "defaults": {
+    "search": {
+      "url_template": "{base_url}/arama/{query}"
+    }
+  }
+}
