@@ -10,6 +10,7 @@ from conftest import requires_playwright
 
 from parfum_finder import cli
 from parfum_finder.cli import main
+from parfum_finder.discover import DiscoveryReport
 from parfum_finder.probe import ProbeReport
 
 
@@ -52,6 +53,63 @@ def test_timeout_flag_reaches_probe(
     main()
 
     assert seen == {"url": "http://example.invalid", "timeout_s": 3}
+
+
+@requires_playwright
+def test_discover_subcommand_prints_a_report_for_the_given_url(
+    server_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        "sys.argv", ["parfum-finder", "discover", f"{server_url}/product"]
+    )
+
+    main()
+
+    out = capsys.readouterr().out
+    assert f"discover: {server_url}/product" in out
+    assert "chosen strategy: httpx" in out
+    assert "json-ld products: 1" in out
+
+
+def test_discover_flags_reach_discover(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    seen: dict[str, object] = {}
+
+    async def fake_discover(
+        url: str, *, product_url: str | None = None, timeout_s: int = 20
+    ) -> DiscoveryReport:
+        seen["url"] = url
+        seen["product_url"] = product_url
+        seen["timeout_s"] = timeout_s
+        return DiscoveryReport(
+            url=url,
+            strategy_report=ProbeReport(url=url, attempts=()),
+            chosen_strategy=None,
+            trials=(),
+        )
+
+    monkeypatch.setattr(cli, "discover", fake_discover)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "parfum-finder",
+            "discover",
+            "http://example.invalid",
+            "--product-url",
+            "http://example.invalid/p/1",
+            "--timeout",
+            "3",
+        ],
+    )
+
+    main()
+
+    assert seen == {
+        "url": "http://example.invalid",
+        "product_url": "http://example.invalid/p/1",
+        "timeout_s": 3,
+    }
 
 
 def test_no_subcommand_exits_with_usage_error() -> None:

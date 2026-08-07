@@ -15,7 +15,10 @@ subparsers cover this without adding a dependency.
 import argparse
 import asyncio
 
-from parfum_finder.probe import format_report, probe
+from parfum_finder.discover import discover
+from parfum_finder.discover import format_report as format_discovery_report
+from parfum_finder.probe import format_report as format_probe_report
+from parfum_finder.probe import probe
 
 
 def main() -> None:
@@ -38,8 +41,34 @@ def main() -> None:
         ),
     )
 
+    discover_parser = subparsers.add_parser(
+        "discover", help="measure a site and report what its JSON-LD declares"
+    )
+    discover_parser.add_argument("url")
+    discover_parser.add_argument(
+        "--product-url",
+        metavar="URL",
+        help=(
+            "a second page from the same site to read as well, normally one "
+            "product page. Comparing it against the first page is what shows "
+            "whether each size is its own product or one product holds them all."
+        ),
+    )
+    discover_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=20,
+        metavar="SECONDS",
+        help="per-request timeout in seconds (default: 20)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "probe":
-        report = asyncio.run(probe(args.url, timeout_s=args.timeout))
-        print(format_report(report))
+        probe_report = asyncio.run(probe(args.url, timeout_s=args.timeout))
+        print(format_probe_report(probe_report))
+    elif args.command == "discover":
+        discovery = asyncio.run(
+            discover(args.url, product_url=args.product_url, timeout_s=args.timeout)
+        )
+        print(format_discovery_report(discovery))

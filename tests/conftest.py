@@ -112,6 +112,41 @@ _CARDS_HTML = b"""<html><body>
 </body></html>"""
 
 
+# A product page that offers three sizes in a dropdown but states only one price
+# in its structured data: the other two arrive by a later request that a plain
+# fetch never makes. Discovery has to flag this, because reading it at face value
+# compares this site's smallest size against another site's largest.
+_VARIANT_SINGLE_PRICE_HTML = b"""<html><body>
+<script type="application/ld+json">
+{"@type": "Product", "name": "Varyantli Parfum",
+ "offers": {"@type": "Offer", "price": "149.90", "priceCurrency": "TRY"}}
+</script>
+<select class="variant-select" name="variant-id">
+  <option value="1">5 ml</option>
+  <option value="2">10 ml</option>
+  <option value="3">20 ml</option>
+</select>
+</body></html>"""
+
+
+# The opposite, healthy case: one product whose sizes and their prices are all
+# stated on the page itself, so a plain fetch already sees every price per ml.
+_VARIANT_PRICES_HTML = b"""<html><body>
+<script type="application/ld+json">
+{"@type": "ProductGroup", "name": "Tam Varyantli Parfum", "hasVariant": [
+  {"name": "5 ml", "offers": {"@type": "Offer", "price": "149.90",
+   "availability": "https://schema.org/InStock"}},
+  {"name": "10 ml", "offers": {"@type": "Offer", "price": "279.90",
+   "availability": "https://schema.org/OutOfStock"}}
+]}
+</script>
+<select class="variant-select" name="variant-id">
+  <option value="1">5 ml</option>
+  <option value="2">10 ml</option>
+</select>
+</body></html>"""
+
+
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/redirect":
@@ -136,6 +171,12 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/product-malformed":
             self._send(200, _PRODUCT_MALFORMED_HTML)
+            return
+        if self.path == "/variant-prices":
+            self._send(200, _VARIANT_PRICES_HTML)
+            return
+        if self.path == "/variant-single-price":
+            self._send(200, _VARIANT_SINGLE_PRICE_HTML)
             return
         if self.path == "/cards":
             self._send(200, _CARDS_HTML)
