@@ -15,7 +15,12 @@ import pytest
 from conftest import requires_playwright
 
 from parfum_finder import discover as discover_module
-from parfum_finder.discover import DiscoveryReport, discover, format_report
+from parfum_finder.discover import (
+    DiscoveryReport,
+    collect_prices,
+    discover,
+    format_report,
+)
 from parfum_finder.fetch import Strategy
 from parfum_finder.probe import ProbeAttempt, ProbeReport
 
@@ -144,6 +149,38 @@ async def test_size_selector_with_a_single_price_is_flagged(
     assert trial.variant_control_present is True
     text = format_report(report)
     assert "WARNING: the markup offers a size selector" in text
+
+
+async def test_woocommerce_variation_form_counts_as_a_size_selector(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # WooCommerce writes "variation" where other shops write "variant", so a
+    # detector built on the word "variant" alone reports a four-size product as
+    # having no sizes at all and nothing in the output contradicts it.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+
+    report = await discover(f"{server_url}/woo-variation")
+
+    (trial,) = report.trials
+    assert trial.variant_control_present is True
+
+
+async def test_range_only_pricing_next_to_a_size_selector_is_flagged(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Two numbers read off a range look like two prices but describe four sizes,
+    # and the two in the middle are still missing. Left unflagged, the low end
+    # gets taken for the product's price and the site looks cheaper per ml than
+    # it is, which is the same wrong comparison the single-price warning exists
+    # to prevent.
+    _fake_probe(monkeypatch, _attempt("httpx"))
+
+    report = await discover(f"{server_url}/woo-variation")
+
+    (trial,) = report.trials
+    assert len(collect_prices(trial.products[0])) == 2
+    text = format_report(report)
+    assert "every price here comes from a range" in text
 
 
 async def test_page_without_jsonld_is_flagged_as_needing_a_lower_layer(

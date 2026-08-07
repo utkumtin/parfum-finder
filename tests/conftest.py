@@ -147,6 +147,27 @@ _VARIANT_PRICES_HTML = b"""<html><body>
 </body></html>"""
 
 
+# A WooCommerce variable product: four sizes, each with its own price, but the
+# only prices in the structured data are the two ends of a range. The size
+# control is a form whose class says "variation" and a select named
+# attribute_pa_<attribute>, neither of which contains the word "variant".
+_WOO_VARIATION_HTML = b"""<html><body>
+<script type="application/ld+json">
+{"@type": "Product", "name": "Woo Varyantli Parfum",
+ "offers": {"@type": "AggregateOffer", "lowPrice": "180", "highPrice": "1570",
+  "priceCurrency": "TRY"}}
+</script>
+<form class="variations_form cart" data-product_variations="[]">
+  <select name="attribute_pa_hacim">
+    <option value="3ml">3ml</option>
+    <option value="5ml">5ml</option>
+    <option value="10ml">10ml</option>
+    <option value="30ml">30ml</option>
+  </select>
+</form>
+</body></html>"""
+
+
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/redirect":
@@ -174,6 +195,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/variant-prices":
             self._send(200, _VARIANT_PRICES_HTML)
+            return
+        if self.path == "/woo-variation":
+            self._send(200, _WOO_VARIATION_HTML)
             return
         if self.path == "/variant-single-price":
             self._send(200, _VARIANT_SINGLE_PRICE_HTML)

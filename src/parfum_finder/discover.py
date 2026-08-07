@@ -77,6 +77,17 @@ _VARIANT_CONTROL_SELECTOR = ", ".join(
         'select[name*="varyant"]',
         'select[name*="option"]',
         'select[name*="secenek"]',
+        # WooCommerce variable products spell it "variation", which shares no
+        # substring with "variant", so the entries above miss them entirely.
+        # Its markup is a form carrying every variation as an escaped JSON blob
+        # plus one select per attribute, named attribute_pa_<something>. Both of
+        # those belong to the product being sold. A looser match on "variation"
+        # is not usable here: shop themes hang that word on the swatches of the
+        # related-products grid too, so a simple product with no sizes of its
+        # own would come back looking like it had them.
+        "[data-product_variations]",
+        '[class*="variations_form"]',
+        'select[name^="attribute_"]',
     )
 )
 
@@ -212,6 +223,19 @@ def collect_prices(product: JsonLdProduct) -> list[Decimal]:
     return prices
 
 
+def _has_exact_price(product: JsonLdProduct) -> bool:
+    """Whether any offer names one concrete price instead of only a range.
+
+    An AggregateOffer that states lowPrice and highPrice tells us what the
+    cheapest and the dearest size cost and nothing about the ones in between.
+    Two numbers arriving that way is not the same evidence as two offers each
+    naming their own price, so the two cases have to stay distinguishable.
+    """
+    if any(offer.price is not None for offer in product.offers):
+        return True
+    return any(_has_exact_price(variant) for variant in product.variants)
+
+
 def format_report(report: DiscoveryReport) -> str:
     """Render a DiscoveryReport as plain text for a human to read and act on."""
     lines = [f"discover: {report.url}", "", "strategy measurement", ""]
@@ -296,11 +320,21 @@ def _warnings(trial: PageTrial, *, measured: bool) -> list[str]:
     """
     warnings = []
     price_count = sum(len(collect_prices(p)) for p in trial.products)
+    exact_price = any(_has_exact_price(p) for p in trial.products)
     if trial.variant_control_present and price_count <= 1:
         warnings.append(
             f"WARNING: the markup offers a size selector but only {price_count} "
             "price could be read. The other sizes are probably fetched by a "
             "later request, so this page alone gives a wrong price per ml."
+        )
+    elif trial.variant_control_present and not exact_price:
+        warnings.append(
+            "WARNING: the markup offers a size selector and every price here "
+            "comes from a range, not from an offer of its own. A range only "
+            "names its two ends, so the sizes in between have no price in the "
+            "structured data. They may still sit in the page somewhere a lower "
+            "layer can reach, but reading the low end as this product's price "
+            "is wrong per ml."
         )
     if not trial.products and measured:
         warnings.append(
