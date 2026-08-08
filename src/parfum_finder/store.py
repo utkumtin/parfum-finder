@@ -464,6 +464,191 @@ def price_history(
     ).fetchall()
 
 
+@dataclass(frozen=True)
+class BasketLine:
+    """One row of the basket: a size of a perfume, with the identity spelled out.
+
+    The basket screen wants brand/name/concentration to print next to each
+    line, and joining perfumes back in here means it never has to make a
+    second trip just to say what basket_item_id 7 actually is.
+    """
+
+    basket_item_id: int
+    perfume_id: int
+    brand: str
+    name: str
+    concentration: str
+    size_ml_x10: int
+    qty: int
+    added_at: str
+
+
+@dataclass(frozen=True)
+class BasketPrice:
+    """One site's latest price for one basket line, only when it has one.
+
+    Rows with no price on any site are left out here entirely; basket_lines
+    is what still lists them, so a caller comparing the two can tell "nobody
+    sells it" apart from a basket line that simply has zero site rows.
+    """
+
+    basket_item_id: int
+    site_id: str
+    price_kurus: int
+    in_stock: bool
+    fetched_at: str
+
+
+@dataclass(frozen=True)
+class BasketSite:
+    """A site the basket screen is willing to show a column for.
+
+    Deliberately just sites, not sites that happen to appear in a price
+    join: a site that prices nothing in this basket is exactly the state the
+    basket screen exists to show as a column of dashes, and it would vanish
+    if the column list came from the join result instead.
+    """
+
+    site_id: str
+    name: str
+    free_shipping_threshold_kurus: int | None
+    shipping_cost_kurus: int
+    notes: str | None
+
+
+def basket_lines(conn: sqlite3.Connection) -> list[BasketLine]:
+    """Return every basket line, oldest add first.
+
+    Ordered by added_at with basket_item_id as a tiebreaker, because two
+    lines added within the same second (the timestamp's own resolution)
+    would otherwise be free to swap places between two reads and make the
+    basket screen look like it reordered itself for no reason.
+    """
+    rows = conn.execute(
+        "SELECT b.basket_item_id, b.perfume_id, pf.brand, pf.name,"
+        " pf.concentration, b.size_ml_x10, b.qty, b.added_at"
+        " FROM basket_items b"
+        " JOIN perfumes pf ON pf.perfume_id = b.perfume_id"
+        " ORDER BY b.added_at, b.basket_item_id"
+    ).fetchall()
+    return [
+        BasketLine(
+            basket_item_id=row["basket_item_id"],
+            perfume_id=row["perfume_id"],
+            brand=row["brand"],
+            name=row["name"],
+            concentration=row["concentration"],
+            size_ml_x10=row["size_ml_x10"],
+            qty=row["qty"],
+            added_at=row["added_at"],
+        )
+        for row in rows
+    ]
+
+
+def basket_prices(conn: sqlite3.Connection) -> list[BasketPrice]:
+    """Return the basket price matrix: one row per (line, site) that has a price.
+
+    This is the query the schema doc pins down for the basket matrix, LEFT
+    JOIN and all. The LEFT JOIN matters even though it means filtering NULLs
+    out in Python afterward: an INNER JOIN would make a basket line no site
+    prices simply not show up in the site's own results, which reads exactly
+    like "this site does not carry it" and there is no way back from that to
+    "nobody carries it" without re-running the query. Keeping the LEFT JOIN
+    and dropping the NULL rows here means a caller who wants that distinction
+    can still get it, by comparing this list against basket_lines.
+
+    in_stock comes back exactly as the database has it. Turning an
+    out-of-stock row into a missing one is the caller's call to make, not
+    this function's, because a screen showing "out of stock" and a screen
+    treating it as unavailable for pricing purposes are two different
+    readers of the same fact.
+    """
+    rows = conn.execute(
+        "SELECT b.basket_item_id, lp.site_id, lp.price_kurus, lp.in_stock,"
+        " lp.fetched_at"
+        " FROM basket_items b"
+        " LEFT JOIN latest_prices lp"
+        "        ON lp.perfume_id  = b.perfume_id"
+        "       AND lp.size_ml_x10 = b.size_ml_x10"
+        " ORDER BY b.added_at"
+    ).fetchall()
+    return [
+        BasketPrice(
+            basket_item_id=row["basket_item_id"],
+            site_id=row["site_id"],
+            price_kurus=row["price_kurus"],
+            in_stock=bool(row["in_stock"]),
+            fetched_at=row["fetched_at"],
+        )
+        for row in rows
+        if row["site_id"] is not None
+    ]
+
+
+def basket_sites(conn: sqlite3.Connection) -> list[BasketSite]:
+    """Return every enabled site, for the basket screen's fixed set of columns.
+
+    Sourced from sites rather than from whatever basket_prices happens to
+    return, on purpose: a site that prices none of the basket's lines still
+    has to show up as a column full of dashes, and a site list built from
+    the price join would quietly drop exactly that site.
+    """
+    rows = conn.execute(
+        "SELECT site_id, name, free_shipping_threshold_kurus,"
+        " shipping_cost_kurus, notes"
+        " FROM sites WHERE enabled = 1 ORDER BY site_id"
+    ).fetchall()
+    return [
+        BasketSite(
+            site_id=row["site_id"],
+            name=row["name"],
+            free_shipping_threshold_kurus=row["free_shipping_threshold_kurus"],
+            shipping_cost_kurus=row["shipping_cost_kurus"],
+            notes=row["notes"],
+        )
+        for row in rows
+    ]
+
+
+def remove_basket_item(conn: sqlite3.Connection, *, basket_item_id: int) -> bool:
+    """Delete one basket line, and say whether there was one to delete.
+
+    Returns False rather than raising when the id is already gone: two
+    windows on the same basket both deleting the row a user just removed is
+    a race, not a bug, and the second call should just report it didn't do
+    anything.
+    """
+    with conn:
+        cursor = conn.execute(
+            "DELETE FROM basket_items WHERE basket_item_id = ?", (basket_item_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def set_basket_qty(conn: sqlite3.Connection, *, basket_item_id: int, qty: int) -> int:
+    """Set a basket line's quantity, clamped to at least 1, and return it.
+
+    The table's CHECK (qty > 0) would reject a qty of 0 outright, and the
+    basket screen's '-' key needs to be able to sit at quantity 1 without the
+    press below it turning into an error. Removing the line has its own key,
+    so pressing '-' one more time at 1 is a no-op rather than a delete.
+
+    Raises ValueError for an id that isn't there: unlike removal, an update
+    aimed at a row that doesn't exist means the caller is out of sync with
+    the basket, which is worth failing loud on rather than swallowing.
+    """
+    clamped = max(qty, 1)
+    with conn:
+        cursor = conn.execute(
+            "UPDATE basket_items SET qty = ? WHERE basket_item_id = ?",
+            (clamped, basket_item_id),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError(f"no basket item with id {basket_item_id}")
+    return clamped
+
+
 def _scalar(conn: sqlite3.Connection, sql: str, params: tuple[object, ...]) -> int:
     """Read back the id of a row that was just inserted or already existed.
 

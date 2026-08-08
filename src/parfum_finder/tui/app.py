@@ -1,6 +1,8 @@
 """The Textual App root. Handles screen navigation and is the app's default entry point.
 
-The search screen is the initial (and, until M8, only) screen.
+The search screen is the initial one. The basket sits on top of it, pushed by
+[s] and popped by escape, so coming back from the basket finds the results
+table exactly as it was left instead of an empty search.
 """
 
 from __future__ import annotations

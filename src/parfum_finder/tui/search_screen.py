@@ -42,6 +42,7 @@ from parfum_finder.store import (
     snapshot_rows,
     write_snapshots,
 )
+from parfum_finder.tui.basket_screen import BasketScreen
 from parfum_finder.validate import (
     DEFAULT_SITES_DIR,
     STALE_PROFILE_DAYS,
@@ -145,6 +146,7 @@ class SearchScreen(Screen[None]):
         ("f", "toggle_stock", "stok filtre"),
         ("h", "show_history", "fiyat geçmişi"),
         ("a", "add_basket", "sepete ekle"),
+        ("s", "open_basket", "sepet"),
         ("escape", "focus_query", "ara"),
         ("q", "quit", "çık"),
         ("ctrl+c", "quit", "çık"),
@@ -530,6 +532,16 @@ class SearchScreen(Screen[None]):
             )
         finally:
             conn.close()
+
+    def action_open_basket(self) -> None:
+        # Pushed, not switched. The scan behind it stays alive and its rows are
+        # still there on the way back, so checking the basket does not cost a
+        # second pass over every site.
+        self.app.push_screen(
+            BasketScreen(
+                sites_dir=self.sites_dir, db_path=self.db_path, runner=self.runner
+            )
+        )
 
     def action_focus_query(self) -> None:
         self.query_one("#query", Input).focus()

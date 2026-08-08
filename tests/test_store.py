@@ -21,10 +21,15 @@ from parfum_finder.matcher import PerfumeQuery, parse_query
 from parfum_finder.store import (
     SnapshotRow,
     add_basket_item,
+    basket_lines,
+    basket_prices,
+    basket_sites,
     connect,
     now_iso,
     price_history,
     record_snapshot,
+    remove_basket_item,
+    set_basket_qty,
     snapshot_rows,
     write_snapshots,
 )
@@ -734,3 +739,270 @@ def test_a_scanned_perfume_can_be_read_back_by_basket_and_history(
     assert len(history) == 1
     assert history[0]["price_kurus"] == 12500
     assert basket_item_id is not None
+
+
+def test_basket_lines_orders_by_added_at_and_carries_the_perfume_identity(
+    conn: sqlite3.Connection,
+) -> None:
+    """The basket screen prints brand/name/concentration straight off this row.
+
+    Ordering by added_at is the whole point of the join: a line added first
+    has to stay first, or the basket would reshuffle itself every time the
+    screen redraws.
+    """
+    _seed_variant(conn)
+    conn.execute(
+        "INSERT INTO perfumes (brand, name, concentration, created_at)"
+        " VALUES ('Chanel', 'Bleu de Chanel', 'EDP', '2026-08-08T09:00:00Z')"
+    )
+    later_id = add_basket_item(
+        conn,
+        brand="Dior",
+        name="Sauvage",
+        concentration="EDT",
+        size_ml_x10=50,
+        added_at="2026-08-08T11:00:00Z",
+    )
+    earlier_id = add_basket_item(
+        conn,
+        brand="Chanel",
+        name="Bleu de Chanel",
+        concentration="EDP",
+        size_ml_x10=100,
+        added_at="2026-08-08T10:00:00Z",
+    )
+
+    lines = basket_lines(conn)
+
+    assert [line.basket_item_id for line in lines] == [earlier_id, later_id]
+    assert lines[0].brand == "Chanel"
+    assert lines[0].name == "Bleu de Chanel"
+    assert lines[0].concentration == "EDP"
+    assert lines[0].size_ml_x10 == 100
+    assert lines[0].qty == 1
+
+
+def test_basket_lines_breaks_a_same_second_tie_by_basket_item_id(
+    conn: sqlite3.Connection,
+) -> None:
+    """Two lines added within the same second must still read back the same way twice.
+
+    added_at alone can't order them, so without the id tiebreaker sqlite is
+    free to hand the two rows back in either order on different reads, and
+    the basket screen would look like it swapped two lines for no reason.
+    """
+    _seed_variant(conn)
+    conn.execute(
+        "INSERT INTO perfumes (brand, name, concentration, created_at)"
+        " VALUES ('Chanel', 'Bleu de Chanel', 'EDP', '2026-08-08T09:00:00Z')"
+    )
+    same_second = "2026-08-08T10:00:00Z"
+    first_id = add_basket_item(
+        conn,
+        brand="Dior",
+        name="Sauvage",
+        concentration="EDT",
+        size_ml_x10=50,
+        added_at=same_second,
+    )
+    second_id = add_basket_item(
+        conn,
+        brand="Chanel",
+        name="Bleu de Chanel",
+        concentration="EDP",
+        size_ml_x10=100,
+        added_at=same_second,
+    )
+
+    lines = basket_lines(conn)
+
+    assert [line.basket_item_id for line in lines] == [first_id, second_id]
+
+
+def test_basket_prices_has_no_row_for_a_line_no_site_prices(
+    conn: sqlite3.Connection,
+) -> None:
+    """A basket line nobody sells must still be visible via basket_lines.
+
+    basket_prices uses a LEFT JOIN so it can tell "nobody sells it" apart
+    from "this one site does not", but the caller only gets that distinction
+    if the unpriced line is dropped here rather than showing up as a row of
+    NULLs.
+    """
+    _seed_variant(conn)
+    _record(conn)  # priced at the default 5 ml
+    add_basket_item(
+        conn, brand="Dior", name="Sauvage", concentration="EDT", size_ml_x10=50
+    )
+    unpriced_id = add_basket_item(
+        conn, brand="Dior", name="Sauvage", concentration="EDT", size_ml_x10=100
+    )
+
+    prices = basket_prices(conn)
+    lines = basket_lines(conn)
+
+    assert unpriced_id in {line.basket_item_id for line in lines}
+    assert unpriced_id not in {p.basket_item_id for p in prices}
+    assert len(prices) == 1
+    assert prices[0].price_kurus == 12500
+
+
+def test_basket_prices_reports_only_the_latest_snapshot(
+    conn: sqlite3.Connection,
+) -> None:
+    """A stale reading must never outrank the one taken after it.
+
+    latest_prices already guarantees this at the view level; this checks the
+    basket matrix query doesn't accidentally pick up both snapshots instead
+    of the newest one.
+    """
+    _seed_variant(conn)
+    _record(conn, _variant(price_kurus=12500), fetched_at="2026-08-07T10:00:00Z")
+    _record(conn, _variant(price_kurus=11900), fetched_at="2026-08-08T10:00:00Z")
+    add_basket_item(
+        conn, brand="Dior", name="Sauvage", concentration="EDT", size_ml_x10=50
+    )
+
+    prices = basket_prices(conn)
+
+    assert len(prices) == 1
+    assert prices[0].price_kurus == 11900
+    assert prices[0].fetched_at == "2026-08-08T10:00:00Z"
+
+
+def test_basket_prices_joins_on_the_exact_integer_size(
+    conn: sqlite3.Connection,
+) -> None:
+    """A 10 ml listing must never fill a basket line asking for 5 ml.
+
+    The matrix joins on size_ml_x10 as an integer specifically so this can't
+    happen; a fuzzier join (nearest size, or dropping the tenths) would let a
+    bigger bottle's price stand in for a smaller one nobody actually offers.
+    """
+    _seed_variant(conn, size_ml_x10=100)
+    _record(conn, _variant(size_ml_x10=100, price_kurus=20000))
+    add_basket_item(
+        conn, brand="Dior", name="Sauvage", concentration="EDT", size_ml_x10=50
+    )
+
+    assert basket_prices(conn) == []
+
+
+def test_basket_prices_keeps_out_of_stock_rows_with_in_stock_false(
+    conn: sqlite3.Connection,
+) -> None:
+    """Whether an out-of-stock price counts as missing is the caller's call.
+
+    Dropping it here instead would take that decision away from whatever
+    screen or optimizer reads this list next.
+    """
+    _seed_variant(conn)
+    _record(conn, _variant(price_kurus=12500, in_stock=False))
+    add_basket_item(
+        conn, brand="Dior", name="Sauvage", concentration="EDT", size_ml_x10=50
+    )
+
+    prices = basket_prices(conn)
+
+    assert len(prices) == 1
+    assert prices[0].in_stock is False
+
+
+def test_basket_sites_omits_a_disabled_site_and_keeps_one_that_prices_nothing(
+    conn: sqlite3.Connection,
+) -> None:
+    """A disabled site loses its basket column, but an enabled quiet one keeps one.
+
+    Sourcing the site list from the price matrix instead of from sites would
+    make an enabled site that happens to price none of the basket's lines
+    vanish, which is exactly the "this site has nothing" state the basket
+    screen's dash column exists to show.
+    """
+    ts = "2026-08-08T10:00:00Z"
+    conn.execute(
+        "INSERT INTO sites (site_id, name, base_url, enabled, synced_at)"
+        " VALUES ('kapali', 'Kapali', 'https://kapali.example', 0, ?)",
+        (ts,),
+    )
+    conn.execute(
+        "INSERT INTO sites (site_id, name, base_url, enabled, synced_at)"
+        " VALUES ('sessiz', 'Sessiz', 'https://sessiz.example', 1, ?)",
+        (ts,),
+    )
+
+    sites = basket_sites(conn)
+
+    assert "kapali" not in {s.site_id for s in sites}
+    assert "sessiz" in {s.site_id for s in sites}
+
+
+def test_basket_sites_preserves_a_null_free_shipping_threshold_as_none(
+    conn: sqlite3.Connection,
+) -> None:
+    """NULL means the site has no free shipping tier at all, not a threshold of zero.
+
+    Coming back as anything but None would make the basket screen compute a
+    'free shipping gap' toward a tier the site doesn't actually offer.
+    """
+    ts = "2026-08-08T10:00:00Z"
+    conn.execute(
+        "INSERT INTO sites (site_id, name, base_url, synced_at)"
+        " VALUES ('nosiz', 'Nosiz', 'https://nosiz.example', ?)",
+        (ts,),
+    )
+
+    sites = basket_sites(conn)
+
+    assert sites[0].site_id == "nosiz"
+    assert sites[0].free_shipping_threshold_kurus is None
+
+
+def test_remove_basket_item_returns_false_the_second_time(
+    conn: sqlite3.Connection,
+) -> None:
+    """Deleting a row that's already gone is a race between two screens, not a bug.
+
+    A second delete of the same id has to report that it didn't do anything,
+    rather than raise, so a caller can treat it as a normal outcome.
+    """
+    _seed_variant(conn)
+    item_id = add_basket_item(
+        conn, brand="Dior", name="Sauvage", concentration="EDT", size_ml_x10=50
+    )
+
+    assert remove_basket_item(conn, basket_item_id=item_id) is True
+    assert remove_basket_item(conn, basket_item_id=item_id) is False
+
+
+def test_set_basket_qty_clamps_zero_and_negatives_to_one(
+    conn: sqlite3.Connection,
+) -> None:
+    """The table's CHECK (qty > 0) would reject a bare 0, and the '-' key has to
+    survive it.
+
+    Decrementing below 1 is a no-op rather than a delete: removal is a
+    separate key, so pressing '-' at quantity 1 must leave the line in the
+    basket at quantity 1, not blow up or vanish it.
+    """
+    _seed_variant(conn)
+    item_id = add_basket_item(
+        conn, brand="Dior", name="Sauvage", concentration="EDT", size_ml_x10=50
+    )
+
+    assert set_basket_qty(conn, basket_item_id=item_id, qty=0) == 1
+    assert set_basket_qty(conn, basket_item_id=item_id, qty=-3) == 1
+
+    stored = conn.execute(
+        "SELECT qty FROM basket_items WHERE basket_item_id = ?", (item_id,)
+    ).fetchone()
+    assert stored["qty"] == 1
+
+
+def test_set_basket_qty_on_an_unknown_id_raises(conn: sqlite3.Connection) -> None:
+    """An update aimed at a row that isn't there means the caller is out of sync.
+
+    Unlike remove_basket_item's idempotent False, silently doing nothing here
+    would hide a basket screen holding a stale id from ever finding out.
+    """
+    with pytest.raises(ValueError, match="no basket item"):
+        set_basket_qty(conn, basket_item_id=999, qty=2)
