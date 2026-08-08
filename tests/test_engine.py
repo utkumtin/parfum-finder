@@ -9,7 +9,7 @@ handling and the URL resolution are all real, with no network.
 """
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from parfum_finder import engine
 from parfum_finder.engine import (
     ExtractionFailed,
     apply_variant_rules,
@@ -25,7 +26,16 @@ from parfum_finder.engine import (
     search_site,
 )
 from parfum_finder.extract import RawVariant
-from parfum_finder.fetch import FetchResult, FormData, Headers, Method, Strategy, fetch
+from parfum_finder.fetch import (
+    Fetcher,
+    FetchResult,
+    FormData,
+    Headers,
+    Method,
+    PlaywrightNotInstalled,
+    Strategy,
+    fetch,
+)
 
 
 def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:
@@ -987,3 +997,181 @@ async def test_a_dead_site_does_not_take_the_others_down(
 
 async def test_no_sites_is_an_empty_run_not_a_crash() -> None:
     assert await run_sites([], "test parfum") == ()
+
+
+# --- Pacing, one site at a time ------------------------------------------------
+#
+# The targets are small shops, so a run has to look like a person browsing rather
+# than a burst. These check the three parts of that: requests inside one site are
+# spaced, sites do not pace each other, and a refused request is retried a bounded
+# number of times before the site is given up on.
+
+
+@pytest.fixture
+def slept(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Record every delay the engine asks for instead of serving it.
+
+    Waiting for real would make the suite pay the pacing it is checking, and it
+    would push these cases into asserting on elapsed wall clock, which measures
+    how busy the machine is more than what the code decided.
+    """
+    delays: list[float] = []
+
+    async def record(seconds: float) -> None:
+        delays.append(seconds)
+
+    monkeypatch.setattr(engine, "_sleep", record)
+    return delays
+
+
+def _counting_fetcher(
+    results: Sequence[FetchResult | Exception],
+) -> tuple[Fetcher, list[str]]:
+    """Answer each call with the next canned result, then repeat the last one."""
+    sent: list[str] = []
+
+    async def canned(
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        headers: Headers | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        sent.append(url)
+        answer = results[min(len(sent) - 1, len(results) - 1)]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    return canned, sent
+
+
+async def test_a_sites_requests_are_spaced_by_its_own_rate_limit(
+    server_url: str, slept: list[float]
+) -> None:
+    # One search page and two product pages, so two gaps. The first request waits
+    # for nothing: there is nothing to be polite about yet, and starting every
+    # site with a dead 800 ms would make a whole run feel broken.
+    result = await run_site(_profile(server_url, rate_limit_ms=250), "test parfum")
+
+    assert result.status == "ok"
+    assert len(slept) == 2
+    # Measured from when the previous request finished, so a slow page shortens
+    # the wait that follows it rather than being chased immediately.
+    assert all(0 < delay <= 0.25 for delay in slept)
+
+
+async def test_one_site_waiting_does_not_hold_up_another(
+    server_url: str, slept: list[float]
+) -> None:
+    # The pacing state has to be per site. A module-level gate or timestamp would
+    # quietly serialize the whole run, and every other test would still pass.
+    profiles = [
+        _profile(server_url, id="yavas", rate_limit_ms=800),
+        _profile(server_url, id="hizli", rate_limit_ms=0),
+    ]
+
+    results = await run_sites(profiles, "test parfum")
+
+    assert [r.status for r in results] == ["ok", "ok"]
+    # Only the slow site's two gaps. Shared state would have made the fast site
+    # wait its neighbor's 800 ms as well.
+    assert len(slept) == 2
+    assert all(delay > 0.5 for delay in slept)
+
+
+async def test_a_request_that_failed_once_is_retried_and_the_site_is_fine(
+    slept: list[float],
+) -> None:
+    # A dropped connection is not a broken profile. Reporting the site as an
+    # error over one blip drops a real shop out of the comparison.
+    page = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([TimeoutError("connection reset"), page])
+    profile = _profile("https://x.test", rate_limit_ms=0)
+    profile["search"]["result_item"] = ".none"
+
+    result = await run_site(profile, "test parfum", fetcher=fetcher)
+
+    assert result.status == "empty"
+    assert len(sent) == 2
+    # Backing off, not retrying instantly, and not the site's own rate_limit_ms
+    # either: that is spacing between requests that worked, this is recovering
+    # from one that was refused, and a profile setting it to 0 must not turn a
+    # refusal into three requests back to back.
+    assert slept == [engine.RETRY_BACKOFF_MS / 1000]
+
+
+async def test_a_shop_that_keeps_refusing_is_given_up_on(slept: list[float]) -> None:
+    # Bounded, and doubling in between. Retrying forever would hang the run on
+    # one dead shop, and retrying hard would be the request flood this avoids.
+    fetcher, sent = _counting_fetcher([TimeoutError("connection reset")])
+
+    result = await run_site(
+        _profile("https://x.test", rate_limit_ms=0), "test parfum", fetcher=fetcher
+    )
+
+    assert result.status == "error"
+    assert "TimeoutError" in str(result.detail)
+    assert len(sent) == engine.MAX_ATTEMPTS
+    assert slept == [1.0, 2.0]
+
+
+async def test_a_shop_asking_for_a_pause_is_asked_again_after_one(
+    slept: list[float],
+) -> None:
+    # 429 is the shop saying so directly. Reading its body as a product page
+    # would report the site as suspect when nothing about the profile is wrong.
+    refusal = FetchResult(
+        url="https://x.test/", status_code=429, html="slow down", strategy="httpx"
+    )
+    empty = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([refusal, empty])
+    profile = _profile("https://x.test", rate_limit_ms=0)
+    profile["search"]["result_item"] = ".none"
+
+    result = await run_site(profile, "test parfum", fetcher=fetcher)
+
+    assert result.status == "empty"
+    assert len(sent) == 2
+
+
+async def test_a_page_that_is_simply_missing_is_not_asked_for_again(
+    slept: list[float],
+) -> None:
+    # A 404 is an answer. Sending it twice more changes nothing and only adds
+    # load to a shop that already said what it had to say.
+    missing = FetchResult(
+        url="https://x.test/", status_code=404, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([missing])
+    profile = _profile("https://x.test", rate_limit_ms=0)
+    profile["search"]["result_item"] = ".none"
+
+    result = await run_site(profile, "test parfum", fetcher=fetcher)
+
+    assert result.status == "empty"
+    assert len(sent) == 1
+    assert slept == []
+
+
+async def test_a_missing_browser_is_reported_at_once_not_retried(
+    slept: list[float],
+) -> None:
+    # An install that is not there will not be there on the third try. Retrying
+    # it only delays the one message that says what to install.
+    fetcher, sent = _counting_fetcher([PlaywrightNotInstalled("no browser")])
+
+    result = await run_site(
+        _profile("https://x.test", rate_limit_ms=0), "test parfum", fetcher=fetcher
+    )
+
+    assert result.status == "error"
+    assert "PlaywrightNotInstalled" in str(result.detail)
+    assert len(sent) == 1
+    assert slept == []

@@ -28,12 +28,10 @@ raises is whether the schema should have covered it.
 `run_sites` is the other half: it starts every site at once and lets each one walk
 its own pages in order.
 
-TODO: the per-site semaphore, the profile's rate_limit_ms delay and retries. Until
-that lands a site fires its requests back to back with no pause between them, so
-this should not be pointed at a live shop: the targets are small businesses, not
-infrastructure. A POST endpoint rung multiplies this further, one request per size
-option a product page names instead of one request per product, so a site on that
-layer is not just unpaced but unpaced several times over per product.
+Pacing is worth the care because the targets are small businesses, not
+infrastructure, and a POST endpoint rung multiplies every visit: even paced, such
+a site issues one request per size option a product page names instead of one per
+product, so its runs are the longest and the ones a shop would notice first.
 """
 
 from __future__ import annotations
@@ -41,6 +39,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -59,9 +58,39 @@ from parfum_finder.extract import (
     select_all,
     select_field,
 )
-from parfum_finder.fetch import Fetcher, FetchResult, Strategy, fetch
+from parfum_finder.fetch import (
+    Fetcher,
+    FetchResult,
+    FormData,
+    Headers,
+    Method,
+    PlaywrightNotInstalled,
+    Strategy,
+    fetch,
+)
 from parfum_finder.normalize import casefold_tr, parse_size_ml
 from parfum_finder.profiles import DEFAULT_HOOKS_DIR, SiteHooks, load_site_hooks
+
+# How many times one request may be sent before the failure is the caller's.
+# Three is two recoveries: enough for a dropped connection or a shop catching its
+# breath, few enough that a site which is properly down costs seconds, not minutes.
+MAX_ATTEMPTS = 3
+
+# The wait before the first retry, doubled for the next one. Deliberately not
+# rate_limit_ms: normal spacing is politeness between requests that worked, this
+# is backing off from one that was refused, and a profile setting the first to
+# zero must not turn a 429 into three requests in a row.
+RETRY_BACKOFF_MS = 1000
+
+# Statuses worth sending the same request for a second time. 429 is the shop
+# asking directly; the 5xx ones are it having a bad moment. A 403 or a 404 is an
+# answer, and repeating the request cannot change it.
+RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+
+# Bound at module level so tests can replace it and assert on the delays that were
+# asked for. Sleeping for real would make the suite pay the pacing it is checking,
+# and asserting on elapsed wall clock instead measures how busy the machine is.
+_sleep = asyncio.sleep
 
 
 class ExtractionFailed(RuntimeError):
@@ -153,6 +182,110 @@ class SiteResult:
     detail: str | None
 
 
+def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
+    """Wrap a fetcher so one site's requests go out one at a time, spaced apart.
+
+    The state lives in this closure, so it is per call and per site. Two sites
+    running side by side never wait on each other, which is the whole point of
+    starting them together; a module-level gate would quietly turn the run serial
+    and nothing would look wrong except the clock.
+
+    The semaphore is the seriality guarantee rather than a throughput knob: the
+    flow through one site is already sequential, but a hook is free to fire
+    requests of its own, and this is what keeps such a site from becoming the
+    burst the pacing exists to prevent.
+
+    Everything happens while holding it, the waiting included. Deciding outside
+    the gate lets two callers both look at the same last-finished stamp, both
+    conclude the wait is over, and send together.
+
+    Spacing is measured from when the previous request finished, not when it
+    started, so a slow page is not followed immediately by the next one. The
+    first request of a site waits for nothing, since there is nothing to be
+    polite about yet.
+
+    Retries cover the transient half only. A refused connection, a timeout, a 429
+    or a 5xx get another go after a backoff; a missing playwright install, an
+    unknown strategy or a POST a strategy cannot do are settings that will fail
+    the same way every time, and repeating them just delays the error message.
+    A status this gives up on is handed back as it is, unraised: reading what a
+    503 page contains is the extraction layer's business, and it already knows
+    how to call an unreadable page suspect.
+    """
+    gate = asyncio.Semaphore(1)
+    rate_limit_s = int(profile.get("rate_limit_ms", 800)) / 1000
+    last_finished: float | None = None
+
+    async def attempt(
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method,
+        data: FormData | None,
+        headers: Headers | None,
+        timeout_s: int,
+    ) -> FetchResult:
+        nonlocal last_finished
+        if last_finished is not None:
+            waited = time.monotonic() - last_finished
+            if waited < rate_limit_s:
+                await _sleep(rate_limit_s - waited)
+        try:
+            return await fetcher(
+                url,
+                strategy,
+                method=method,
+                data=data,
+                headers=headers,
+                timeout_s=timeout_s,
+            )
+        finally:
+            last_finished = time.monotonic()
+
+    async def paced(
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        headers: Headers | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        async with gate:
+            for retries_left in range(MAX_ATTEMPTS - 1, 0, -1):
+                try:
+                    result = await attempt(
+                        url,
+                        strategy,
+                        method=method,
+                        data=data,
+                        headers=headers,
+                        timeout_s=timeout_s,
+                    )
+                except (PlaywrightNotInstalled, NotImplementedError, ValueError):
+                    raise
+                except Exception:
+                    pass
+                else:
+                    if result.status_code not in RETRY_STATUS:
+                        return result
+                attempts_made = MAX_ATTEMPTS - 1 - retries_left
+                await _sleep(RETRY_BACKOFF_MS * 2**attempts_made / 1000)
+            # The last attempt is unguarded on purpose: whatever it gives is the
+            # answer, so a caller sees the real exception rather than one this
+            # wrapper reworded.
+            return await attempt(
+                url,
+                strategy,
+                method=method,
+                data=data,
+                headers=headers,
+                timeout_s=timeout_s,
+            )
+
+    return paced
+
+
 async def run_site(
     profile: dict[str, Any],
     query: str,
@@ -161,6 +294,12 @@ async def run_site(
     fetcher: Fetcher = fetch,
 ) -> SiteResult:
     """Run one site and classify what came back instead of raising.
+
+    It is also where the pacing goes on. The fetcher handed down is wrapped so
+    this site's requests leave one at a time, `rate_limit_ms` apart, with a
+    bounded backoff retry on the transient ones. `search_site` stays unpaced
+    because offline validation drives it against saved fixtures, where sleeping
+    between reads off a disk buys nobody anything.
 
     This is `search_site` with the failures turned into data. Callers that run
     many sites at once want one site's breakage to be a row in the report, not
@@ -177,8 +316,9 @@ async def run_site(
     the user this site is out of this comparison and why.
     """
     site_id = str(profile["id"])
+    paced = _paced_fetcher(profile, fetcher)
     try:
-        hits = await search_site(profile, query, hooks_dir=hooks_dir, fetcher=fetcher)
+        hits = await search_site(profile, query, hooks_dir=hooks_dir, fetcher=paced)
     except ExtractionFailed as e:
         return SiteResult(site_id, "suspect", (), str(e))
     except Exception as e:
