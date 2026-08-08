@@ -11,18 +11,26 @@ same useless step, so each case pins the step by name.
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, unquote_plus
 
 import pytest
 
+from parfum_finder.fetch import FetchResult, FormData, Method, Strategy
+from parfum_finder.profiles import load_site_profile
 from parfum_finder.validate import (
+    format_live_report,
     format_report,
+    live_query,
     site_ids,
     validate_all_offline,
+    validate_live,
     validate_offline,
 )
 
 _ROOT = Path(__file__).resolve().parent.parent
 _SITES_DIR = _ROOT / "sites"
+_FIXTURES_DIR = _ROOT / "fixtures"
+_PLATFORMS_DIR = _ROOT / "platforms"
 
 
 def _corrupted_sites_dir(
@@ -211,3 +219,232 @@ async def test_an_empty_sites_directory_says_so_instead_of_passing(
 
     assert results == ()
     assert format_report(results) == "no site profiles to validate."
+
+
+class _FakeSite:
+    """A stand-in for one live site, answering the search page then the rest.
+
+    Live validation is about what a site does today, and a test that depends on
+    a real shop's inventory today tests the shop, not this module. The fetcher
+    is injectable for exactly this, so every live case here drives it with bytes
+    the test chose.
+    """
+
+    def __init__(self, search_html: str, product_html: str, status_code: int = 200):
+        self._search_html = search_html
+        self._product_html = product_html
+        self._status_code = status_code
+        self.served_search = False
+
+    async def __call__(
+        self,
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        html = self._product_html
+        if not self.served_search:
+            self.served_search = True
+            html = self._search_html
+        return FetchResult(
+            url=url, status_code=self._status_code, html=html, strategy=strategy
+        )
+
+
+class _DeadSite:
+    """A host that cannot be reached at all."""
+
+    async def __call__(
+        self,
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        raise ConnectionError(f"connection refused: {url}")
+
+
+def _fixture_site(site_id: str) -> _FakeSite:
+    directory = _FIXTURES_DIR / site_id
+    return _FakeSite(
+        (directory / "search.html").read_text(),
+        (directory / "product.html").read_text(),
+    )
+
+
+def test_every_profile_can_read_its_captured_query_back() -> None:
+    # Anything invented here can be a perfume the shop does not stock, and an
+    # empty results page for it looks exactly like a dead selector. The captured
+    # URL is the one query each site is known to have answered.
+    #
+    # Asserted as a round-trip rather than "something came back": a query that
+    # is read back but does not rebuild the captured URL sends a different
+    # request than the one that was captured. A fixture spelling a space as "+"
+    # is the real case, since it comes back with the plus still in it and gets
+    # escaped to %2B on the way out. This gates every live run, so it covers
+    # every profile rather than one.
+    for site_id in site_ids():
+        profile = load_site_profile(_SITES_DIR / f"{site_id}.json", _PLATFORMS_DIR)
+        captured = json.loads((_FIXTURES_DIR / site_id / "meta.json").read_text())[
+            "pages"
+        ]["search"]["url"]
+
+        query = live_query(profile, _FIXTURES_DIR)
+
+        rebuilt = str(profile["search"]["url_template"]).format(
+            base_url=profile["base_url"], query=quote(query, safe="")
+        )
+        # Compared decoded, because the engine escapes a space as %20 while one
+        # capture spells it "+". Those two request the same search; a query that
+        # lost or gained a character does not, and that is what this catches.
+        assert unquote_plus(rebuilt) == unquote_plus(captured), site_id
+
+
+def test_a_search_template_that_cannot_produce_the_captured_url_fails_loud() -> None:
+    # Two descriptions of the same request disagreeing is a bug in the tooling.
+    # Searching for a guessed word instead would report the site as broken.
+    profile = json.loads((_SITES_DIR / "venco.json").read_text())
+    profile["search"]["url_template"] = "{base_url}/nothing-like-it?q={query}"
+
+    with pytest.raises(LookupError):
+        live_query(profile, _FIXTURES_DIR)
+
+
+async def test_a_working_profile_passes_against_a_site_that_still_answers() -> None:
+    # The baseline: the site serves what it served when it was captured, so
+    # nothing may be reported as having moved.
+    result = await validate_live("venco", fetcher=_fixture_site("venco"))
+
+    assert result.ok, result.failure
+    assert [check.name for check in result.checks] == [
+        "profile",
+        "query",
+        "reachable",
+        "search",
+        "prices",
+    ]
+    assert result.fallbacks == ()
+
+
+async def test_an_unreachable_site_is_not_reported_as_a_broken_profile() -> None:
+    # A shop being down is not a selector that died, and sending someone to
+    # audit a profile over it wastes the hour this command exists to save.
+    result = await validate_live("venco", fetcher=_DeadSite())
+
+    assert not result.ok
+    assert result.failure is not None
+    assert result.failure.name == "reachable"
+    assert "ConnectionError" in result.failure.detail
+    assert result.fallbacks == ()
+
+
+async def test_zero_results_on_a_full_page_blames_the_result_selector() -> None:
+    # The first row of the fail-loud table: HTTP 200, a page full of markup, and
+    # nothing the profile recognises.
+    full_page = "<html><body>" + ("<div class='x'>text</div>" * 500) + "</body></html>"
+    site = _FakeSite(full_page, full_page)
+
+    result = await validate_live("venco", fetcher=site)
+
+    assert not result.ok
+    assert result.failure is not None
+    assert result.failure.name == "search"
+    assert "result_item" in result.failure.detail
+
+
+async def test_zero_results_on_a_thin_page_blames_the_site_not_the_profile() -> None:
+    # The same empty answer on a few hundred bytes is a challenge or error page
+    # wearing a 200. Calling that a dead selector is a lie about the profile.
+    site = _FakeSite("<html><body>Access denied</body></html>", "")
+
+    result = await validate_live("venco", fetcher=site)
+
+    assert not result.ok
+    assert result.failure is not None
+    assert result.failure.name == "search"
+    assert "refusing the request" in result.failure.detail
+
+
+async def test_a_broken_layer_reports_which_other_layer_could_take_over(
+    tmp_path: Path,
+) -> None:
+    # The reason live mode exists beyond "it broke": a profile reading a page on
+    # a dead layer while the same page publishes JSON-LD is a one-field repair,
+    # and a report that does not say so reads like the site stopped publishing.
+    sites_dir = _corrupted_sites_dir(
+        tmp_path,
+        "venco",
+        extraction="css",
+        product={"variant_container": ".no-such-size"},
+        mutate=lambda p: p["variant_rules"].update({"size_from": "title"}),
+    )
+    search_html = (
+        "<html><body>" + "<div class='card-product'>"
+        "<a class='c-p-i-link' href='/p/1'>Dior Sauvage 5 ml</a></div>"
+        * 40
+        + "</body></html>"
+    )
+    product_html = """
+    <html><body><script type="application/ld+json">
+    {"@type": "Product", "name": "Dior Sauvage EDP 5 ml",
+     "offers": {"@type": "Offer", "price": "149.90", "priceCurrency": "TRY",
+                "availability": "https://schema.org/InStock"}}
+    </script></body></html>
+    """
+    site = _FakeSite(search_html, product_html)
+
+    result = await validate_live("venco", sites_dir=sites_dir, fetcher=site)
+
+    assert not result.ok
+    working = [check.name for check in result.fallbacks if check.ok]
+    assert working == ["jsonld"]
+    # Every other layer is reported too, including the ones with no config to
+    # run: a layer left out reads as one that was tried and failed.
+    assert {check.name for check in result.fallbacks} == {
+        "jsonld",
+        "endpoint",
+        "embedded_json",
+    }
+
+
+async def test_the_live_report_names_the_edit_that_would_repair_the_profile(
+    tmp_path: Path,
+) -> None:
+    # The fix line has to name sites/<id>.json. A platform template is shared,
+    # and repairing one site by editing it moves every other site on it.
+    sites_dir = _corrupted_sites_dir(
+        tmp_path,
+        "venco",
+        extraction="css",
+        product={"variant_container": ".no-such-size"},
+        mutate=lambda p: p["variant_rules"].update({"size_from": "title"}),
+    )
+    search_html = (
+        "<html><body>" + "<div class='card-product'>"
+        "<a class='c-p-i-link' href='/p/1'>Dior Sauvage 5 ml</a></div>"
+        * 40
+        + "</body></html>"
+    )
+    product_html = (
+        '<html><body><script type="application/ld+json">'
+        '{"@type": "Product", "name": "Dior Sauvage EDP 5 ml", "offers": '
+        '{"@type": "Offer", "price": "149.90", "availability": "InStock"}}'
+        "</script></body></html>"
+    )
+    offline = await validate_offline("venco")
+    live = await validate_live(
+        "venco", sites_dir=sites_dir, fetcher=_FakeSite(search_html, product_html)
+    )
+
+    report = format_live_report(((offline, live),))
+
+    assert "ok offline" in report
+    assert "BROKEN live" in report
+    assert '"extraction": "jsonld"' in report
+    assert "sites/venco.json" in report
+    assert "0/1 profiles pass live" in report

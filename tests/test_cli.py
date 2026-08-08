@@ -239,3 +239,39 @@ def test_no_subcommand_exits_with_usage_error() -> None:
             main()
 
     assert exc_info.value.code != 0
+
+
+def test_the_live_flag_runs_the_live_pass_and_prints_both_columns(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Without --live nothing may touch the network, and with it both passes have
+    # to reach the report: a live run that printed only the offline column would
+    # hide the very break it went out to find.
+    from parfum_finder.validate import Check, SiteValidation
+
+    passing = SiteValidation("venco", (Check("prices", True, "2 priced"),))
+    broken = SiteValidation(
+        "venco",
+        (Check("prices", False, "the 'css' layer read nothing"),),
+        (Check("jsonld", True, "reads 3 priced decant size(s)"),),
+    )
+
+    async def fake_offline(ids: object = None, **kwargs: object) -> object:
+        return (passing,)
+
+    async def fake_live(ids: object = None, **kwargs: object) -> object:
+        return (broken,)
+
+    monkeypatch.setattr(cli, "validate_all_offline", fake_offline)
+    monkeypatch.setattr(cli, "validate_all_live", fake_live)
+    monkeypatch.setattr("sys.argv", ["parfum-finder", "validate", "--live"])
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+
+    out = capsys.readouterr().out
+    assert "ok offline" in out
+    assert "BROKEN live" in out
+    assert 'set "extraction": "jsonld"' in out
+    # A break has to fail the command, not merely print, or CI reads as green.
+    assert exit_info.value.code == 1

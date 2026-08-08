@@ -13,24 +13,39 @@ is also why the site's own `search_site` drives this rather than a second, more
 convenient reimplementation of the ladder. A check that runs a different flow
 than production only proves the check works.
 
-TODO: --live mode, marking a site "suspect" at runtime when checks fail, and an
-age badge based on when a profile was last (re)discovered.
+Live mode asks the site the same question the fixtures answered, with the query
+the fixture was captured with, and adds the one thing offline mode cannot see: a
+profile that still agrees with a saved page from last month but not with the
+site as it is today. When it breaks, the other three extraction layers are tried
+on a real product page, so the report says whether the profile can be repaired
+by moving it to another layer or whether the site stopped publishing the data
+altogether.
+
+TODO: marking a site "suspect" at runtime when checks fail, and an age badge
+based on when a profile was last (re)discovered.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, unquote_plus, urljoin, urlparse
 
 from selectolax.parser import HTMLParser
 
-from parfum_finder.engine import ExtractionFailed, search_site
-from parfum_finder.extract import select_field
-from parfum_finder.fetch import FetchResult, FormData, Method, Strategy
+from parfum_finder.engine import ExtractionFailed, apply_variant_rules, search_site
+from parfum_finder.extract import (
+    RawVariant,
+    extract_css_variants,
+    extract_embedded_variants,
+    extract_jsonld_variants,
+    select_field,
+)
+from parfum_finder.fetch import Fetcher, FetchResult, FormData, Method, Strategy, fetch
 from parfum_finder.profiles import (
     DEFAULT_HOOKS_DIR,
     DEFAULT_PLATFORMS_DIR,
@@ -69,10 +84,17 @@ class SiteValidation:
     Checks stop at the first failure. Each one builds on the one before it, so
     running the rest after a break would only report the same break again in
     less useful words.
+
+    `fallbacks` is filled in by live mode when a profile broke: one entry per
+    extraction layer other than the one the profile uses, saying whether that
+    layer would read the page today. It is empty for a profile that works and
+    for offline mode, which has nothing new to learn from a page it already
+    knows the answer for.
     """
 
     site_id: str
     checks: tuple[Check, ...]
+    fallbacks: tuple[Check, ...] = field(default=())
 
     @property
     def ok(self) -> bool:
@@ -314,6 +336,400 @@ async def validate_all_offline(
     )
 
 
+# The extraction ladder, most durable first. Live mode walks it when a profile
+# breaks, to say whether another layer can still read the page.
+_LAYERS = ("jsonld", "endpoint", "embedded_json", "css")
+
+# A search page that came back this small answered with something other than a
+# result list -- a challenge page, an error page, a redirect stub. Zero results
+# on a page like that says nothing about the profile's selectors, which is the
+# distinction the fail-loud table draws between "0 results on a full page" and
+# an empty answer.
+_THIN_PAGE_BYTES = 5000
+
+
+class _RecordingFetcher:
+    """The real fetcher, remembering what came back.
+
+    Live mode needs the search page's status code and size to tell a dead
+    selector apart from a site that refused the request, and search_site does
+    not hand those back. Wrapping the fetcher gets them without fetching the
+    page a second time, and keeps production's own flow the thing being
+    measured.
+    """
+
+    def __init__(self, inner: Fetcher):
+        self._inner = inner
+        self.pages: list[FetchResult] = []
+
+    async def __call__(
+        self,
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        result = await self._inner(
+            url, strategy, method=method, data=data, timeout_s=timeout_s
+        )
+        self.pages.append(result)
+        return result
+
+
+def live_query(
+    profile: Mapping[str, Any], fixtures_dir: Path = DEFAULT_FIXTURES_DIR
+) -> str:
+    """The query this site's fixture was captured with, read back out of its URL.
+
+    Live mode has to search for something, and anything invented here can be a
+    perfume the shop genuinely does not stock -- which comes back as an empty
+    results page and reads exactly like a dead selector. The captured search URL
+    is the one query this site is known to have answered with a real card, so it
+    is the only query that makes an empty answer mean something.
+
+    Raises LookupError when the profile's template cannot be matched against the
+    captured URL. That is a mismatch between two things that are supposed to
+    describe the same request, and guessing a query instead would turn it into a
+    report that the site broke.
+    """
+    meta = json.loads((fixtures_dir / str(profile["id"]) / "meta.json").read_text())
+    captured = str(meta["pages"]["search"]["url"])
+    template = str(profile["search"]["url_template"])
+    pattern = (
+        re.escape(template)
+        .replace(re.escape("{base_url}"), re.escape(str(profile["base_url"])))
+        .replace(re.escape("{query}"), "(.+)")
+    )
+    match = re.fullmatch(pattern, captured)
+    if match is None:
+        raise LookupError(
+            f"the search template {template!r} does not describe the captured "
+            f"search URL {captured}, so the query it was captured with cannot "
+            f"be read back"
+        )
+    # A query sitting in the query string may spell its spaces as "+", and one
+    # real capture does. Reading that back with plain unquote would search for
+    # "club+de+nuit" with the pluses still in it, which is not what was asked
+    # the first time and comes back as a shop that stopped stocking anything.
+    # In a path segment a "+" is a literal plus, so the two are decoded apart.
+    question = captured.find("?")
+    in_query_string = 0 <= question < match.start(1)
+    return unquote_plus(match.group(1)) if in_query_string else unquote(match.group(1))
+
+
+async def validate_live(
+    site_id: str,
+    *,
+    sites_dir: Path = DEFAULT_SITES_DIR,
+    fixtures_dir: Path = DEFAULT_FIXTURES_DIR,
+    platforms_dir: Path = DEFAULT_PLATFORMS_DIR,
+    hooks_dir: Path = DEFAULT_HOOKS_DIR,
+    fetcher: Fetcher = fetch,
+) -> SiteValidation:
+    """Run one site's profile against the real site.
+
+    Same contract as offline mode: a break is the return value, not an
+    exception, so one unreachable host cannot end a run over every site. A
+    transport error, a browser that is not installed and an HTTP 403 all land in
+    the report as their own wording, because none of them is a broken profile
+    and auditing selectors over one of them is an hour spent on nothing.
+
+    When the profile does break, every other extraction layer is tried against a
+    real product page and the result goes in `fallbacks`. That is what turns
+    "css stopped working" into either "move this profile to jsonld" or "this
+    site publishes nothing readable any more", which are very different amounts
+    of work.
+
+    `fetcher` is a parameter for the same reason it is one in search_site: the
+    tests for this drive it with a stand-in, since a test that depends on a
+    shop's inventory today is not a test of this module.
+    """
+    checks: list[Check] = []
+
+    try:
+        profile = load_site_profile(sites_dir / f"{site_id}.json", platforms_dir)
+    except FileNotFoundError:
+        raise
+    except (ValueError, KeyError) as e:
+        checks.append(Check("profile", False, str(e)))
+        return SiteValidation(site_id, tuple(checks))
+    checks.append(
+        Check(
+            "profile",
+            True,
+            f"loads, {profile['extraction']} layer over {profile['strategy']}",
+        )
+    )
+
+    try:
+        query = live_query(profile, fixtures_dir)
+    except (OSError, LookupError, KeyError, json.JSONDecodeError) as e:
+        checks.append(Check("query", False, str(e)))
+        return SiteValidation(site_id, tuple(checks))
+    checks.append(Check("query", True, f"searching the live site for {query!r}"))
+
+    recorder = _RecordingFetcher(fetcher)
+    try:
+        hits = await search_site(profile, query, hooks_dir=hooks_dir, fetcher=recorder)
+    except ExtractionFailed as e:
+        checks.append(Check("extraction", False, str(e)))
+        return SiteValidation(
+            site_id,
+            tuple(checks),
+            await _probe_other_layers(profile, recorder, fetcher),
+        )
+    except Exception as e:  # noqa: BLE001 -- see below
+        # Anything the network, a bot wall or a missing browser can throw. This
+        # is deliberately wide: the alternative is a list of every exception
+        # three fetch backends can raise, and the one that is not on the list
+        # ends the whole multi-site run over a site that was merely down.
+        checks.append(Check("reachable", False, f"{type(e).__name__}: {e}"))
+        return SiteValidation(site_id, tuple(checks))
+
+    page = recorder.pages[0] if recorder.pages else None
+    if page is None or page.status_code != 200:
+        status = page.status_code if page is not None else "no response"
+        checks.append(Check("reachable", False, f"the search page answered {status}"))
+        return SiteValidation(site_id, tuple(checks))
+    checks.append(Check("reachable", True, f"search page 200, {len(page.html)} bytes"))
+
+    cards = _count_result_cards(profile, page.html)
+    if not cards:
+        checks.append(_no_results_check(profile, page))
+        return SiteValidation(
+            site_id,
+            tuple(checks),
+            await _probe_other_layers(profile, recorder, fetcher),
+        )
+    checks.append(Check("search", True, f"{cards} result card(s) for {query!r}"))
+
+    priced = tuple(
+        variant
+        for hit in hits
+        for variant in hit.variants
+        if variant.price_kurus is not None
+    )
+    if not priced:
+        checks.append(
+            Check(
+                "prices",
+                False,
+                f"the {profile['extraction']!r} layer read no priced decant size "
+                f"off any of the {cards} result(s)",
+            )
+        )
+        return SiteValidation(
+            site_id,
+            tuple(checks),
+            await _probe_other_layers(profile, recorder, fetcher),
+        )
+    checks.append(
+        Check(
+            "prices",
+            True,
+            f"{len(priced)} priced decant size(s) off the "
+            f"{profile['extraction']} layer",
+        )
+    )
+    return SiteValidation(site_id, tuple(checks))
+
+
+def _no_results_check(profile: Mapping[str, Any], page: FetchResult) -> Check:
+    """Why an empty results page is suspicious, or why it is not.
+
+    A full page that answered 200 with no card the profile recognises is the
+    first row of the fail-loud table: the selector most likely died. The same
+    empty answer on a page of a few hundred bytes is a challenge or an error
+    page wearing a 200, and blaming the selector for it sends whoever reads the
+    report to the wrong file.
+    """
+    selector = profile["search"]["result_item"]
+    if len(page.html) < _THIN_PAGE_BYTES:
+        return Check(
+            "search",
+            False,
+            f"the search page answered 200 with only {len(page.html)} bytes, "
+            f"which is too little to be a result list; the site is likely "
+            f"refusing the request rather than the profile being broken",
+        )
+    return Check(
+        "search",
+        False,
+        f"no card matched by result_item {selector!r} on a {len(page.html)} byte "
+        f"page that answered 200",
+    )
+
+
+def _count_result_cards(profile: Mapping[str, Any], html: str) -> int:
+    """How many result rows the profile's own selectors find on a search page."""
+    search = profile["search"]
+    return sum(
+        1
+        for node in HTMLParser(html).css(str(search["result_item"]))
+        if select_field(node, str(search["result_url"]))
+    )
+
+
+async def _probe_other_layers(
+    profile: Mapping[str, Any], recorder: _RecordingFetcher, fetcher: Fetcher
+) -> tuple[Check, ...]:
+    """Try every extraction layer the profile is not using, on a real page.
+
+    Every layer is reported, including the ones that cannot be tried at all: a
+    layer left out of the report reads as one that was tried and failed, and
+    "no fallback exists" is the answer that makes someone rewrite a profile from
+    scratch. A layer with no configuration in this profile has nothing to run,
+    so it says so instead.
+
+    The product page comes from the search results that were just fetched, so
+    nothing is probed against a page the live search did not actually offer.
+    """
+    product_url = _first_result_url(profile, recorder)
+    if product_url is None:
+        return (
+            Check(
+                "fallback",
+                False,
+                "the live search offered no product page, so no other "
+                "extraction layer could be tried",
+            ),
+        )
+    # The run that just failed usually fetched this page already. Asking for it
+    # a second time is a second request at a shop that may be rate-limiting, and
+    # if that one gets refused the fallback diagnosis is lost with it, which is
+    # the one thing the live pass went out to produce. The recorded page is only
+    # missing for a layer that never opens the product page, such as a GET
+    # endpoint that reads a JSON URL instead.
+    html = next(
+        (
+            page.html
+            for page in recorder.pages[1:]
+            if page.status_code == 200 and _path(page.url) == _path(product_url)
+        ),
+        None,
+    )
+    if html is None:
+        try:
+            fetched = await fetcher(
+                product_url,
+                profile["strategy"],
+                timeout_s=int(profile.get("timeout_s", 20)),
+            )
+        except Exception as e:  # noqa: BLE001 -- same reason as in validate_live
+            return (Check("fallback", False, f"{product_url} could not be read: {e}"),)
+        html = fetched.html
+
+    return tuple(
+        _probe_layer(profile, layer, html)
+        for layer in _LAYERS
+        if layer != profile["extraction"]
+    )
+
+
+def _first_result_url(
+    profile: Mapping[str, Any], recorder: _RecordingFetcher
+) -> str | None:
+    """The first product link on the recorded search page, if there is one."""
+    if not recorder.pages:
+        return None
+    search = profile["search"]
+    page = recorder.pages[0]
+    for node in HTMLParser(page.html).css(str(search["result_item"])):
+        href = select_field(node, str(search["result_url"]))
+        if href:
+            return urljoin(page.url, href)
+    return None
+
+
+def _probe_layer(profile: Mapping[str, Any], layer: str, html: str) -> Check:
+    """Whether one extraction layer could read priced decants off this page.
+
+    The profile's own variant rules still decide what counts as a decant, so a
+    layer that "works" here works in the sense the site needs it to: it produces
+    rows the engine would keep, not merely rows.
+    """
+    try:
+        rows = _rows_for_layer(profile, layer, html)
+    except _LayerUnavailable as e:
+        return Check(layer, False, str(e))
+    except Exception as e:  # noqa: BLE001 -- a layer that throws is a layer that
+        # does not work here, and that is the whole question being asked.
+        return Check(layer, False, f"{type(e).__name__}: {e}")
+    variants = apply_variant_rules(rows, profile["variant_rules"])
+    priced = [v for v in variants if v.price_kurus is not None]
+    if not priced:
+        return Check(layer, False, f"read no priced decant size ({len(rows)} raw rows)")
+    return Check(layer, True, f"reads {len(priced)} priced decant size(s)")
+
+
+class _LayerUnavailable(Exception):
+    """This profile carries no configuration for the layer being probed."""
+
+
+def _rows_for_layer(
+    profile: Mapping[str, Any], layer: str, html: str
+) -> tuple[RawVariant, ...]:
+    """Run one extraction layer over a product page's bytes."""
+    if layer == "jsonld":
+        return extract_jsonld_variants(html)
+    if layer == "embedded_json":
+        config = profile.get("embedded_json")
+        if not config:
+            raise _LayerUnavailable(
+                "not tried: this profile has no embedded_json block to run"
+            )
+        return extract_embedded_variants(html, config)
+    if layer == "css":
+        config = profile.get("product")
+        if not config:
+            raise _LayerUnavailable("not tried: this profile has no product selectors")
+        return extract_css_variants(html, config)
+    config = profile.get("endpoint")
+    if not config:
+        raise _LayerUnavailable("not tried: this profile has no endpoint block")
+    # Neither endpoint shape can be answered from the product page's bytes: a
+    # GET endpoint lives at its own URL and a POST one answers a size option at
+    # a time, built out of ids read off the page. Running either from here would
+    # be a second copy of the engine's request loop, and a subtly wrong copy
+    # would report a fallback that production cannot actually use.
+    raise _LayerUnavailable(
+        "not tried: the endpoint layer is its own request, which this probe "
+        "does not make"
+    )
+
+
+async def validate_all_live(
+    ids: tuple[str, ...] | None = None,
+    *,
+    sites_dir: Path = DEFAULT_SITES_DIR,
+    fixtures_dir: Path = DEFAULT_FIXTURES_DIR,
+    platforms_dir: Path = DEFAULT_PLATFORMS_DIR,
+    hooks_dir: Path = DEFAULT_HOOKS_DIR,
+    fetcher: Fetcher = fetch,
+) -> tuple[SiteValidation, ...]:
+    """Validate every site against the live web, or just the ones named.
+
+    Serial like the offline pass, and here for a second reason beyond ordered
+    output: this is the one part of the project that hits several shops in a row
+    on purpose, and doing it one request at a time is the polite version.
+    """
+    return tuple(
+        [
+            await validate_live(
+                site_id,
+                sites_dir=sites_dir,
+                fixtures_dir=fixtures_dir,
+                platforms_dir=platforms_dir,
+                hooks_dir=hooks_dir,
+                fetcher=fetcher,
+            )
+            for site_id in (ids if ids is not None else site_ids(sites_dir))
+        ]
+    )
+
+
 def format_report(results: tuple[SiteValidation, ...]) -> str:
     """Render the validations as the offline half of the report in APP_FLOW §6.
 
@@ -337,6 +753,64 @@ def format_report(results: tuple[SiteValidation, ...]) -> str:
     lines.append("")
     lines.append(
         f"{len(results) - len(broken)}/{len(results)} profiles pass offline"
+        + (f"; broken: {', '.join(broken)}" if broken else "")
+    )
+    return "\n".join(lines)
+
+
+def format_live_report(
+    pairs: tuple[tuple[SiteValidation, SiteValidation], ...],
+) -> str:
+    """Render offline and live results side by side, as APP_FLOW §6 shows them.
+
+    Both columns are printed even when the offline one passes, because the pair
+    is the diagnosis: offline ok plus live broken means the site moved, while
+    both broken means the profile was already wrong about the bytes on disk and
+    the live run has nothing to add.
+
+    A live break is followed by what the other extraction layers said, one line
+    each, including the ones that could not be tried. A layer that works comes
+    with the edit that would adopt it, naming sites/<id>.json rather than the
+    platform template: a platform file is shared, and repairing one site by
+    editing it moves every other site on that platform too.
+    """
+    if not pairs:
+        return "no site profiles to validate."
+    width = max(len(offline.site_id) for offline, _ in pairs)
+    lines: list[str] = []
+    for offline, live in pairs:
+        offline_cell = "ok offline" if offline.ok else "BROKEN offline"
+        live_cell = "ok live" if live.ok else "BROKEN live"
+        summary = (
+            live.checks[-1].detail
+            if live.ok
+            else f"{live.failure.name}: {live.failure.detail}"
+            if live.failure is not None
+            else "no checks ran"
+        )
+        lines.append(
+            f"{offline.site_id:<{width}}  {offline_cell:<14}  "
+            f"{live_cell:<11}  {summary}"
+        )
+        if not offline.ok and offline.failure is not None:
+            lines.append(
+                f"{' ' * width}  offline: {offline.failure.name}: "
+                f"{offline.failure.detail}"
+            )
+        for fallback in live.fallbacks:
+            mark = "works now" if fallback.ok else "no"
+            lines.append(
+                f"{' ' * width}  -> {fallback.name} layer {mark}: {fallback.detail}"
+            )
+            if fallback.ok:
+                lines.append(
+                    f'{" " * width}     set "extraction": "{fallback.name}" in '
+                    f"sites/{live.site_id}.json"
+                )
+    broken = [live.site_id for _, live in pairs if not live.ok]
+    lines.append("")
+    lines.append(
+        f"{len(pairs) - len(broken)}/{len(pairs)} profiles pass live"
         + (f"; broken: {', '.join(broken)}" if broken else "")
     )
     return "\n".join(lines)

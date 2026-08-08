@@ -3,7 +3,7 @@
 Subcommands will be added incrementally as the project grows:
     probe <url>               - check which fetch strategy a site needs
     discover <url> [--id]     - generate a site profile
-    validate [<id>...]        - check that a profile still works (offline)
+    validate [<id>...] [--live] - check that a profile still works
     search <query> [--site]   - search for a perfume across sites
     (default) tui              - launch the interactive app
 
@@ -23,8 +23,12 @@ from parfum_finder.discover import format_report as format_discovery_report
 from parfum_finder.fetch import Strategy
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.probe import probe
+from parfum_finder.validate import (
+    format_live_report,
+    validate_all_live,
+    validate_all_offline,
+)
 from parfum_finder.validate import format_report as format_validation_report
-from parfum_finder.validate import validate_all_offline
 
 # Golden fixtures live outside the installed package, next to sites/ and
 # platforms/, because they are project data a person edits and reviews.
@@ -145,6 +149,16 @@ def main() -> None:
         metavar="ID",
         help="only validate these sites (default: every profile under sites/)",
     )
+    validate_parser.add_argument(
+        "--live",
+        action="store_true",
+        help=(
+            "after the offline pass, run each profile against the real site "
+            "with the query its fixture was captured with. A profile that "
+            "breaks live is reported together with what the other extraction "
+            "layers can still read off the page."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -172,16 +186,23 @@ def main() -> None:
         )
         print(format_discovery_report(discovery))
     elif args.command == "validate":
+        ids = tuple(args.site_id) or None
         try:
-            results = asyncio.run(validate_all_offline(tuple(args.site_id) or None))
+            results = asyncio.run(validate_all_offline(ids))
+            # Live mode runs the same sites in the same order, so the two passes
+            # zip into the side-by-side report without matching them up by id.
+            live = asyncio.run(validate_all_live(ids)) if args.live else ()
         except FileNotFoundError as e:
             # Being asked about a site that has no profile is a mistake in the
             # request, not a finding about a profile, so it gets its own exit
             # code and leaves 1 to mean "a profile is broken".
             print(f"no profile under sites/ for the site asked about: {e}")
             sys.exit(2)
-        print(format_validation_report(results))
-        if any(not result.ok for result in results):
+        if args.live:
+            print(format_live_report(tuple(zip(results, live, strict=True))))
+        else:
+            print(format_validation_report(results))
+        if any(not result.ok for result in (*results, *live)):
             # A broken profile has to fail the command, not just print in red:
             # this is what lets CI run offline validation as a gate instead of
             # producing output nobody reads.
