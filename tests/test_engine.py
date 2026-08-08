@@ -15,7 +15,12 @@ from typing import Any
 
 import pytest
 
-from parfum_finder.engine import ExtractionFailed, apply_variant_rules, search_site
+from parfum_finder.engine import (
+    ExtractionFailed,
+    apply_variant_rules,
+    run_site,
+    search_site,
+)
 from parfum_finder.extract import RawVariant
 
 
@@ -651,3 +656,87 @@ async def test_a_hook_that_reads_nothing_is_named_as_the_culprit(
 
     assert "parse_variants hook" in str(excinfo.value)
     assert "embedded_json" not in str(excinfo.value)
+
+
+async def test_a_working_site_reports_ok_with_what_it_saw(server_url: str) -> None:
+    result = await run_site(_profile(server_url), "test parfum")
+
+    assert result.status == "ok"
+    assert result.site_id == "testsite"
+    assert len(result.hits) == 2
+    # The detail is filled in on success too, so a site that quietly starts
+    # returning one size where it returned ten is visible without a rerun.
+    assert result.detail == "testsite: 2 product(s), 4 decant size(s)"
+
+
+async def test_a_shop_that_does_not_carry_it_is_empty_not_suspect(
+    server_url: str,
+) -> None:
+    # The distinction the whole type exists for. Nothing is wrong with this
+    # site, so flagging it would train the reader to ignore the flag.
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-search-empty?q={query}"
+
+    result = await run_site(profile, "yok boyle bir parfum")
+
+    assert result.status == "empty"
+    assert result.hits == ()
+
+
+async def test_a_page_of_full_bottles_only_is_empty_too(server_url: str) -> None:
+    # Results came back, prices were read, and the decant filter took them all.
+    # The profile is provably still working, so this is an answer, not a break.
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-search-mixed?q={query}"
+    profile["variant_rules"] = {**profile["variant_rules"], "max_size_ml": 1}
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "empty"
+
+
+async def test_a_profile_that_reads_nothing_is_suspect_not_empty(
+    server_url: str,
+) -> None:
+    # Results on the page, no price out of any of them. Reporting this as "not
+    # sold here" is the silent-empty failure: the site would drop out of the
+    # comparison and nobody would learn its profile needs rewriting.
+    profile = _profile(server_url)
+    profile["embedded_json"]["selector"] = "[data-product_variations_v2]"
+
+    result = await run_site(profile, "test")
+
+    assert result.status == "suspect"
+    assert result.hits == ()
+    # A suspect result has to say which layer stopped answering, because the
+    # only fix is someone opening that page and checking that selector.
+    assert "embedded_json" in str(result.detail)
+
+
+async def test_an_unreachable_site_is_an_error_and_does_not_raise(
+    unused_tcp_port: int,
+) -> None:
+    # Fault isolation: one dead site becomes a row in the report instead of an
+    # exception that ends the run for the sites that were fine.
+    profile = _profile(f"http://127.0.0.1:{unused_tcp_port}")
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "error"
+    assert result.site_id == "testsite"
+    # The exception type is in the message: a connection refused and a broken
+    # profile field are both "error" and want completely different fixes.
+    assert "Error" in str(result.detail)
+
+
+async def test_a_broken_hook_is_an_error_not_a_silent_empty(
+    server_url: str, tmp_path: Path
+) -> None:
+    # A hook bug is the profile's problem, not the shop's. It must never come
+    # back looking like the perfume is unavailable there.
+    _write_hook(tmp_path, "def before_search(profile, query):\n    query.strip()\n")
+
+    result = await run_site(_profile(server_url), "test parfum", hooks_dir=tmp_path)
+
+    assert result.status == "error"
+    assert "ValueError" in str(result.detail)

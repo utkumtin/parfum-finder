@@ -25,8 +25,7 @@ three named points. That file is meant to stay rare and to stay small: every hoo
 written is a sign the profile schema fell short, so the first question a new one
 raises is whether the schema should have covered it.
 
-TODO: define a SiteResult type here (site_id, status, variants, error/diagnostic)
-and the multi-site run loop, wrapping search_site in a per-site semaphore, the
+TODO: the multi-site run loop, wrapping run_site in a per-site semaphore, the
 profile's rate_limit_ms delay and retries. Until that lands search_site fires its
 requests back to back with no pause between them, so it should not be pointed at
 a live shop: the targets are small businesses, not infrastructure. A POST endpoint
@@ -116,6 +115,87 @@ class SearchHit:
 
     candidate: ProductCandidate
     variants: tuple[Variant, ...]
+
+
+SiteStatus = Literal["ok", "empty", "suspect", "error"]
+
+
+@dataclass(frozen=True)
+class SiteResult:
+    """What one site had to say about one query, and how much to trust it.
+
+    Four states, and the whole point of the type is the difference between the
+    middle two:
+
+    `ok` — hits came back. `empty` — the site answered fine and genuinely has
+    nothing, either no search results at all or nothing but full bottles and
+    testers. `suspect` — the site answered and the profile could not read it,
+    so what it has is unknown. `error` — the request or the profile blew up
+    before an answer existed.
+
+    `empty` and `suspect` both carry no rows, and collapsing them is the bug
+    this milestone exists to make impossible: one means "not sold here" and the
+    other means "we stopped being able to see it". Downstream they part ways
+    too, a suspect site is left out of basket totals as unknown rather than
+    counted as expensive.
+
+    `detail` is the line a person reads. It is filled in for every status
+    including `ok`, because a result that says what it saw is how someone
+    notices a site quietly returning one row where it used to return ten.
+    """
+
+    site_id: str
+    status: SiteStatus
+    hits: tuple[SearchHit, ...]
+    detail: str | None
+
+
+async def run_site(
+    profile: dict[str, Any],
+    query: str,
+    *,
+    hooks_dir: Path = DEFAULT_HOOKS_DIR,
+    fetcher: Fetcher = fetch,
+) -> SiteResult:
+    """Run one site and classify what came back instead of raising.
+
+    This is `search_site` with the failures turned into data. Callers that run
+    many sites at once want one site's breakage to be a row in the report, not
+    an exception that has to be caught at every call site, and the TUI needs the
+    reason in a form it can print next to the site's name.
+
+    `search_site` keeps raising, because the tools that drive one site on
+    purpose, validate above all, want the traceback and the exact message. This
+    wrapper is for the run loop.
+
+    Anything that is not `ExtractionFailed` is an `error`: a timeout, a profile
+    field that does not exist, a hook that returned the wrong type. They differ
+    in cause but not in what can be done with them, which is nothing but tell
+    the user this site is out of this comparison and why.
+    """
+    site_id = str(profile["id"])
+    try:
+        hits = await search_site(profile, query, hooks_dir=hooks_dir, fetcher=fetcher)
+    except ExtractionFailed as e:
+        return SiteResult(site_id, "suspect", (), str(e))
+    except Exception as e:
+        # Broad on purpose. This is the fault isolation boundary, so an
+        # unforeseen failure has to end up in the report rather than take the
+        # other sites down with it. The type is named because a bare timeout
+        # message and a bare KeyError read the same and mean opposite things.
+        # No site id in front of it, the result already carries one.
+        return SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
+    if not hits:
+        return SiteResult(
+            site_id, "empty", (), f"{site_id}: no decant matched {query!r}"
+        )
+    sizes = sum(len(hit.variants) for hit in hits)
+    return SiteResult(
+        site_id,
+        "ok",
+        hits,
+        f"{site_id}: {len(hits)} product(s), {sizes} decant size(s)",
+    )
 
 
 async def search_site(

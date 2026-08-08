@@ -21,8 +21,8 @@ on a real product page, so the report says whether the profile can be repaired
 by moving it to another layer or whether the site stopped publishing the data
 altogether.
 
-TODO: marking a site "suspect" at runtime when checks fail, and an age badge
-based on when a profile was last (re)discovered.
+TODO: an age badge based on when a profile was last (re)discovered. Marking a
+site suspect at runtime lives with the run itself, in engine.run_site.
 """
 
 from __future__ import annotations
