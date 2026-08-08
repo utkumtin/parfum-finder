@@ -45,7 +45,15 @@ from parfum_finder.extract import (
     extract_jsonld_variants,
     select_field,
 )
-from parfum_finder.fetch import Fetcher, FetchResult, FormData, Method, Strategy, fetch
+from parfum_finder.fetch import (
+    Fetcher,
+    FetchResult,
+    FormData,
+    Headers,
+    Method,
+    Strategy,
+    fetch,
+)
 from parfum_finder.profiles import (
     DEFAULT_HOOKS_DIR,
     DEFAULT_PLATFORMS_DIR,
@@ -175,6 +183,7 @@ class _FixtureFetcher:
         *,
         method: Method = "GET",
         data: FormData | None = None,
+        headers: Headers | None = None,
         timeout_s: int = 20,
     ) -> FetchResult:
         if method == "POST":
@@ -369,10 +378,16 @@ class _RecordingFetcher:
         *,
         method: Method = "GET",
         data: FormData | None = None,
+        headers: Headers | None = None,
         timeout_s: int = 20,
     ) -> FetchResult:
         result = await self._inner(
-            url, strategy, method=method, data=data, timeout_s=timeout_s
+            url,
+            strategy,
+            method=method,
+            data=data,
+            headers=headers,
+            timeout_s=timeout_s,
         )
         self.pages.append(result)
         return result
@@ -615,6 +630,7 @@ async def _probe_other_layers(
             fetched = await fetcher(
                 product_url,
                 profile["strategy"],
+                headers=profile.get("request_headers"),
                 timeout_s=int(profile.get("timeout_s", 20)),
             )
         except Exception as e:  # noqa: BLE001 -- same reason as in validate_live

@@ -1,20 +1,20 @@
 {
   "entry_url": "https://www.dekantdoktoru.com/",
-  "captured_at": "2026-08-07T13:56:58Z",
+  "captured_at": "2026-08-08T09:11:58Z",
   "strategy": "httpx",
   "measured_strategy": "httpx",
   "pages": {
     "search": {
       "url": "https://www.dekantdoktoru.com/arama/blossom",
       "status_code": 200,
-      "bytes": 218422,
-      "sha256": "7fd9783e95829afaa9fd830c1cce1802b9f3a808be521d63db1052e2a820e877"
+      "bytes": 291684,
+      "sha256": "208dd11daf150fbf1cbc29dd0b65e9d62fc5425def4506afaa5e556b21cb3065"
     },
     "product": {
       "url": "https://www.dekantdoktoru.com/urun/amouage-blossom-love",
       "status_code": 200,
-      "bytes": 274884,
-      "sha256": "32e744513430bee08814f5fd9161446958b0c015333ccabbe41f496f0edb421b"
+      "bytes": 274718,
+      "sha256": "44fc7afba6e77bfbe098958e606375365304d53e73e092e862ac3289479397e3"
     },
     "related_options": {
       "url": "https://www.dekantdoktoru.com/product/related-options",
@@ -24,7 +24,7 @@
         "selected_option_group_id": 2,
         "selected_options[]": 6
       },
-      "captured_at": "2026-08-08T02:44:54Z",
+      "captured_at": "2026-08-08T09:11:58Z",
       "status_code": 200,
       "bytes": 1454,
       "sha256": "b88c1c9fd46a66fdb4f43d31acbe19225eebc8a64c710c5a60deace791455e50"

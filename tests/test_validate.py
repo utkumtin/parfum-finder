@@ -15,7 +15,7 @@ from urllib.parse import quote, unquote_plus
 
 import pytest
 
-from parfum_finder.fetch import FetchResult, FormData, Method, Strategy
+from parfum_finder.fetch import FetchResult, FormData, Headers, Method, Strategy
 from parfum_finder.profiles import load_site_profile
 from parfum_finder.validate import (
     format_live_report,
@@ -243,6 +243,7 @@ class _FakeSite:
         *,
         method: Method = "GET",
         data: FormData | None = None,
+        headers: Headers | None = None,
         timeout_s: int = 20,
     ) -> FetchResult:
         html = self._product_html
@@ -264,6 +265,7 @@ class _DeadSite:
         *,
         method: Method = "GET",
         data: FormData | None = None,
+        headers: Headers | None = None,
         timeout_s: int = 20,
     ) -> FetchResult:
         raise ConnectionError(f"connection refused: {url}")

@@ -241,6 +241,11 @@ async def search_site(
     profile until proven otherwise: that is the difference between "not sold
     here" and "we stopped being able to see it", which is what a silent empty
     result destroys.
+
+    Also raises when a profile names a `variant_control` and the page's size
+    picker offers more options than the layer produced rows. That is the same
+    failure one notch quieter: the site still answers, the table still fills,
+    and a few sizes are simply missing from the comparison.
     """
     hooks = load_site_hooks(str(profile["id"]), hooks_dir)
     if hooks.before_search is not None:
@@ -265,7 +270,8 @@ async def search_site(
     hits: list[SearchHit] = []
     extracted_a_price = False
     for candidate in candidates:
-        rows = await _read_variants(profile, candidate, hooks, fetcher)
+        rows, page_html = await _read_variants(profile, candidate, hooks, fetcher)
+        _check_variant_control(profile, candidate, rows, page_html)
         rows = tuple(_with_candidate_identity(row, candidate) for row in rows)
         extracted_a_price |= any(row.price is not None for row in rows)
         variants = apply_variant_rules(rows, rules)
@@ -285,6 +291,47 @@ async def search_site(
             f"{len(candidates)} search results, starting with {candidates[0].url}"
         )
     return tuple(hits)
+
+
+def _check_variant_control(
+    profile: dict[str, Any],
+    candidate: ProductCandidate,
+    rows: Sequence[RawVariant],
+    page_html: str | None,
+) -> None:
+    """Fail when the page's size picker offers more sizes than the layer read.
+
+    The silent failure one notch quieter than an empty result: a product page
+    with six sizes whose blob only carries two still produces rows, still fills
+    the table, and still looks fine. Four sizes are just gone from the
+    comparison, and the ₺/ml the shop is judged on is the ₺/ml of whichever two
+    survived. One shop shipped exactly this during the discovery round.
+
+    Counting rows, not prices. A size that is sold out often carries no price at
+    all, so comparing prices against options would flag every shop with anything
+    out of stock and teach whoever reads the badge to ignore it.
+
+    A page whose picker matches nothing is not checked. That is a plain full
+    bottle, which has no size table to be missing anything from, and those sit
+    next to the decants in every catalog seen so far.
+
+    Options that read as empty do not count either: a picker's first entry is
+    usually a "choose a size" placeholder with no value behind it.
+    """
+    selector = profile.get("variant_control")
+    if not selector or page_html is None:
+        return
+    root = HTMLParser(page_html).root
+    if root is None:
+        return
+    options = [value for value in select_all(root, str(selector)) if value.strip()]
+    if len(options) <= len(rows):
+        return
+    raise ExtractionFailed(
+        f"{profile['id']}: {candidate.url} offers {len(options)} sizes "
+        f"({selector!r}) but the {profile['extraction']!r} layer read "
+        f"{len(rows)}, so the sizes it missed would be priced by nobody"
+    )
 
 
 def _with_candidate_identity(
@@ -445,6 +492,25 @@ def _strategy(profile: dict[str, Any], role: str) -> Strategy:
     return strategy
 
 
+def _headers(profile: dict[str, Any], role: str) -> Mapping[str, str] | None:
+    """Pick the request headers for one page role, same override rule as above.
+
+    A header can be right for most of a site and fatal on one page of it. One
+    platform's variant endpoint says nothing at all unless the request looks
+    like an XHR, and the very same header makes that platform's search page
+    answer 404. So the search page gets its own set when it needs one, and
+    replaces rather than adds to the site's, because the case for having it is
+    a page that wants the opposite of what the rest of the site wants.
+    """
+    if role == "search":
+        override = profile["search"].get("request_headers")
+        if override is not None:
+            headers: Mapping[str, str] = override
+            return headers
+    site_wide: Mapping[str, str] | None = profile.get("request_headers")
+    return site_wide
+
+
 async def _fetch_page(
     profile: dict[str, Any],
     url: str,
@@ -454,12 +520,13 @@ async def _fetch_page(
     method: Literal["GET", "POST"] = "GET",
     data: Mapping[str, str] | None = None,
 ) -> FetchResult:
-    """Fetch one page with the strategy and timeout the profile asks for."""
+    """Fetch one page with the strategy, headers and timeout the profile asks for."""
     return await fetcher(
         url,
         _strategy(profile, role),
         method=method,
         data=data,
+        headers=_headers(profile, role),
         timeout_s=int(profile.get("timeout_s", 20)),
     )
 
@@ -501,7 +568,7 @@ async def _read_variants(
     candidate: ProductCandidate,
     hooks: SiteHooks,
     fetcher: Fetcher,
-) -> tuple[RawVariant, ...]:
+) -> tuple[tuple[RawVariant, ...], str | None]:
     """Open one product page and read its sizes on the profile's layer.
 
     A site's `parse_variants` hook is offered the page first and may take the
@@ -512,6 +579,13 @@ async def _read_variants(
     Returning None means the hook declined this page, and the profile's own layer
     runs as usual. That is what lets a hook cover only the one product shape it
     was written for instead of having to reimplement the normal case as well.
+
+    The product page's markup comes back next to the rows, because the size
+    picker that says how many sizes there should be lives in it and not in
+    whatever the layer read. A GET endpoint profile normally never opens that
+    page at all, so one is fetched here only when such a profile asks for the
+    check by naming a `variant_control`. That is a second request per product
+    on those sites, which is why it is opt-in rather than always on.
     """
     layer = profile["extraction"]
     page: FetchResult | None = None
@@ -521,32 +595,43 @@ async def _read_variants(
         )
         rows = await hooks.parse_variants(profile, candidate, page.html)
         if rows is not None:
-            return tuple(rows)
+            return tuple(rows), page.html
 
     if layer == "endpoint":
-        return await _read_endpoint_variants(profile, candidate, fetcher)
+        endpoint_rows, endpoint_page = await _read_endpoint_variants(
+            profile, candidate, hooks_page=page, fetcher=fetcher
+        )
+        return endpoint_rows, endpoint_page
     if page is None:
         page = await _fetch_page(
             profile, candidate.url, role="product", fetcher=fetcher
         )
     if layer == "jsonld":
-        return extract_jsonld_variants(page.html)
+        return extract_jsonld_variants(page.html), page.html
     if layer == "embedded_json":
-        return extract_embedded_variants(page.html, profile["embedded_json"])
+        return extract_embedded_variants(page.html, profile["embedded_json"]), page.html
     if layer == "css":
-        return extract_css_variants(page.html, profile.get("product") or {})
+        return (
+            extract_css_variants(page.html, profile.get("product") or {}),
+            page.html,
+        )
     raise ExtractionFailed(f"{profile['id']}: unknown extraction layer {layer!r}")
 
 
 async def _read_endpoint_variants(
-    profile: dict[str, Any], candidate: ProductCandidate, fetcher: Fetcher
-) -> tuple[RawVariant, ...]:
+    profile: dict[str, Any],
+    candidate: ProductCandidate,
+    *,
+    hooks_page: FetchResult | None,
+    fetcher: Fetcher,
+) -> tuple[tuple[RawVariant, ...], str | None]:
     """Ask a platform's variant endpoint for every size.
 
     A GET endpoint answers everything in one request built from the profile's
     URL template, which is why that branch never opens the product page: the
     whole point of the layer is that one request answers what the page would
-    need several to say.
+    need several to say. It opens it anyway, once, when the profile named a
+    `variant_control`, because the picker that check counts is only there.
 
     A POST endpoint does not work that way: it answers one size option at a
     time, and which options exist and which product they belong to are not
@@ -561,7 +646,13 @@ async def _read_endpoint_variants(
         base_url=profile["base_url"], product_url=candidate.url
     )
     result = await _fetch_page(profile, url, role="product", fetcher=fetcher)
-    return _parse_endpoint_document(profile["id"], url, result.html, config)
+    rows = _parse_endpoint_document(profile["id"], url, result.html, config)
+    page = hooks_page
+    if page is None and profile.get("variant_control"):
+        page = await _fetch_page(
+            profile, candidate.url, role="product", fetcher=fetcher
+        )
+    return rows, page.html if page is not None else None
 
 
 async def _read_endpoint_variants_post(
@@ -569,7 +660,7 @@ async def _read_endpoint_variants_post(
     config: Mapping[str, Any],
     candidate: ProductCandidate,
     fetcher: Fetcher,
-) -> tuple[RawVariant, ...]:
+) -> tuple[tuple[RawVariant, ...], str | None]:
     """Drive a platform's POST variant endpoint, one size option per request.
 
     `body` names the endpoint's static form fields and, for each, the selector
@@ -579,11 +670,20 @@ async def _read_endpoint_variants_post(
     goes in, one request per id. A static field the page does not have aborts
     the product outright, since posting the request anyway would either be
     silently rejected by the endpoint or, worse, answered for the wrong product.
+
+    Unless the page names no options at all, in which case there is nothing to
+    post and no reason to want the fields: that is a plain full bottle, sold as
+    one thing with no size list, and this shop lists plenty of them next to its
+    decants. Ending the site over one of those is the same mistake the embedded
+    layer already avoids, and it costs every decant the shop does sell.
     """
     page = await _fetch_page(profile, candidate.url, role="product", fetcher=fetcher)
     root = HTMLParser(page.html).root
     if root is None:
         raise ExtractionFailed(f"{profile['id']}: {candidate.url} parsed to no markup")
+    option_ids = select_all(root, str(config["option_selector"]))
+    if not option_ids:
+        return (), page.html
     body: dict[str, str] = {}
     for field, selector in config["body"].items():
         value = select_field(root, str(selector))
@@ -593,7 +693,6 @@ async def _read_endpoint_variants_post(
                 f"({selector!r}) off {candidate.url}"
             )
         body[field] = value
-    option_ids = select_all(root, str(config["option_selector"]))
     option_key = str(config["option_body_key"])
     url = str(config["product_json"]).format(base_url=profile["base_url"])
     rows: list[RawVariant] = []
@@ -607,7 +706,7 @@ async def _read_endpoint_variants_post(
             data={**body, option_key: option_id},
         )
         rows.extend(_parse_endpoint_document(profile["id"], url, result.html, config))
-    return tuple(rows)
+    return tuple(rows), page.html
 
 
 def _parse_endpoint_document(

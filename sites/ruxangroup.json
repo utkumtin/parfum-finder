@@ -26,6 +26,7 @@
   "needs_review": [
     "shipping: hiçbir alan gerçek veri değil, elle doldurulmalı",
     "katalog karışık: 'simple' (tek boy, tam şişe) ürünlerde data-product_variations hiç yok, embedded_json boş döner ve satır otomatik elenir - bu ayrıca bir exclude_keyword gerektirmedi",
+    "variant_control tanımlanamadı: mağaza tükenen ölçüyü data-product_variations blob'undan düşürüyor ama seçiciden düşürmüyor (lattafa-opulent-musk: seçicide 2 ölçü, blob'da 1), yani seçici sayısı satır sayısını aşması burada bozukluk değil normal",
     "'variable' ürünlerin varyant tablosu dekant ölçüleriyle (5ml, 10ml, 30mldekant) aynı satırda tam şişeyi de (100ml) taşıyor; max_size_ml=30 ile 30mldekant da tam şişeyle birlikte eleniyor, ARCHITECTURE.md §4'teki kuralın doğrudan sonucu"
   ]
 }

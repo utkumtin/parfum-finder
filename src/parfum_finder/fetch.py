@@ -29,6 +29,9 @@ Method = Literal["GET", "POST"]
 # platform's "selected_options[]"-style repeated key needs.
 FormData = Mapping[str, "str | list[str]"]
 
+# Extra request headers a profile asks for, merged over the defaults below.
+Headers = Mapping[str, str]
+
 # Identify as a real browser instead of e.g. "python-httpx/0.28" -- some sites reject
 # or degrade responses to obvious script user agents even without real bot protection.
 DEFAULT_USER_AGENT = (
@@ -88,6 +91,7 @@ class Fetcher(Protocol):
         *,
         method: Method = "GET",
         data: FormData | None = None,
+        headers: Headers | None = None,
         timeout_s: int = 20,
     ) -> FetchResult: ...
 
@@ -98,6 +102,7 @@ async def fetch(
     *,
     method: Method = "GET",
     data: FormData | None = None,
+    headers: Headers | None = None,
     timeout_s: int = 20,
 ) -> FetchResult:
     """Fetch one URL using exactly the given strategy.
@@ -105,6 +110,12 @@ async def fetch(
     `method`/`data` exist for the one platform whose variant endpoint is a
     POST with a form body, not a GET. Nothing else in this project needs them,
     so they default to a plain GET and stay optional everywhere else.
+
+    `headers` is what a profile adds on top of the defaults. One platform's
+    variant endpoint answers 200 with an empty body unless the request says
+    X-Requested-With: XMLHttpRequest, which is a failure no fixture can show:
+    a capture taken in a browser already carries the header, so only a live
+    request ever sees it missing.
 
     Raises PlaywrightNotInstalled if strategy is "playwright" and playwright
     can't run here, whether the package or its browser binary is the missing
@@ -118,21 +129,28 @@ async def fetch(
             "no site currently needs a browser-driven form POST"
         )
     if strategy == "httpx":
-        return await _fetch_httpx(url, method=method, data=data, timeout_s=timeout_s)
+        return await _fetch_httpx(
+            url, method=method, data=data, headers=headers, timeout_s=timeout_s
+        )
     if strategy == "curl_cffi":
         return await _fetch_curl_cffi(
-            url, method=method, data=data, timeout_s=timeout_s
+            url, method=method, data=data, headers=headers, timeout_s=timeout_s
         )
     if strategy == "playwright":
-        return await _fetch_playwright(url, timeout_s=timeout_s)
+        return await _fetch_playwright(url, headers=headers, timeout_s=timeout_s)
     raise ValueError(f"unknown fetch strategy: {strategy!r}")
 
 
 async def _fetch_httpx(
-    url: str, *, method: Method, data: FormData | None, timeout_s: int
+    url: str,
+    *,
+    method: Method,
+    data: FormData | None,
+    headers: Headers | None,
+    timeout_s: int,
 ) -> FetchResult:
     async with httpx.AsyncClient(
-        headers={"User-Agent": DEFAULT_USER_AGENT},
+        headers={"User-Agent": DEFAULT_USER_AGENT, **(headers or {})},
         follow_redirects=True,
         timeout=timeout_s,
     ) as client:
@@ -149,18 +167,34 @@ async def _fetch_httpx(
 
 
 async def _fetch_curl_cffi(
-    url: str, *, method: Method, data: FormData | None, timeout_s: int
+    url: str,
+    *,
+    method: Method,
+    data: FormData | None,
+    headers: Headers | None,
+    timeout_s: int,
 ) -> FetchResult:
     # impersonate="chrome" sets a matching TLS/JA3 fingerprint *and* header set
-    # together; overriding just the User-Agent header on top would desync the two
-    # and defeat the point, so no custom headers are passed here.
+    # together. A profile's headers are added on top of that set, never instead
+    # of it, so an endpoint can be told this is an XHR without desyncing the
+    # fingerprint. Naming User-Agent here would desync it, which is a profile
+    # mistake this cannot catch.
     async with CurlAsyncSession() as session:
         if method == "POST":
             response = await session.post(
-                url, data=data, impersonate="chrome", timeout=timeout_s
+                url,
+                data=data,
+                headers=dict(headers or {}),
+                impersonate="chrome",
+                timeout=timeout_s,
             )
         else:
-            response = await session.get(url, impersonate="chrome", timeout=timeout_s)
+            response = await session.get(
+                url,
+                headers=dict(headers or {}),
+                impersonate="chrome",
+                timeout=timeout_s,
+            )
     return FetchResult(
         url=str(response.url),
         status_code=response.status_code,
@@ -169,7 +203,9 @@ async def _fetch_curl_cffi(
     )
 
 
-async def _fetch_playwright(url: str, *, timeout_s: int) -> FetchResult:
+async def _fetch_playwright(
+    url: str, *, headers: Headers | None, timeout_s: int
+) -> FetchResult:
     try:
         from playwright.async_api import Error as PlaywrightError
         from playwright.async_api import async_playwright
@@ -195,7 +231,10 @@ async def _fetch_playwright(url: str, *, timeout_s: int) -> FetchResult:
                 "run `uv run playwright install chromium`"
             ) from e
         try:
-            page = await browser.new_page(user_agent=DEFAULT_USER_AGENT)
+            page = await browser.new_page(
+                user_agent=DEFAULT_USER_AGENT,
+                extra_http_headers=dict(headers or {}),
+            )
             response = await page.goto(url, timeout=timeout_s * 1000)
             html = await page.content()
         finally:

@@ -22,6 +22,7 @@
       "in_stock": "in_stock"
     }
   },
+  "variant_control": "select[data-variant=\"0\"] option::attr(value)",
   "variant_rules": {
     "size_from": "variant_label",
     "size_pattern": "(\\d+[.,]?\\d*)\\s*(ml|cc)",

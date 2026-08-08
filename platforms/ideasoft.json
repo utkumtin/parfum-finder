@@ -6,8 +6,12 @@
   },
   "defaults": {
     "extraction": "endpoint",
+    "request_headers": {
+      "X-Requested-With": "XMLHttpRequest"
+    },
     "search": {
-      "url_template": "{base_url}/arama/{query}"
+      "url_template": "{base_url}/arama/{query}",
+      "request_headers": {}
     },
     "endpoint": {
       "product_json": "{base_url}/product/related-options",

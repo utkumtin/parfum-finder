@@ -27,7 +27,14 @@ from selectolax.parser import HTMLParser
 
 from parfum_finder.engine import search_site
 from parfum_finder.extract import select_field
-from parfum_finder.fetch import Fetcher, FetchResult, FormData, Method, Strategy
+from parfum_finder.fetch import (
+    Fetcher,
+    FetchResult,
+    FormData,
+    Headers,
+    Method,
+    Strategy,
+)
 from parfum_finder.profiles import load_site_profile
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -97,6 +104,7 @@ def _fake_fetch(
         *,
         method: Method = "GET",
         data: FormData | None = None,
+        headers: Headers | None = None,
         timeout_s: int = 20,
     ) -> FetchResult:
         if calls is not None:

@@ -32,9 +32,22 @@
         "result_item": { "type": "string" },
         "result_url": { "type": "string" },
         "result_title": { "type": "string" },
-        "strategy": { "enum": ["httpx", "curl_cffi", "playwright"] }
+        "strategy": { "enum": ["httpx", "curl_cffi", "playwright"] },
+        "request_headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
       },
       "required": ["url_template", "result_item", "result_url", "result_title"]
+    },
+    "request_headers": {
+      "description": "Extra HTTP headers sent with this site's requests, merged over the defaults. The search page can replace the set with its own search.request_headers, which some sites need: one platform's variant endpoint answers 200 with an empty body without X-Requested-With: XMLHttpRequest, and answers that same header on its search page with a 404. One platform's variant endpoint answers 200 with an empty body unless the request carries X-Requested-With: XMLHttpRequest. Do not name User-Agent here: the curl_cffi strategy matches its header set to its TLS fingerprint, and overriding one half desyncs the two.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "variant_control": {
+      "description": "The product page's own size picker, as a \"<css>::attr(name)\" or \"<css>::text\" selector matching one option each. When present, a page whose picker offers more sizes than the extraction layer produced rows fails loudly instead of contributing a table that is quietly missing sizes. Options that read as empty are ignored, so a leading \"choose a size\" placeholder does not need excluding. A page the selector does not match at all is not checked: that is a plain full bottle. On a GET endpoint profile this costs one extra request per product, because that layer otherwise never opens the product page.",
+      "type": "string"
     },
     "product": {
       "type": "object",

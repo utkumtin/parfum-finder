@@ -11,6 +11,7 @@
     "result_url": "a.woocommerce-LoopProduct-link::attr(href)",
     "result_title": "a.woocommerce-LoopProduct-link::text"
   },
+  "variant_control": "select[name=attribute_pa_hacim] option::attr(value)",
   "variant_rules": {
     "size_from": "variant_label",
     "size_pattern": "(\\d+[.,]?\\d*)\\s*(ml|cc)",

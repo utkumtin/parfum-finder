@@ -8,6 +8,7 @@ The pages come from the local HTTP server in conftest, so the fetch, the redirec
 handling and the URL resolution are all real, with no network.
 """
 
+from collections.abc import Mapping
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
@@ -22,6 +23,7 @@ from parfum_finder.engine import (
     search_site,
 )
 from parfum_finder.extract import RawVariant
+from parfum_finder.fetch import FetchResult, FormData, Headers, Method, Strategy, fetch
 
 
 def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:
@@ -740,3 +742,179 @@ async def test_a_broken_hook_is_an_error_not_a_silent_empty(
 
     assert result.status == "error"
     assert "ValueError" in str(result.detail)
+
+
+_VARIANT_CONTROL = "select[name=attribute_pa_hacim] option::attr(value)"
+
+
+async def test_a_size_picker_the_layer_keeps_up_with_passes(server_url: str) -> None:
+    # Two options behind the picker, two rows out of the blob, and the picker's
+    # leading "Bir secim yapin" placeholder carries no value so it does not
+    # count. A profile that flagged this would flag every healthy WooCommerce
+    # page, and a badge that is always on is a badge nobody reads.
+    profile = _profile(server_url, variant_control=_VARIANT_CONTROL)
+
+    hits = await search_site(profile, "test parfum")
+
+    assert [v.size_ml_x10 for v in hits[0].variants] == [50, 100]
+
+
+async def test_a_page_offering_more_sizes_than_it_prices_is_suspect(
+    server_url: str,
+) -> None:
+    # Four sizes on offer, two in the blob. Without the picker to count against,
+    # this reads as a complete answer: the table fills, the ₺/ml looks sane, and
+    # the two missing sizes are simply never compared against any other shop.
+    profile = _profile(server_url, variant_control=_VARIANT_CONTROL)
+    profile["search"]["url_template"] = "{base_url}/engine-search-half?q={query}"
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "suspect"
+    assert "4 sizes" in str(result.detail)
+    assert "read 2" in str(result.detail)
+
+
+async def test_the_same_half_read_page_passes_without_the_picker_declared(
+    server_url: str,
+) -> None:
+    # The counterpart that pins why the profile field has to exist: nothing else
+    # in the flow can tell this page from a healthy one. This is the behavior
+    # before the check, kept as the reason the check is not optional decoration.
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-search-half?q={query}"
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "ok"
+
+
+async def test_a_full_bottle_page_is_not_checked_against_the_picker(
+    server_url: str,
+) -> None:
+    # A plain full bottle has no size picker for the selector to match, and no
+    # size table to be missing anything from. Counting zero options as a broken
+    # profile would sink a shop for stocking bottles next to its decants.
+    profile = _profile(server_url, variant_control=_VARIANT_CONTROL)
+    profile["search"]["url_template"] = "{base_url}/engine-search-mixed?q={query}"
+
+    (hit,) = await search_site(profile, "test parfum")
+
+    assert hit.candidate.raw_title == "Test Parfum Dekant"
+
+
+async def test_a_get_endpoint_profile_opens_the_page_just_for_the_picker(
+    server_url: str,
+) -> None:
+    # This layer answers in one request and never opens the product page, so
+    # asking it to count a picker costs a second request per product. Opt-in
+    # through the profile field, and only worth it on a site whose feed has been
+    # caught dropping sizes: the feed here names two, the picker four.
+    profile = _profile(
+        server_url,
+        variant_control=_VARIANT_CONTROL,
+        extraction="endpoint",
+        endpoint={
+            "product_json": "{base_url}/engine-product.js",
+            "variants_path": "variants",
+            "field_map": {
+                "size_raw": "title",
+                "price": "price",
+                "in_stock": "available",
+            },
+        },
+    )
+    profile["search"]["url_template"] = "{base_url}/engine-search-half?q={query}"
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "suspect"
+    assert "4 sizes" in str(result.detail)
+
+
+async def test_a_variantless_product_does_not_sink_the_post_endpoint_layer(
+    server_url: str,
+) -> None:
+    # A plain full bottle has no option list and so no product id to post with.
+    # Reading that as a broken profile ends the site over a product that was
+    # never going to carry a decant price, and takes the shop's real decants
+    # down with it. The missing-field check above still stands for a page that
+    # does list options.
+    profile = _profile(
+        server_url,
+        extraction="endpoint",
+        endpoint={
+            "product_json": "{base_url}/engine-related-options",
+            "method": "POST",
+            "body": {
+                "parent_product_id": (
+                    'a.add-to-cart-button[data-context="detail"]::attr(data-product-id)'
+                ),
+                "selected_option_group_id": (
+                    "div.variant-list-group::attr(data-group-id)"
+                ),
+            },
+            "option_selector": "span.variant-text::attr(data-option-id)",
+            "option_body_key": "selected_options[]",
+            "variants_path": "data.options",
+            "field_map": {
+                "size_raw": "option_title",
+                "price": "product_price.sale_price",
+                "in_stock": "product_stock_amount",
+            },
+        },
+    )
+    profile["search"]["url_template"] = (
+        "{base_url}/engine-search-post-endpoint-mixed?q={query}"
+    )
+
+    (hit,) = await search_site(profile, "test")
+
+    assert hit.candidate.raw_title == "Test Parfum Dekant"
+    assert [v.size_ml_x10 for v in hit.variants] == [50, 100]
+
+
+async def test_the_search_page_can_refuse_the_headers_the_rest_of_the_site_needs(
+    server_url: str,
+) -> None:
+    # A real pairing, not a hypothetical: one platform's variant endpoint says
+    # nothing at all without X-Requested-With, and that same header makes its
+    # search page answer 404. Site-wide headers alone cannot express a site
+    # like that, so the search page replaces the set the way it already
+    # replaces the strategy.
+    sent: list[tuple[str, Mapping[str, str] | None]] = []
+
+    async def spy(
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        headers: Headers | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        sent.append((url, headers))
+        return await fetch(
+            url,
+            strategy,
+            method=method,
+            data=data,
+            headers=headers,
+            timeout_s=timeout_s,
+        )
+
+    profile = _profile(
+        server_url, request_headers={"X-Requested-With": "XMLHttpRequest"}
+    )
+    profile["search"]["request_headers"] = {}
+
+    await search_site(profile, "test parfum", fetcher=spy)
+
+    search_url, search_headers = sent[0]
+    assert "engine-search" in search_url
+    assert search_headers == {}
+    product_headers = [h for url, h in sent[1:] if "engine-product" in url]
+    assert product_headers == [{"X-Requested-With": "XMLHttpRequest"}] * len(
+        product_headers
+    )
+    assert product_headers

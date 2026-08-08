@@ -1,14 +1,14 @@
 {
   "entry_url": "https://luxurydekant.com.tr/",
-  "captured_at": "2026-08-07T13:56:42Z",
+  "captured_at": "2026-08-08T09:11:41Z",
   "strategy": "httpx",
   "measured_strategy": "httpx",
   "pages": {
     "search": {
       "url": "https://luxurydekant.com.tr/?s=club+de+nuit&post_type=product",
       "status_code": 200,
-      "bytes": 302562,
-      "sha256": "7bffbacd2a576204ed42c1cc5b6ead4cd070adf3af681c623b2a1bb82ec1d2be"
+      "bytes": 302560,
+      "sha256": "a5c7634312449706ce81bd367d6a78c2b84e286a7e0cc35b8a7a2bcd6467a285"
     },
     "product": {
       "url": "https://luxurydekant.com.tr/urun/armaf-club-de-nuit-woman/",

@@ -1,20 +1,20 @@
 {
   "entry_url": "https://www.dekantparfum.com.tr/",
-  "captured_at": "2026-08-07T13:56:54Z",
+  "captured_at": "2026-08-08T09:11:56Z",
   "strategy": "httpx",
   "measured_strategy": "httpx",
   "pages": {
     "search": {
       "url": "https://www.dekantparfum.com.tr/arama/baccarat",
       "status_code": 200,
-      "bytes": 278705,
-      "sha256": "12d9a45fb498600bd2d9a448121b458c90cc397ff755a0c7d0eacb5bff5ade99"
+      "bytes": 279060,
+      "sha256": "57151e3959f5f0c6c112a98d472a027f96f1224bc3d0dda08ff41412fb92b935"
     },
     "product": {
       "url": "https://www.dekantparfum.com.tr/urun/mfk-baccarat-rouge-540",
       "status_code": 200,
-      "bytes": 307751,
-      "sha256": "450fe34b8d3ccff22007da2a869830479d4a54b57a763e56e72a3c6003e6da0b"
+      "bytes": 307968,
+      "sha256": "75585dd86745a50c941fea39bee9760e56169cbb27f2c11202ccdcd6751c19c2"
     },
     "related_options": {
       "url": "https://www.dekantparfum.com.tr/product/related-options",
@@ -24,7 +24,7 @@
         "selected_option_group_id": 1,
         "selected_options[]": 6
       },
-      "captured_at": "2026-08-08T02:33:08Z",
+      "captured_at": "2026-08-08T09:11:56Z",
       "status_code": 200,
       "bytes": 1929,
       "sha256": "e200997a78f77cceadf80d3ef7752dbadc59ab9e7ac43d3ab38285a5dd0fc217"

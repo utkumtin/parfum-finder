@@ -1,6 +1,6 @@
 {
   "entry_url": "https://ruxangroup.com/",
-  "captured_at": "2026-08-07T13:57:20Z",
+  "captured_at": "2026-08-08T09:11:46Z",
   "strategy": "httpx",
   "measured_strategy": "httpx",
   "pages": {
@@ -8,13 +8,13 @@
       "url": "https://ruxangroup.com/?s=khamrah&post_type=product",
       "status_code": 200,
       "bytes": 313060,
-      "sha256": "36b0bfc74a49919140b1ad0baeed7c4fe60056303a6030c3da8d073fd4780d16"
+      "sha256": "6672556d218551cefd64f13d9225112b04bfc5c1b6d94f7aea89a705031bc78d"
     },
     "product": {
       "url": "https://ruxangroup.com/magaza/lattafa-khamrah/",
       "status_code": 200,
       "bytes": 364226,
-      "sha256": "7eed3f1ec085d6c807b169eda9745786bd8530b9250d081f2a2918401fe0361b"
+      "sha256": "5fc1292b0ad44a6e94c71ad9bfcbee1d0b13a6656dc8af3fd7a4e3cf4eb957cb"
     }
   }
 }

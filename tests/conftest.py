@@ -206,9 +206,35 @@ _ENGINE_SEARCH_EMPTY_HTML = b"""<html><body>
 # the captured sites use.
 _ENGINE_PRODUCT_HTML = b"""<html><body>
 <h1>Test Parfum Dekant</h1>
+<select name="attribute_pa_hacim">
+  <option value="">Bir secim yapin</option>
+  <option value="5ml">5 ml</option>
+  <option value="10ml">10 ml</option>
+</select>
 <form class="variations_form"
       data-product_variations="[{&quot;attributes&quot;:{&quot;attribute_pa_hacim&quot;:&quot;5ml&quot;},&quot;display_price&quot;:150,&quot;is_in_stock&quot;:true},{&quot;attributes&quot;:{&quot;attribute_pa_hacim&quot;:&quot;10ml&quot;},&quot;display_price&quot;:290,&quot;is_in_stock&quot;:false}]">
 </form>
+</body></html>"""
+
+# A page whose size picker and whose blob disagree: four sizes on offer, two of
+# them priced. This is the shape one shop really shipped, and the one a table
+# built from the blob alone shows as a complete answer.
+_ENGINE_PRODUCT_HALF_HTML = b"""<html><body>
+<h1>Test Parfum Dekant</h1>
+<select name="attribute_pa_hacim">
+  <option value="">Bir secim yapin</option>
+  <option value="5ml">5 ml</option>
+  <option value="10ml">10 ml</option>
+  <option value="20ml">20 ml</option>
+  <option value="30ml">30 ml</option>
+</select>
+<form class="variations_form"
+      data-product_variations="[{&quot;attributes&quot;:{&quot;attribute_pa_hacim&quot;:&quot;5ml&quot;},&quot;display_price&quot;:150,&quot;is_in_stock&quot;:true},{&quot;attributes&quot;:{&quot;attribute_pa_hacim&quot;:&quot;10ml&quot;},&quot;display_price&quot;:290,&quot;is_in_stock&quot;:false}]">
+</form>
+</body></html>"""
+
+_ENGINE_SEARCH_HALF_HTML = b"""<html><body>
+<div class="card"><a href="/engine-product-half">Test Parfum Dekant</a></div>
 </body></html>"""
 
 # The same page after a redesign dropped the blob: reachable, plausible, and
@@ -244,6 +270,13 @@ _ENGINE_PRODUCT_JSON = (
 # A listing pointing at the POST-endpoint product page below.
 _ENGINE_SEARCH_POST_ENDPOINT_HTML = b"""<html><body>
 <div class="card"><a href="/engine-product-post-endpoint">Test Parfum Dekant</a></div>
+</body></html>"""
+
+# The same listing plus a plain full bottle: no size list, no option ids, no
+# product id to post with. This shop really does sell those next to its decants.
+_ENGINE_SEARCH_POST_ENDPOINT_MIXED_HTML = b"""<html><body>
+<div class="card"><a href="/engine-product-post-endpoint">Test Parfum Dekant</a></div>
+<div class="card"><a href="/engine-product-bare">Test Parfum EDP 200 ML</a></div>
 </body></html>"""
 
 # The markup an ideasoft-shaped product page carries: a product id on the
@@ -300,8 +333,14 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path.startswith("/engine-search-css"):
             self._send(200, _ENGINE_SEARCH_CSS_HTML)
             return
+        if self.path.startswith("/engine-search-half"):
+            self._send(200, _ENGINE_SEARCH_HALF_HTML)
+            return
         if self.path.startswith("/engine-search-empty"):
             self._send(200, _ENGINE_SEARCH_EMPTY_HTML)
+            return
+        if self.path.startswith("/engine-search-post-endpoint-mixed"):
+            self._send(200, _ENGINE_SEARCH_POST_ENDPOINT_MIXED_HTML)
             return
         if self.path.startswith("/engine-search-post-endpoint"):
             self._send(200, _ENGINE_SEARCH_POST_ENDPOINT_HTML)
@@ -323,11 +362,20 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/engine-product-css":
             self._send(200, _ENGINE_PRODUCT_CSS_HTML)
             return
+        if self.path == "/engine-product-half":
+            self._send(200, _ENGINE_PRODUCT_HALF_HTML)
+            return
         if self.path == "/engine-product-bare":
             self._send(200, _ENGINE_PRODUCT_BARE_HTML)
             return
         if self.path == "/engine-product-post-endpoint":
             self._send(200, _ENGINE_PRODUCT_POST_ENDPOINT_HTML)
+            return
+        if self.path == "/header-echo":
+            # Reports one request header back as the body, so a test can assert
+            # on what actually went out rather than on what was passed in.
+            seen = self.headers.get("X-Requested-With", "absent")
+            self._send(200, f"<html><body>{seen}</body></html>".encode())
             return
         if self.path == "/redirect":
             self.send_response(302)

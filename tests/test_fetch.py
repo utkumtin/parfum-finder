@@ -134,3 +134,29 @@ async def test_fetch_playwright_no_response_raises_its_own_error_type() -> None:
     # extra is missing, abort the whole run" without also catching unrelated bugs.
     with pytest.raises(PlaywrightNoResponse, match="produced no response"):
         await fetch("about:blank", "playwright")
+
+
+@pytest.mark.parametrize("strategy", ["httpx", "curl_cffi"])
+async def test_profile_headers_reach_the_server(server_url: str, strategy: str) -> None:
+    # One platform's variant endpoint answers 200 with an empty body unless the
+    # request carries this header, which no saved fixture can ever show: a
+    # capture taken in a browser already has it. Both HTTP strategies have to
+    # carry it, since which one a site needs is a separate measurement.
+    result = await fetch(
+        f"{server_url}/header-echo",
+        strategy,  # type: ignore[arg-type]
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    )
+
+    assert "XMLHttpRequest" in result.html
+
+
+@pytest.mark.parametrize("strategy", ["httpx", "curl_cffi"])
+async def test_no_headers_asked_for_means_none_sent(
+    server_url: str, strategy: str
+) -> None:
+    # The header changes how some sites answer, so it must not appear on its
+    # own: the same platform serves 404 for a search page requested this way.
+    result = await fetch(f"{server_url}/header-echo", strategy)  # type: ignore[arg-type]
+
+    assert "absent" in result.html
