@@ -229,9 +229,14 @@ _ENGINE_PRODUCT_CSS_HTML = b"""<html><body>
 </div>
 </body></html>"""
 
+# Every size is its own product behind this endpoint, with its own name and its
+# own page, which is why the field map can ask for them per size.
 _ENGINE_PRODUCT_JSON = (
-    b'{"variants": [{"title": "5 ml", "price": 150, "available": true},'
-    b' {"title": "10 ml", "price": 290, "available": false}]}'
+    b'{"variants": ['
+    b'{"title": "5 ml", "price": 150, "available": true,'
+    b' "name": "Test Parfum 5 ml", "url": "/urun/test-parfum-5-ml"},'
+    b'{"title": "10 ml", "price": 290, "available": false,'
+    b' "name": "Test Parfum 10 ml", "url": "/urun/test-parfum-10-ml"}]}'
 )
 
 

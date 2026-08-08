@@ -8,12 +8,14 @@ The pages come from the local HTTP server in conftest, so the fetch, the redirec
 handling and the URL resolution are all real, with no network.
 """
 
+from dataclasses import replace
 from decimal import Decimal
 from typing import Any
 
 import pytest
 
-from parfum_finder.engine import ExtractionFailed, search_site
+from parfum_finder.engine import ExtractionFailed, apply_variant_rules, search_site
+from parfum_finder.extract import RawVariant
 
 
 def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:
@@ -29,6 +31,12 @@ def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:
             "result_item": ".card",
             "result_url": "a::attr(href)",
             "result_title": "a::text",
+        },
+        "variant_rules": {
+            "size_from": "variant_label",
+            "size_pattern": r"(\d+[.,]?\d*)\s*(ml|cc)",
+            "exclude_keywords": ["tester", "full şişe"],
+            "max_size_ml": 30,
         },
         "embedded_json": {
             "source": "attribute",
@@ -57,8 +65,8 @@ async def test_drives_a_site_from_search_page_to_variant_prices(
         "Test Parfum Dekant",
         "Test Parfum EDP Dekant",
     ]
-    assert [v.size_raw for v in hits[0].variants] == ["5ml", "10ml"]
-    assert [v.price for v in hits[0].variants] == [Decimal("150"), Decimal("290")]
+    assert [v.size_ml_x10 for v in hits[0].variants] == [50, 100]
+    assert [v.price_kurus for v in hits[0].variants] == [15000, 29000]
     assert [v.in_stock for v in hits[0].variants] == [True, False]
 
 
@@ -142,7 +150,7 @@ async def test_a_full_bottle_next_to_a_decant_does_not_sink_the_site(
     (hit,) = await search_site(profile, "test parfum")
 
     assert hit.candidate.raw_title == "Test Parfum Dekant"
-    assert [v.size_raw for v in hit.variants] == ["5ml", "10ml"]
+    assert [v.size_ml_x10 for v in hit.variants] == [50, 100]
 
 
 async def test_the_named_layer_is_the_only_one_tried(server_url: str) -> None:
@@ -177,8 +185,41 @@ async def test_endpoint_layer_asks_the_variant_url_instead_of_the_page(
 
     hits = await search_site(profile, "test")
 
-    assert [v.size_raw for v in hits[0].variants] == ["5 ml", "10 ml"]
+    assert [v.size_ml_x10 for v in hits[0].variants] == [50, 100]
     assert [v.in_stock for v in hits[0].variants] == [True, False]
+
+
+async def test_a_size_keeps_its_own_page_when_the_feed_names_one(
+    server_url: str,
+) -> None:
+    # One platform gives every size its own product page. Those URLs have to
+    # survive to the row, or opening a 10 ml result would land on the 5 ml page.
+    profile = _profile(
+        server_url,
+        extraction="endpoint",
+        endpoint={
+            "product_json": "{product_url}.js",
+            "variants_path": "variants",
+            "field_map": {
+                "size_raw": "title",
+                "price": "price",
+                "in_stock": "available",
+                "title": "name",
+                "url": "url",
+            },
+        },
+    )
+
+    hits = await search_site(profile, "test")
+
+    assert [v.raw_title for v in hits[0].variants] == [
+        "Test Parfum 5 ml",
+        "Test Parfum 10 ml",
+    ]
+    assert [v.product_url for v in hits[0].variants] == [
+        "/urun/test-parfum-5-ml",
+        "/urun/test-parfum-10-ml",
+    ]
 
 
 async def test_an_endpoint_that_answers_html_fails_loudly(server_url: str) -> None:
@@ -218,9 +259,8 @@ async def test_css_layer_reads_sizes_out_of_the_rendered_markup(
 
     (hit,) = await search_site(profile, "test")
 
-    assert [v.size_raw for v in hit.variants] == ["5 ml", "10 ml"]
-    assert [v.price for v in hit.variants] == [Decimal("150.00"), Decimal("290.00")]
-    assert [v.sku for v in hit.variants] == ["V5", "V10"]
+    assert [v.size_ml_x10 for v in hit.variants] == [50, 100]
+    assert [v.price_kurus for v in hit.variants] == [15000, 29000]
 
 
 async def test_rows_without_a_single_price_fail_loudly(server_url: str) -> None:
@@ -264,4 +304,128 @@ async def test_the_search_page_can_use_its_own_fetch_strategy(
     hits = await search_site(profile, "test")
 
     assert len(hits) == 2
-    assert [v.price for v in hits[0].variants] == [Decimal("150"), Decimal("290")]
+    assert [v.price_kurus for v in hits[0].variants] == [15000, 29000]
+
+
+# --- The variant rules on their own -------------------------------------------
+#
+# apply_variant_rules is pure, so these run without the server. Every size label
+# below is one that a captured target site really emits; a tidy invented label
+# ("5 ml") cannot fail the way the real ones do.
+
+_RULES: dict[str, Any] = {
+    "size_from": "variant_label",
+    "size_pattern": r"(\d+[.,]?\d*)\s*(ml|cc)",
+    "exclude_keywords": ["tester", "full şişe", "orijinal şişe", "kutulu", "set"],
+    "max_size_ml": 30,
+}
+
+
+def _row(size_raw: str | None, **overrides: Any) -> RawVariant:
+    row = RawVariant(
+        title="Bir Parfum",
+        url="https://x.test/p/1",
+        sku=None,
+        size_raw=size_raw,
+        price=Decimal("100"),
+        in_stock=True,
+    )
+    return replace(row, **overrides)
+
+
+def test_reads_the_size_out_of_the_labels_sites_actually_write() -> None:
+    # Left to right: two spellings of the same size, a trailing space, a decimal
+    # comma with a suffix after the unit, an uppercase unit, and "cc" for "ml".
+    labels = ["3 ml", "3ml", "10 ml ", "2,7 ml - metal sprey", "1 ML", "5cc"]
+
+    variants = apply_variant_rules([_row(label) for label in labels], _RULES)
+
+    assert [v.size_ml_x10 for v in variants] == [30, 30, 100, 27, 10, 50]
+
+
+def test_a_size_at_the_threshold_is_a_bottle_whatever_it_calls_itself() -> None:
+    # One shop labels a size "30mldekant". At 30 ml the profile says bottle, and
+    # what a size is depends on how much is in it, not on its own name.
+    rows = [_row("10ml"), _row("30mldekant"), _row("100ml")]
+
+    variants = apply_variant_rules(rows, _RULES)
+
+    assert [v.size_ml_x10 for v in variants] == [100]
+
+
+def test_an_uppercase_turkish_keyword_still_matches() -> None:
+    # "ORİJİNAL ŞİŞE" folds to a string with a combining dot in it, so a plain
+    # lower-case comparison against "orijinal şişe" finds nothing and a full
+    # bottle stays in the price-per-ml ranking.
+    rows = [
+        _row("5 ml", title="ORİJİNAL ŞİŞE Bir Parfum"),
+        _row("5 ml", title="TESTER Bir Parfum"),
+        _row("5 ml", title="Bir Parfum"),
+    ]
+
+    variants = apply_variant_rules(rows, _RULES)
+
+    assert len(variants) == 1
+
+
+def test_a_keyword_in_the_size_label_excludes_the_row_too() -> None:
+    # The giveaway sits in different places on different sites: one writes it in
+    # the title, another in the size label.
+    rows = [_row("5 ml tester"), _row("5 ml")]
+
+    variants = apply_variant_rules(rows, _RULES)
+
+    assert len(variants) == 1
+
+
+def test_a_size_that_cannot_be_read_is_dropped() -> None:
+    # No millilitres means no price per millilitre, and a row that cannot be
+    # compared is worse than no row: it looks like data.
+    rows = [_row("Standart"), _row(None), _row("5 ml")]
+
+    variants = apply_variant_rules(rows, _RULES)
+
+    assert [v.size_ml_x10 for v in variants] == [50]
+
+
+def test_prices_become_whole_kurus() -> None:
+    rows = [_row("5 ml", price=Decimal("1250.005")), _row("10 ml", price=None)]
+
+    variants = apply_variant_rules(rows, _RULES)
+
+    # Rounded half up, and integers throughout: a basket total decides whether a
+    # free shipping threshold is met, and that comparison has to be exact.
+    assert variants[0].price_kurus == 125001
+    # A sold-out size often shows no price. Kept, so the stock column can say so
+    # instead of the size disappearing from the table.
+    assert variants[1].price_kurus is None
+    assert variants[1].size_ml_x10 == 100
+
+
+def test_size_from_title_reads_the_product_name() -> None:
+    # One shop gives every size its own product page, so the size is in the title
+    # and there is no separate label to read.
+    rules = {**_RULES, "size_from": "title"}
+    rows = [_row(None, title="Amouage Blossom Love 3 ml")]
+
+    (variant,) = apply_variant_rules(rows, rules)
+
+    assert variant.size_ml_x10 == 30
+
+
+def test_size_from_field_still_needs_a_number() -> None:
+    # "field" trusts the feed to hand over a size. When it hands over a word
+    # instead, that trust is the thing that is wrong, so the row goes.
+    rules = {**_RULES, "size_from": "field"}
+
+    assert apply_variant_rules([_row("Standart")], rules) == ()
+
+
+def test_size_from_field_skips_the_pattern() -> None:
+    # A feed that already hands over a bare number needs no pattern, and running
+    # one that expects a unit over "5" would find nothing.
+    rules = {**_RULES, "size_from": "field"}
+
+    (variant,) = apply_variant_rules([_row("5")], rules)
+
+    assert variant.size_ml_x10 == 50
