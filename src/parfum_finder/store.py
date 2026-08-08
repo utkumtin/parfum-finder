@@ -9,7 +9,8 @@ Timestamps go through a single now_iso() helper (UTC, "YYYY-MM-DDTHH:MM:SSZ").
 Nothing in this codebase calls datetime.now().isoformat() directly, because mixing
 timestamp formats would silently break "most recent" ordering.
 
-TODO: syncing a profile's identity/shipping fields into the sites table.
+The sites table is filled from the JSON profiles by profiles.sync_to_db(), which
+is why nothing here writes to it.
 """
 
 import sqlite3

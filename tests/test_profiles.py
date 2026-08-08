@@ -6,6 +6,7 @@ half-populated profile a scraper would later choke on.
 """
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +18,9 @@ from parfum_finder.profiles import (
     load_platform_templates,
     load_site_hooks,
     load_site_profile,
+    sync_to_db,
 )
+from parfum_finder.store import connect
 
 SHOPIFY_TEMPLATE: dict[str, Any] = {
     "schema_version": 1,
@@ -399,3 +402,99 @@ def test_load_site_hooks_rejects_a_file_that_defines_no_hook_at_all(
 
     with pytest.raises(ValueError, match="defines none of"):
         load_site_hooks("olu-dosya", hooks_dir=tmp_path)
+
+
+def test_sync_to_db_flattens_the_profile_into_the_sites_table(tmp_path: Path) -> None:
+    # The table's column names are not the profile's field names: notes sits
+    # under shipping, and discovered_at becomes profile_discovered_at. Reading
+    # either one off the wrong key stores a NULL that the basket screen and the
+    # profile-age badge both read as "nothing to show".
+    profile = {
+        **STANDALONE_SITE,
+        "shipping": {
+            "free_shipping_threshold_kurus": None,
+            "shipping_cost_kurus": 5000,
+            "notes": "kargo hafta içi çıkıyor",
+        },
+    }
+    conn = connect(tmp_path / "test.db")
+
+    assert sync_to_db(conn, [profile], synced_at="2026-08-08T09:00:00Z") == 1
+
+    row = conn.execute("SELECT * FROM sites WHERE site_id = 'bagimsiz'").fetchone()
+    assert row["name"] == "Bağımsız Site"
+    assert row["base_url"] == "https://bagimsiz-site.com"
+    assert row["free_shipping_threshold_kurus"] is None
+    assert row["shipping_cost_kurus"] == 5000
+    assert row["notes"] == "kargo hafta içi çıkıyor"
+    assert row["profile_discovered_at"] == "2026-08-07T11:22:00Z"
+    assert row["synced_at"] == "2026-08-08T09:00:00Z"
+
+
+def test_sync_to_db_defaults_a_profile_without_enabled_to_enabled(
+    tmp_path: Path,
+) -> None:
+    # "enabled" is optional in the schema and defaults to true, and jsonschema
+    # does not fill defaults in. A site left out of every scan because nobody
+    # typed the field is a silent scan gap, not a configuration choice.
+    conn = connect(tmp_path / "test.db")
+
+    sync_to_db(conn, [STANDALONE_SITE], synced_at="2026-08-08T09:00:00Z")
+
+    assert _column(conn, "enabled") == 1
+
+
+def test_sync_to_db_stores_a_disabled_site_as_disabled(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "test.db")
+
+    sync_to_db(
+        conn, [{**STANDALONE_SITE, "enabled": False}], synced_at="2026-08-08T09:00:00Z"
+    )
+
+    assert _column(conn, "enabled") == 0
+
+
+def test_sync_to_db_updates_a_site_in_place_on_a_second_sync(tmp_path: Path) -> None:
+    # A shipping cost corrected in the JSON has to reach the basket totals on the
+    # next run. A second row under the same id, or an ignored conflict leaving the
+    # old number, would both make the app quote a price the profile no longer says.
+    conn = connect(tmp_path / "test.db")
+    sync_to_db(conn, [STANDALONE_SITE], synced_at="2026-08-08T09:00:00Z")
+
+    corrected = {
+        **STANDALONE_SITE,
+        "name": "Bağımsız Parfüm",
+        "shipping": {
+            "free_shipping_threshold_kurus": 60000,
+            "shipping_cost_kurus": 7500,
+        },
+    }
+    sync_to_db(conn, [corrected], synced_at="2026-08-09T09:00:00Z")
+
+    rows = conn.execute("SELECT * FROM sites").fetchall()
+    assert len(rows) == 1
+    assert rows[0]["name"] == "Bağımsız Parfüm"
+    assert rows[0]["free_shipping_threshold_kurus"] == 60000
+    assert rows[0]["shipping_cost_kurus"] == 7500
+    assert rows[0]["synced_at"] == "2026-08-09T09:00:00Z"
+
+
+def test_sync_to_db_keeps_the_row_of_a_profile_that_is_no_longer_listed(
+    tmp_path: Path,
+) -> None:
+    # products.site_id references this row, so removing a site whose profile was
+    # deleted would take its price history with it. Old prices stay comparable.
+    conn = connect(tmp_path / "test.db")
+    sync_to_db(conn, [STANDALONE_SITE], synced_at="2026-08-08T09:00:00Z")
+
+    sync_to_db(conn, [MINIMAL_SITE_ON_SHOPIFY], synced_at="2026-08-09T09:00:00Z")
+
+    assert {row["site_id"] for row in conn.execute("SELECT site_id FROM sites")} == {
+        "bagimsiz",
+        "ikinci-site",
+    }
+
+
+def _column(conn: sqlite3.Connection, name: str) -> Any:
+    row = conn.execute(f"SELECT {name} FROM sites").fetchone()
+    return row[0]

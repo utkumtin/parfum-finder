@@ -4,7 +4,7 @@ Subcommands will be added incrementally as the project grows:
     probe <url>               - check which fetch strategy a site needs
     discover <url> [--id]     - generate a site profile
     validate [<id>...] [--live] - check that a profile still works
-    search <query> [--site]   - search for a perfume across sites
+    search <perfume> [--site] [--db] - scan every site and store the prices
     (default) tui              - launch the interactive app
 
 CLI framework: argparse (stdlib). A handful of subcommands with plain
@@ -14,15 +14,21 @@ subparsers cover this without adding a dependency.
 
 import argparse
 import asyncio
+import sqlite3
 import sys
 from pathlib import Path
 from typing import get_args
 
 from parfum_finder.discover import discover
 from parfum_finder.discover import format_report as format_discovery_report
+from parfum_finder.engine import SiteResult, run_sites
 from parfum_finder.fetch import Strategy
+from parfum_finder.matcher import PerfumeQuery, match_title, parse_query
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.probe import probe
+from parfum_finder.profiles import load_site_profile, sync_to_db
+from parfum_finder.store import DEFAULT_DB_PATH, SnapshotRow, connect, now_iso
+from parfum_finder.store import write_snapshots as write_site_snapshots
 from parfum_finder.validate import (
     format_live_report,
     validate_all_live,
@@ -30,9 +36,12 @@ from parfum_finder.validate import (
 )
 from parfum_finder.validate import format_report as format_validation_report
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
 # Golden fixtures live outside the installed package, next to sites/ and
 # platforms/, because they are project data a person edits and reviews.
-FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent / "fixtures"
+FIXTURES_DIR = _PROJECT_ROOT / "fixtures"
+SITES_DIR = _PROJECT_ROOT / "sites"
 
 STRATEGIES = get_args(Strategy)
 
@@ -68,6 +77,108 @@ def ask_which_platform(candidates: tuple[str, ...]) -> str | None:
         if answer.isdigit() and 1 <= int(answer) <= len(candidates):
             return candidates[int(answer) - 1]
         print(f"answer with a number from 0 to {len(candidates)}.")
+
+
+def run_search(
+    query_text: str,
+    *,
+    site_ids: tuple[str, ...] = (),
+    sites_dir: Path = SITES_DIR,
+    db_path: Path = DEFAULT_DB_PATH,
+) -> int:
+    """Scan every site for one perfume, store what came back, and print it.
+
+    Returns the number of prices written, so the caller can tell a scan that
+    found nothing from one that never ran.
+
+    The sites table is synced before anything is scanned, and from every profile
+    rather than only the ones being run. The snapshot rows point at it by
+    foreign key, so a site absent from the table cannot be written at all; and a
+    site left out of this run by --site is still a site whose shipping terms the
+    basket screen has to be able to read.
+
+    Disabled profiles are synced and not scanned. That is what the flag is for,
+    and dropping their row instead would take their price history with it.
+    """
+    query = parse_query(query_text)
+    profiles = [load_site_profile(path) for path in sorted(sites_dir.glob("*.json"))]
+    if site_ids:
+        known = {profile["id"] for profile in profiles}
+        unknown = sorted(set(site_ids) - known)
+        if unknown:
+            # Asking about a site that has no profile is a mistake in the
+            # request. Scanning the rest of them would answer a question nobody
+            # asked and bury the typo in a report that looks fine.
+            raise FileNotFoundError(f"no profile under {sites_dir} for: {unknown}")
+    conn = connect(db_path)
+    try:
+        sync_to_db(conn, profiles, synced_at=now_iso())
+        wanted = [
+            profile
+            for profile in profiles
+            if profile.get("enabled", True)
+            and (not site_ids or profile["id"] in site_ids)
+        ]
+        results = asyncio.run(run_sites(wanted, query_text))
+        written = 0
+        for result in results:
+            written += _store_site_result(conn, result, query)
+            print(_report_line(result))
+        return written
+    finally:
+        conn.close()
+
+
+def _store_site_result(
+    conn: sqlite3.Connection, result: SiteResult, query: PerfumeQuery
+) -> int:
+    """Write one site's rows in a transaction of its own.
+
+    Per site rather than per run on purpose. write_snapshots is one transaction,
+    so a single unstorable row from one shop would roll back every other shop's
+    prices too, and this command exists to prove that one site breaking leaves
+    the others alone.
+    """
+    rows: list[SnapshotRow] = []
+    for hit in result.hits:
+        if hit.candidate.raw_title is None:
+            continue
+        match = match_title(hit.candidate.raw_title, query)
+        if match is None:
+            # A rejection, not a weak score: the title names another brand or
+            # another concentration. Storing it would put a different perfume's
+            # price into this one's history.
+            continue
+        rows.extend(
+            SnapshotRow(
+                site_id=result.site_id,
+                brand=query.brand,
+                name=query.name,
+                # What the title named, not what was asked for. An EDT and an
+                # EDP are two products with two prices, and a query that named
+                # neither would otherwise merge them into one perfume row.
+                concentration=match.concentration,
+                match_score=match.score,
+                variant=variant,
+            )
+            for variant in hit.variants
+            if variant.raw_title is not None
+        )
+    return write_site_snapshots(conn, rows)
+
+
+def _report_line(result: SiteResult) -> str:
+    """One line per site: which site, how it went, and what it said.
+
+    The site id is printed here rather than taken from the detail. An error's
+    detail is the exception's own message, which knows nothing about which shop
+    raised it, so a report built from details alone would show a bare
+    "connection failed" with no way to tell whose it was.
+    """
+    marks = {"ok": " ", "empty": " ", "suspect": "⚠", "error": "✗"}
+    detail = result.detail or ""
+    detail = detail.removeprefix(f"{result.site_id}: ")
+    return f"{marks[result.status]} {result.site_id:<16} {result.status:<8} {detail}"
 
 
 def main() -> None:
@@ -160,6 +271,31 @@ def main() -> None:
         ),
     )
 
+    search_parser = subparsers.add_parser(
+        "search", help="search every site for one perfume and store the prices"
+    )
+    search_parser.add_argument(
+        "query", metavar="PERFUME", help='what to look for, e.g. "Dior Sauvage EDP"'
+    )
+    search_parser.add_argument(
+        "--site",
+        dest="site_id",
+        action="append",
+        default=[],
+        metavar="ID",
+        help=(
+            "only scan this site (repeatable). Every profile is still synced "
+            "to the database; default is to scan all enabled ones."
+        ),
+    )
+    search_parser.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_DB_PATH,
+        metavar="PATH",
+        help=f"price database to write to (default: {DEFAULT_DB_PATH})",
+    )
+
     args = parser.parse_args()
 
     if args.command == "probe":
@@ -185,6 +321,20 @@ def main() -> None:
             )
         )
         print(format_discovery_report(discovery))
+    elif args.command == "search":
+        try:
+            written = run_search(
+                args.query,
+                site_ids=tuple(args.site_id),
+                sites_dir=SITES_DIR,
+                db_path=args.db,
+            )
+        except (FileNotFoundError, ValueError) as e:
+            # A bad request, not a finding about a site. Same exit code as
+            # validate uses for the same kind of mistake.
+            print(e)
+            sys.exit(2)
+        print(f"\n{written} price(s) written to {args.db}")
     elif args.command == "validate":
         ids = tuple(args.site_id) or None
         try:

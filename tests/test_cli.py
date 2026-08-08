@@ -5,7 +5,9 @@ so an argparse wiring mistake (wrong dest, subcommand never dispatched, url
 argument dropped) actually fails here instead of only showing up by hand.
 """
 
+import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import requires_playwright
@@ -14,6 +16,7 @@ from parfum_finder import cli
 from parfum_finder.cli import main
 from parfum_finder.discover import DiscoveryReport
 from parfum_finder.probe import ProbeReport
+from parfum_finder.store import connect
 
 
 # probe() always runs the playwright rung and raises when playwright can't run,
@@ -275,3 +278,177 @@ def test_the_live_flag_runs_the_live_pass_and_prints_both_columns(
     assert 'set "extraction": "jsonld"' in out
     # A break has to fail the command, not merely print, or CI reads as green.
     assert exit_info.value.code == 1
+
+
+def _search_profile(site_id: str, base_url: str) -> dict[str, Any]:
+    """A profile the engine can drive against the conftest server."""
+    return {
+        "schema_version": 1,
+        "id": site_id,
+        "name": site_id.title(),
+        "base_url": base_url,
+        "platform": None,
+        "strategy": "httpx",
+        "extraction": "embedded_json",
+        "timeout_s": 5,
+        "rate_limit_ms": 0,
+        "search": {
+            "url_template": "{base_url}/engine-search-named?q={query}",
+            "result_item": ".card",
+            "result_url": "a::attr(href)",
+            "result_title": "a::text",
+        },
+        "variant_rules": {
+            "size_from": "variant_label",
+            "size_pattern": r"(\d+[.,]?\d*)\s*(ml|cc)",
+            "exclude_keywords": ["tester", "full şişe"],
+            "max_size_ml": 30,
+        },
+        "embedded_json": {
+            "source": "attribute",
+            "selector": "[data-product_variations]",
+            "attribute": "data-product_variations",
+            "field_map": {
+                "size_raw": "attributes.attribute_pa_hacim",
+                "price": "display_price",
+                "in_stock": "is_in_stock",
+            },
+        },
+        "shipping": {
+            "free_shipping_threshold_kurus": 75000,
+            "shipping_cost_kurus": 8900,
+        },
+        "discovered_at": "2026-08-07T11:22:00Z",
+        "needs_review": [],
+    }
+
+
+def _write_sites(tmp_path: Path, *profiles: dict[str, Any]) -> Path:
+    sites_dir = tmp_path / "sites"
+    sites_dir.mkdir()
+    for profile in profiles:
+        (sites_dir / f"{profile['id']}.json").write_text(json.dumps(profile))
+    return sites_dir
+
+
+def test_search_stores_the_healthy_sites_when_one_site_is_broken(
+    server_url: str,
+    unused_tcp_port: int,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The milestone's whole claim in one test: a run writes snapshots for every
+    # site that answered, and the one that blew up is a line in the report rather
+    # than a run that produced nothing. A shared transaction, or an exception
+    # escaping the run loop, would take the healthy site's prices down with the
+    # dead one and nobody would notice until the basket came up empty.
+    sites_dir = _write_sites(
+        tmp_path,
+        _search_profile("saglam", server_url),
+        _search_profile("olu", f"http://127.0.0.1:{unused_tcp_port}"),
+    )
+    db_path = tmp_path / "prices.db"
+
+    written = cli.run_search("Dior Sauvage EDP", sites_dir=sites_dir, db_path=db_path)
+
+    assert written > 0
+    conn = connect(db_path)
+    rows = conn.execute(
+        "SELECT site_id, size_ml_x10, price_kurus FROM latest_prices ORDER BY 1, 2"
+    ).fetchall()
+    assert [row["site_id"] for row in rows] == ["saglam"] * len(rows)
+    assert (50, 15000) in [(row["size_ml_x10"], row["price_kurus"]) for row in rows]
+
+    # The results page also carried another house's bottle. Storing it would put
+    # Chanel's price into Dior's history, so the matcher's rejection has to hold
+    # all the way to the database, not just to the screen.
+    perfumes = conn.execute(
+        "SELECT brand, name, concentration FROM perfumes"
+    ).fetchall()
+    assert [tuple(row) for row in perfumes] == [("dior", "sauvage", "EDP")]
+
+    out = capsys.readouterr().out
+    assert "error" in out
+    assert "olu" in out
+
+
+def test_search_syncs_every_profile_even_the_ones_it_does_not_scan(
+    server_url: str, tmp_path: Path
+) -> None:
+    # The sites row is what the snapshots point at and what the basket screen
+    # reads shipping terms from, so it has to exist for a site this run skipped.
+    # Syncing only the scanned sites would make --site quietly shrink the table.
+    disabled = {**_search_profile("kapali", server_url), "enabled": False}
+    sites_dir = _write_sites(tmp_path, _search_profile("saglam", server_url), disabled)
+    db_path = tmp_path / "prices.db"
+
+    cli.run_search(
+        "Dior Sauvage EDP", site_ids=("saglam",), sites_dir=sites_dir, db_path=db_path
+    )
+
+    conn = connect(db_path)
+    assert {row["site_id"] for row in conn.execute("SELECT site_id FROM sites")} == {
+        "saglam",
+        "kapali",
+    }
+    # Skipped and disabled both mean "not scanned", so neither has prices.
+    scanned = {row["site_id"] for row in conn.execute("SELECT site_id FROM products")}
+    assert scanned == {"saglam"}
+
+
+def test_search_does_not_scan_a_disabled_site(server_url: str, tmp_path: Path) -> None:
+    disabled = {**_search_profile("kapali", server_url), "enabled": False}
+    sites_dir = _write_sites(tmp_path, disabled)
+    db_path = tmp_path / "prices.db"
+
+    assert cli.run_search("Dior Sauvage EDP", sites_dir=sites_dir, db_path=db_path) == 0
+
+
+def test_search_subcommand_is_wired_to_run_search(
+    server_url: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    sites_dir = _write_sites(tmp_path, _search_profile("saglam", server_url))
+    monkeypatch.setattr(cli, "SITES_DIR", sites_dir)
+    db_path = tmp_path / "prices.db"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "parfum-finder",
+            "search",
+            "Dior Sauvage EDP",
+            "--site",
+            "saglam",
+            "--db",
+            str(db_path),
+        ],
+    )
+
+    main()
+
+    assert "price(s) written" in capsys.readouterr().out
+    assert db_path.exists()
+
+
+def test_search_rejects_an_unknown_site_id_instead_of_scanning_the_rest(
+    server_url: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A typo in --site that quietly scanned every other site would answer a
+    # question nobody asked, and the report would look perfectly normal.
+    sites_dir = _write_sites(tmp_path, _search_profile("saglam", server_url))
+    monkeypatch.setattr(cli, "SITES_DIR", sites_dir)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["parfum-finder", "search", "Dior Sauvage EDP", "--site", "yok-boyle"],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+
+    assert exit_info.value.code == 2
+    assert "yok-boyle" in capsys.readouterr().out

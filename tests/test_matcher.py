@@ -7,7 +7,15 @@ the name score is unsure about is handed over flagged rather than dropped or
 quietly accepted.
 """
 
-from parfum_finder.matcher import DEFAULT_THRESHOLD, Match, PerfumeQuery, match_title
+import pytest
+
+from parfum_finder.matcher import (
+    DEFAULT_THRESHOLD,
+    Match,
+    PerfumeQuery,
+    match_title,
+    parse_query,
+)
 
 
 def test_a_shop_title_with_all_its_noise_matches_the_perfume() -> None:
@@ -242,3 +250,40 @@ def test_a_comma_decimal_size_with_trailing_text_leaves_no_stray_digit() -> None
     )
 
     assert with_size == without_size
+
+
+def test_parse_query_files_the_same_perfume_under_one_identity() -> None:
+    # The three parts become a UNIQUE key in the perfumes table. If the
+    # concentration stayed inside the name, "Dior Sauvage EDP" and a later
+    # "Dior Sauvage Eau de Parfum" would open two rows for one bottle and cut
+    # its price history in half.
+    assert parse_query("Dior Sauvage EDP") == parse_query("dior sauvage eau de parfum")
+    assert parse_query("Dior Sauvage EDP").concentration == "EDP"
+    assert parse_query("Dior Sauvage EDP").name == "sauvage"
+
+
+def test_parse_query_keeps_two_concentrations_of_one_perfume_apart() -> None:
+    # The other half of the same rule: separating the concentration must not
+    # merge them. These are two products at two prices.
+    assert parse_query("Dior Sauvage EDT") != parse_query("Dior Sauvage EDP")
+
+
+def test_parse_query_leaves_a_multi_word_brand_in_the_name() -> None:
+    # Only the first word is the brand, so the rest goes on scoring in the name
+    # rather than being thrown away. The brand check gets weaker, not wrong.
+    query = parse_query("Yves Saint Laurent Libre")
+
+    assert query.brand == "yves"
+    assert query.name == "saint laurent libre"
+
+
+def test_parse_query_rejects_a_line_naming_only_a_brand() -> None:
+    # "Dior" alone would match every bottle Dior sells, and each of them would
+    # be stored as the perfume that was asked for.
+    with pytest.raises(ValueError, match="names only a brand"):
+        parse_query("Dior Parfum")
+
+
+def test_parse_query_rejects_an_empty_search() -> None:
+    with pytest.raises(ValueError):
+        parse_query("   ")

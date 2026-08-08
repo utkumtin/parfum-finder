@@ -194,6 +194,15 @@ _ENGINE_SEARCH_MIXED_HTML = b"""<html><body>
 <div class="card"><a href="/engine-product-bare">Test Parfum 100 ml Tam Sise</a></div>
 </body></html>"""
 
+# A listing whose titles name real brands, so a search run end to end has
+# something the matcher can accept and something it has to reject. The second
+# row is another house's bottle sitting on the same results page, which is what
+# every shop's search returns for a common word.
+_ENGINE_SEARCH_NAMED_HTML = b"""<html><body>
+<div class="card"><a href="/engine-product">Dior Sauvage EDP Dekant</a></div>
+<div class="card"><a href="/engine-product">Chanel Bleu EDP Dekant</a></div>
+</body></html>"""
+
 _ENGINE_SEARCH_CSS_HTML = b"""<html><body>
 <div class="card"><a href="/engine-product-css">Test Parfum Dekant</a></div>
 </body></html>"""
@@ -364,6 +373,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path.startswith("/engine-search-mixed"):
             self._send(200, _ENGINE_SEARCH_MIXED_HTML)
+            return
+        if self.path.startswith("/engine-search-named"):
+            self._send(200, _ENGINE_SEARCH_NAMED_HTML)
             return
         if self.path.startswith("/engine-search-css"):
             self._send(200, _ENGINE_SEARCH_CSS_HTML)

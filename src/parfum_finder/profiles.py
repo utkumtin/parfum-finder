@@ -8,6 +8,9 @@ Validation runs on the *effective* (post-merge) profile, not the raw file on dis
 A site profile is allowed to omit anything its platform template already supplies;
 the merged result is what has to satisfy schema/site.schema.json.
 
+The `sites` table is a mirror of these profiles rather than a second source of
+truth, so `sync_to_db()` writes it and nothing else does.
+
 The optional Python escape hatch for a site, `hooks/<id>.py`, is loaded here too:
 it is per-site configuration that the engine reads before driving a site, the same
 as the JSON profile next to it.
@@ -16,7 +19,8 @@ as the JSON profile next to it.
 import importlib.util
 import inspect
 import json
-from collections.abc import Callable
+import sqlite3
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -108,6 +112,70 @@ def load_site_profile(
         effective = site
     _validate(effective, "site.schema.json", path)
     return effective
+
+
+def sync_to_db(
+    conn: sqlite3.Connection,
+    profiles: Iterable[dict[str, Any]],
+    *,
+    synced_at: str,
+) -> int:
+    """Mirror site profiles into the sites table and return how many were written.
+
+    The profiles are the effective ones from load_site_profile, and the table is
+    a copy of them, not a second place to edit. Every column outside the key is
+    overwritten on each sync, so a shipping cost corrected in the JSON reaches
+    the basket totals on the next run instead of after somebody remembers to
+    touch the database too.
+
+    A profile that disappeared from sites/ keeps its row. products.site_id points
+    at it, so dropping the row would either fail against the foreign key or take
+    that shop's whole price history with it, and a shop nobody scans any more is
+    still a shop whose old prices are worth comparing against.
+
+    The timestamp is passed in rather than taken here: this module cannot import
+    store, and every timestamp in the database has to come from its now_iso().
+    """
+    rows = [(*_site_row(profile), synced_at) for profile in profiles]
+    with conn:
+        conn.executemany(
+            "INSERT INTO sites (site_id, name, base_url, enabled,"
+            " free_shipping_threshold_kurus, shipping_cost_kurus, notes,"
+            " profile_discovered_at, synced_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            " ON CONFLICT (site_id) DO UPDATE SET"
+            " name = excluded.name, base_url = excluded.base_url,"
+            " enabled = excluded.enabled,"
+            " free_shipping_threshold_kurus ="
+            " excluded.free_shipping_threshold_kurus,"
+            " shipping_cost_kurus = excluded.shipping_cost_kurus,"
+            " notes = excluded.notes,"
+            " profile_discovered_at = excluded.profile_discovered_at,"
+            " synced_at = excluded.synced_at",
+            rows,
+        )
+    return len(rows)
+
+
+def _site_row(profile: dict[str, Any]) -> tuple[Any, ...]:
+    """Flatten one profile into the column order of the sites table.
+
+    The shipping fields are nested in the profile and flat in the table, and
+    "enabled" is optional in the schema with a documented default of true.
+    Reading it with .get and no default would store a NULL that later reads as
+    "not enabled" and quietly drop the site from every scan.
+    """
+    shipping = profile["shipping"]
+    return (
+        profile["id"],
+        profile["name"],
+        profile["base_url"],
+        int(profile.get("enabled", True)),
+        shipping["free_shipping_threshold_kurus"],
+        shipping["shipping_cost_kurus"],
+        shipping.get("notes"),
+        profile["discovered_at"],
+    )
 
 
 @dataclass(frozen=True)

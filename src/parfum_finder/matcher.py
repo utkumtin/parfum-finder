@@ -114,6 +114,39 @@ class Match:
     confident: bool
 
 
+def parse_query(text: str) -> PerfumeQuery:
+    """Split one typed line, "Dior Sauvage EDP", into the three identity parts.
+
+    The first word is taken as the brand. Multi-word brands lose the rest of
+    their name to the name field, which weakens the brand check rather than
+    breaking it: "Yves" is still absent from every other house's titles, and the
+    leftover words go on scoring inside the name.
+
+    The concentration is pulled out even though match_title would find it
+    anyway, because this is also what the perfume gets stored under. Leaving
+    "EDP" inside the name would file the same bottle under two rows depending on
+    how the person happened to type the search, and split its price history down
+    the middle.
+
+    The parts come back folded and normalized, since they are a database key and
+    not something anyone reads. What the results table shows is the site's own
+    raw_title.
+    """
+    tokens = _tokenize(text)
+    if not tokens:
+        raise ValueError("a search needs a perfume to look for, not an empty line")
+    concentration, tokens = _split_concentration(tokens)
+    brand, name_tokens = tokens[0], tokens[1:]
+    if not name_tokens:
+        raise ValueError(
+            f"{text!r} names only a brand. A search needs the perfume too, "
+            f"because a brand on its own matches everything that house sells."
+        )
+    return PerfumeQuery(
+        brand=brand, name=" ".join(name_tokens), concentration=concentration
+    )
+
+
 def match_title(
     raw_title: str, query: PerfumeQuery, *, threshold: int = DEFAULT_THRESHOLD
 ) -> Match | None:
