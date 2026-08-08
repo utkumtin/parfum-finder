@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "luxurydekant",
+  "name": "Luxury Dekant",
+  "base_url": "https://luxurydekant.com.tr",
+  "platform": "woocommerce",
+  "strategy": "httpx",
+  "search": {
+    "url_template": "{base_url}/?s={query}&post_type=product",
+    "result_item": ".product-small.box",
+    "result_url": "a.woocommerce-LoopProduct-link::attr(href)",
+    "result_title": "a.woocommerce-LoopProduct-link::text"
+  },
+  "variant_rules": {
+    "size_from": "variant_label",
+    "size_pattern": "(\\d+[.,]?\\d*)\\s*(ml|cc)",
+    "exclude_keywords": ["Tester", "Full Şişe", "Orijinal Şişe", "Kutulu", "Set"],
+    "max_size_ml": 30
+  },
+  "shipping": {
+    "free_shipping_threshold_kurus": null,
+    "shipping_cost_kurus": 0,
+    "notes": "PLACEHOLDER: kargo bilgisi hiç toplanmadı, elle girilmedi. shipping_cost_kurus=0 gerçek değer değil."
+  },
+  "discovered_at": "2026-08-07T13:56:42Z",
+  "needs_review": [
+    "shipping: hiçbir alan gerçek veri değil, elle doldurulmalı",
+    "en büyük gözlenen ölçü (30ml) ARCHITECTURE.md §4'teki size_ml >= 30 kuralıyla eleniyor; bu shop'ta bu ölçü gerçekten tam şişe mi yoksa büyük bir dekant mı elle doğrulanmadı"
+  ]
+}

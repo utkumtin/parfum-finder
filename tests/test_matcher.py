@@ -188,3 +188,57 @@ def test_an_unrecognized_concentration_matches_nothing_instead_of_everything() -
     assert (
         match_title("Dior Sauvage EDP", PerfumeQuery("Dior", "Sauvage", "EDPP")) is None
     )
+
+
+def test_a_number_in_the_name_stays_part_of_the_name() -> None:
+    # 212 and 212 VIP are different products sold by the same brand, and the
+    # number is the only thing that says so. A query for plain "212" still has
+    # to land squarely on the plain product...
+    exact = match_title(
+        "Carolina Herrera 212 EDT", PerfumeQuery("Carolina Herrera", "212")
+    )
+    assert exact == Match(score=100, concentration="EDT", confident=True)
+
+    # ...and come back doubtful, not silently perfect, against the VIP one.
+    # Confident would put the wrong bottle in the basket; rejecting it outright
+    # would hide a title someone may still recognize as what they meant.
+    vip = match_title(
+        "Carolina Herrera 212 VIP EDT", PerfumeQuery("Carolina Herrera", "212")
+    )
+    assert vip is not None and vip.confident is False
+
+
+def test_a_numeric_brand_still_gates_out_a_different_brand() -> None:
+    # A brand written only in digits used to tokenize to nothing at all, which
+    # made the mandatory brand check pass for every title, numeric brand or not.
+    # "212" has to be absent-or-present like any other brand.
+    assert match_title("Chanel No 5 EDP", PerfumeQuery("212", "")) is None
+
+
+def test_every_plain_size_label_form_disappears_completely() -> None:
+    # Real shops write a size more ways than "5 ml": a comma decimal, a
+    # trailing space, an uppercase unit, or jammed against the next word with
+    # no space at all. Each has to vanish without a trace, or the leftover
+    # digit or unit would read as an extra word in the name and turn a perfect
+    # match into a merely doubtful one.
+    for label in ("3 ml", "3ml", "10 ml ", "1 ML", "30mldekant"):
+        match = match_title(
+            f"Dior Sauvage EDT {label}", PerfumeQuery("Dior", "Sauvage", "EDT")
+        )
+        assert match == Match(score=100, concentration="EDT", confident=True), label
+
+
+def test_a_comma_decimal_size_with_trailing_text_leaves_no_stray_digit() -> None:
+    # "2,7 ml - metal sprey" pairs a comma decimal with a note after the unit.
+    # The size still has to disappear completely and leave only the note
+    # behind; an orphaned "2" surviving the cut would read as part of the name
+    # and drag the score down for a reason that has nothing to do with the name.
+    with_size = match_title(
+        "Dior Sauvage EDT 2,7 ml - metal sprey",
+        PerfumeQuery("Dior", "Sauvage", "EDT"),
+    )
+    without_size = match_title(
+        "Dior Sauvage EDT - metal sprey", PerfumeQuery("Dior", "Sauvage", "EDT")
+    )
+
+    assert with_size == without_size

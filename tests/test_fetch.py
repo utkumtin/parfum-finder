@@ -48,6 +48,43 @@ async def test_fetch_unknown_strategy_raises() -> None:
         await fetch("http://example.invalid", "bogus")  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize("strategy", ["httpx", "curl_cffi"])
+async def test_fetch_post_sends_the_form_body(server_url: str, strategy: str) -> None:
+    result = await fetch(
+        f"{server_url}/engine-related-options",
+        strategy,  # type: ignore[arg-type]
+        method="POST",
+        data={"selected_options[]": "10"},
+    )
+
+    assert result.status_code == 200
+    assert '"option_id": 10' in result.html
+
+
+@pytest.mark.parametrize("strategy", ["httpx", "curl_cffi"])
+async def test_fetch_post_with_no_matching_id_still_answers(
+    server_url: str, strategy: str
+) -> None:
+    # An id the endpoint does not recognize is not a network failure, it is an
+    # empty answer, same as the real site gives for an id it has never heard of.
+    result = await fetch(
+        f"{server_url}/engine-related-options",
+        strategy,  # type: ignore[arg-type]
+        method="POST",
+        data={"selected_options[]": "does-not-exist"},
+    )
+
+    assert result.status_code == 200
+    assert '"options": []' in result.html
+
+
+async def test_fetch_playwright_post_raises_not_implemented() -> None:
+    # No target needs a browser-driven form POST, so this is left unbuilt
+    # rather than guessed at.
+    with pytest.raises(NotImplementedError, match="does not support method 'POST'"):
+        await fetch("http://example.invalid", "playwright", method="POST")
+
+
 async def test_fetch_playwright_missing_extra_raises_clear_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

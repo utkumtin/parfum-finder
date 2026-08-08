@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "id": "ruxangroup",
+  "name": "Ruxan Group",
+  "base_url": "https://ruxangroup.com",
+  "platform": "woocommerce",
+  "strategy": "httpx",
+  "search": {
+    "url_template": "{base_url}/?s={query}&post_type=product",
+    "result_item": ".product-wrapper",
+    "result_url": "h3.wd-entities-title a::attr(href)",
+    "result_title": "h3.wd-entities-title a::text"
+  },
+  "variant_rules": {
+    "size_from": "variant_label",
+    "size_pattern": "(\\d+[.,]?\\d*)\\s*(ml|cc)",
+    "exclude_keywords": ["Tester", "Full Şişe", "Orijinal Şişe", "Kutulu", "Set"],
+    "max_size_ml": 30
+  },
+  "shipping": {
+    "free_shipping_threshold_kurus": null,
+    "shipping_cost_kurus": 0,
+    "notes": "PLACEHOLDER: kargo bilgisi hiç toplanmadı, elle girilmedi. shipping_cost_kurus=0 gerçek değer değil."
+  },
+  "discovered_at": "2026-08-07T13:57:20Z",
+  "needs_review": [
+    "shipping: hiçbir alan gerçek veri değil, elle doldurulmalı",
+    "katalog karışık: 'simple' (tek boy, tam şişe) ürünlerde data-product_variations hiç yok, embedded_json boş döner ve satır otomatik elenir - bu ayrıca bir exclude_keyword gerektirmedi",
+    "'variable' ürünlerin varyant tablosu dekant ölçüleriyle (5ml, 10ml, 30mldekant) aynı satırda tam şişeyi de (100ml) taşıyor; max_size_ml=30 ile 30mldekant da tam şişeyle birlikte eleniyor, ARCHITECTURE.md §4'teki kuralın doğrudan sonucu"
+  ]
+}

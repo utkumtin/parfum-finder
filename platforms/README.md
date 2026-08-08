@@ -8,12 +8,15 @@ tipik selector'ları tutar. Bir site profili bu şablonu derin-merge ile overrid
 Şu an üç şablon var: `ideasoft`, `woocommerce`, `ikas`. Üçü de keşif turunda gerçekten
 karşılaşılmış platformlar; karşılaşılmayan platform için spekülatif şablon yazılmaz.
 
-Şablonlar bugün yalnızca fingerprint imzasını, varsa arama URL şablonunu ve çıkarım
-katmanını taşıyor. Varyantların tam olarak nereden okunacağı (WooCommerce'in
-`data-product_variations` attribute'u, İdeasoft'un POST varyant endpoint'i) henüz
-yazılamıyor, çünkü `schema/site.schema.json` bu iki şekli tarif edecek alanları
-içermiyor. Şema, çıkarım merdivenini yazan adımla birlikte genişleyecek.
+Üçünün de varyantların tam olarak nereden okunacağı yazılı: WooCommerce'in
+`data-product_variations` attribute'u, İkas'ın `__NEXT_DATA__` bloğu, İdeasoft'un
+`POST /product/related-options` varyant endpoint'i.
 
-`ideasoft.json` bilerek `extraction` yazmıyor: şema `extraction: "endpoint"` görünce
-`endpoint` bloğu istiyor, o blok da GET biçiminde ve İdeasoft'un POST isteğini tarif
-edemiyor. Şablona yazılsaydı bu platformdaki her site profili yüklenirken patlardı.
+`ideasoft.json`'daki `endpoint` bloğu `method: "POST"` taşıyan tek şablon. İdeasoft'un
+varyant endpoint'i ürün başına tek istek değil, ölçü seçeneği başına tek istek istiyor:
+`body` alanları (`parent_product_id`, `selected_option_group_id`) ürün sayfasından bir
+selector'la okunuyor, `option_selector` sayfadaki her ölçü seçeneğinin kendi id'sini
+buluyor, ve motor her id için ayrı bir istek atıp satırları birleştiriyor.
+`product_price.sale_price` alanı gerçek fiyat olarak seçildi: üç farklı üründe sayfanın
+kendi gösterdiği fiyatla karşılaştırılarak doğrulandı, `product_price.price` ise
+`sale_price`'ın KDV'siz hali (aradaki oran hep 1,2 - `tax: 20` alanıyla tutarlı).

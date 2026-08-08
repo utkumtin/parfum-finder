@@ -7,9 +7,11 @@ or mocking away the libraries themselves.
 
 import asyncio
 import importlib.util
+import json
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs
 
 import pytest
 
@@ -239,6 +241,51 @@ _ENGINE_PRODUCT_JSON = (
     b' "name": "Test Parfum 10 ml", "url": "/urun/test-parfum-10-ml"}]}'
 )
 
+# A listing pointing at the POST-endpoint product page below.
+_ENGINE_SEARCH_POST_ENDPOINT_HTML = b"""<html><body>
+<div class="card"><a href="/engine-product-post-endpoint">Test Parfum Dekant</a></div>
+</body></html>"""
+
+# The markup an ideasoft-shaped product page carries: a product id on the
+# add-to-cart button, a group id on the variant list, and one span per size
+# option with its own option id. Nothing here declares a price or a stock
+# count; those only exist behind the POST endpoint below, one request per
+# option id found here.
+_ENGINE_PRODUCT_POST_ENDPOINT_HTML = b"""<html><body>
+<h1>Test Parfum Dekant</h1>
+<a class="add-to-cart-button" data-context="detail"
+   data-product-id="900">Sepete Ekle</a>
+<div class="variant-list-group" data-group-id="1">
+  <span class="variant-text" data-option-id="10">5 ml</span>
+  <span class="variant-text" data-option-id="20">10 ml</span>
+</div>
+</body></html>"""
+
+# What the POST endpoint answers per option id, keyed the same way the do_POST
+# handler below looks them up. Shaped like the real ideasoft response: a
+# "sale_price" that is the field actually shown to a buyer, and a "price" that
+# is not (its ideasoft's tax-exclusive figure, unused here).
+_ENGINE_POST_ENDPOINT_OPTIONS = {
+    "10": {
+        "option_id": 10,
+        "option_title": "5 ml",
+        "product_price": {"price": 125.0, "sale_price": 150.0},
+        "product_stock_amount": 12,
+        "product_name": "Test Parfum 5 ml",
+        "product_url": "/urun/test-parfum-5-ml",
+        "product_sku": "SKU5",
+    },
+    "20": {
+        "option_id": 20,
+        "option_title": "10 ml",
+        "product_price": {"price": 241.67, "sale_price": 290.0},
+        "product_stock_amount": 0,
+        "product_name": "Test Parfum 10 ml",
+        "product_url": "/urun/test-parfum-10-ml",
+        "product_sku": "SKU10",
+    },
+}
+
 
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
@@ -255,6 +302,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path.startswith("/engine-search-empty"):
             self._send(200, _ENGINE_SEARCH_EMPTY_HTML)
+            return
+        if self.path.startswith("/engine-search-post-endpoint"):
+            self._send(200, _ENGINE_SEARCH_POST_ENDPOINT_HTML)
             return
         if self.path.startswith(("/engine-search", "/shop/engine-search")):
             self._send(200, _ENGINE_SEARCH_HTML)
@@ -275,6 +325,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/engine-product-bare":
             self._send(200, _ENGINE_PRODUCT_BARE_HTML)
+            return
+        if self.path == "/engine-product-post-endpoint":
+            self._send(200, _ENGINE_PRODUCT_POST_ENDPOINT_HTML)
             return
         if self.path == "/redirect":
             self.send_response(302)
@@ -321,6 +374,21 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(403, b"<html><body>forbidden</body></html>")
             else:
                 self._send(200, _PRODUCT_HTML)
+            return
+        self._send(404, b"not found")
+
+    def do_POST(self) -> None:
+        if self.path == "/engine-related-options":
+            length = int(self.headers.get("Content-Length", 0))
+            fields = parse_qs(self.rfile.read(length).decode())
+            # The real endpoint answers one option at a time; a request naming
+            # an id outside the two above gets an empty list back, the same as
+            # the live site does for an id it does not recognize.
+            option_id = fields.get("selected_options[]", [""])[0]
+            option = _ENGINE_POST_ENDPOINT_OPTIONS.get(option_id)
+            options = [option] if option is not None else []
+            body = json.dumps({"success": True, "data": {"options": options}}).encode()
+            self._send(200, body)
             return
         self._send(404, b"not found")
 

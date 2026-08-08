@@ -223,6 +223,87 @@ async def test_a_size_keeps_its_own_page_when_the_feed_names_one(
     ]
 
 
+async def test_a_post_endpoint_asks_once_per_size_option_off_the_page(
+    server_url: str,
+) -> None:
+    # The one platform this project has met whose variant endpoint is a POST
+    # answers one size at a time, and which sizes exist only sits in the
+    # product page's own markup: a product id on the add-to-cart button, a
+    # group id on the option list, and one id per size option.
+    profile = _profile(
+        server_url,
+        extraction="endpoint",
+        endpoint={
+            "product_json": "{base_url}/engine-related-options",
+            "method": "POST",
+            "body": {
+                "parent_product_id": (
+                    'a.add-to-cart-button[data-context="detail"]::attr(data-product-id)'
+                ),
+                "selected_option_group_id": (
+                    "div.variant-list-group::attr(data-group-id)"
+                ),
+            },
+            "option_selector": "span.variant-text::attr(data-option-id)",
+            "option_body_key": "selected_options[]",
+            "variants_path": "data.options",
+            "field_map": {
+                "size_raw": "option_title",
+                "price": "product_price.sale_price",
+                "in_stock": "product_stock_amount",
+                "title": "product_name",
+                "url": "product_url",
+                "sku": "product_sku",
+            },
+        },
+    )
+    profile["search"]["url_template"] = (
+        "{base_url}/engine-search-post-endpoint?q={query}"
+    )
+
+    hits = await search_site(profile, "test")
+
+    assert [v.size_ml_x10 for v in hits[0].variants] == [50, 100]
+    assert [v.price_kurus for v in hits[0].variants] == [15000, 29000]
+    # product_price.price also sits in the response, at 125.0 for the 5 ml row;
+    # picking it instead of sale_price would put 12500 here, not 15000.
+    assert [v.in_stock for v in hits[0].variants] == [True, False]
+
+
+async def test_a_post_endpoint_missing_a_static_body_field_fails_loudly(
+    server_url: str,
+) -> None:
+    # A selector for the parent product id that matches nothing on the page is
+    # a broken profile, not an empty answer. Posting the request anyway would
+    # either be rejected by the endpoint or, worse, answered for some other
+    # product, and both look like success from here unless this is caught.
+    profile = _profile(
+        server_url,
+        extraction="endpoint",
+        endpoint={
+            "product_json": "{base_url}/engine-related-options",
+            "method": "POST",
+            "body": {"parent_product_id": "a.does-not-exist::attr(data-product-id)"},
+            "option_selector": "span.variant-text::attr(data-option-id)",
+            "option_body_key": "selected_options[]",
+            "variants_path": "data.options",
+            "field_map": {
+                "size_raw": "option_title",
+                "price": "product_price.sale_price",
+                "in_stock": "product_stock_amount",
+            },
+        },
+    )
+    profile["search"]["url_template"] = (
+        "{base_url}/engine-search-post-endpoint?q={query}"
+    )
+
+    with pytest.raises(ExtractionFailed) as excinfo:
+        await search_site(profile, "test")
+
+    assert "parent_product_id" in str(excinfo.value)
+
+
 async def test_an_endpoint_that_answers_html_fails_loudly(server_url: str) -> None:
     # A shop that removed its variant endpoint usually serves its 404 page rather
     # than a JSON error, so this arrives as markup where JSON was expected.
@@ -400,7 +481,19 @@ def test_prices_become_whole_kurus() -> None:
     # A sold-out size often shows no price. Kept, so the stock column can say so
     # instead of the size disappearing from the table.
     assert variants[1].price_kurus is None
-    assert variants[1].size_ml_x10 == 100
+
+
+def test_a_literal_zero_price_reads_as_no_price_not_a_free_perfume() -> None:
+    # One captured site prints "0,00 TL" in every price field of a size that is
+    # out of stock rather than leaving the field empty. Nothing in this catalog
+    # is actually free, so 0 kuruş has to collapse to the same None a missing
+    # field already gets, or the row would look like the cheapest thing on the
+    # page, and later the cheapest thing a basket optimizer could pick.
+    rows = [_row("5 ml", price=Decimal("0"), in_stock=False)]
+
+    (variant,) = apply_variant_rules(rows, _RULES)
+
+    assert variant.price_kurus is None
 
 
 def test_size_from_title_reads_the_product_name() -> None:

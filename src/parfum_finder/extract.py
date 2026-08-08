@@ -295,14 +295,41 @@ def select_field(node: Node, selector: str | None) -> str | None:
     """
     if not selector:
         return None
+    css, attribute = _parse_selector(selector)
+    found = node.css_first(css) if css else node
+    return _read_selected(found, attribute)
+
+
+def select_all(node: Node, selector: str | None) -> tuple[str, ...]:
+    """Run one "<css>::text" / "<css>::attr(name)" selector, reading every match.
+
+    Same selector syntax as `select_field`, but for the case where a page lists
+    several equivalent things at once rather than one field once: a platform
+    endpoint driven by POST needs the id of every selectable size option on a
+    product page, not just the first, to know how many requests to make.
+    """
+    if not selector:
+        return ()
+    css, attribute = _parse_selector(selector)
+    if not css:
+        return ()
+    values = (_read_selected(found, attribute) for found in node.css(css))
+    return tuple(value for value in values if value is not None)
+
+
+def _parse_selector(selector: str) -> tuple[str, str]:
+    """Split a "<css>::text" / "<css>::attr(name)" selector into its two parts."""
     attr_match = _ATTR_SUFFIX.search(selector)
     if attr_match is not None:
         css, attribute = selector[: attr_match.start()], attr_match.group(1)
     else:
         css = selector.removesuffix(_TEXT_SUFFIX)
         attribute = ""
-    css = css.strip()
-    found = node.css_first(css) if css else node
+    return css.strip(), attribute
+
+
+def _read_selected(found: Node | None, attribute: str) -> str | None:
+    """Read the attribute or text of one already-selected node, or None."""
     if found is None:
         return None
     if attribute:

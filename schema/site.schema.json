@@ -47,10 +47,18 @@
       }
     },
     "endpoint": {
+      "description": "The GET form is one request per product: product_json is a per-product URL template ({base_url}, {product_url}) that already answers with every size. The POST form is for a platform whose endpoint takes one size option per request instead: product_json is then the one fixed endpoint URL ({base_url} only), body maps each static form field to the selector that reads its value off the product page (a product id sitting on the add-to-cart button, for instance), option_selector finds every size option's own id on that page, and option_body_key names the form field one of those ids goes in. One request is sent per option found, and their rows are combined.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "product_json": { "type": "string" },
+        "method": { "enum": ["GET", "POST"], "default": "GET" },
+        "body": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "option_selector": { "type": "string" },
+        "option_body_key": { "type": "string" },
         "variants_path": { "type": "string" },
         "field_map": {
           "type": "object",
@@ -66,7 +74,16 @@
           "required": ["size_raw", "price", "in_stock"]
         }
       },
-      "required": ["product_json", "variants_path", "field_map"]
+      "required": ["product_json", "variants_path", "field_map"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "method": { "const": "POST" } },
+            "required": ["method"]
+          },
+          "then": { "required": ["body", "option_selector", "option_body_key"] }
+        }
+      ]
     },
     "embedded_json": {
       "description": "Where on the page a JSON blob hides that carries the variant table. source=script reads a <script> body, optionally scanning forward from marker to the JSON value that follows it; source=attribute reads an attribute value. variants_path locates the variant list or size-keyed object inside that JSON, and is omitted when the document itself is the list. In field_map, the value \"@key\" means the key a variant sits under rather than a field inside it.",

@@ -15,6 +15,7 @@ weaker.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -22,6 +23,11 @@ import httpx
 from curl_cffi.requests import AsyncSession as CurlAsyncSession
 
 Strategy = Literal["httpx", "curl_cffi", "playwright"]
+Method = Literal["GET", "POST"]
+
+# A form field's value, or several of them under the same name -- the shape a
+# platform's "selected_options[]"-style repeated key needs.
+FormData = Mapping[str, "str | list[str]"]
 
 # Identify as a real browser instead of e.g. "python-httpx/0.28" -- some sites reject
 # or degrade responses to obvious script user agents even without real bot protection.
@@ -66,29 +72,54 @@ class FetchResult:
     strategy: Strategy
 
 
-async def fetch(url: str, strategy: Strategy, *, timeout_s: int = 20) -> FetchResult:
+async def fetch(
+    url: str,
+    strategy: Strategy,
+    *,
+    method: Method = "GET",
+    data: FormData | None = None,
+    timeout_s: int = 20,
+) -> FetchResult:
     """Fetch one URL using exactly the given strategy.
+
+    `method`/`data` exist for the one platform whose variant endpoint is a
+    POST with a form body, not a GET. Nothing else in this project needs them,
+    so they default to a plain GET and stay optional everywhere else.
 
     Raises PlaywrightNotInstalled if strategy is "playwright" and playwright
     can't run here, whether the package or its browser binary is the missing
-    piece.
+    piece. Raises NotImplementedError if strategy is "playwright" and method
+    is "POST": nothing driving a browser needs a raw form POST, a page
+    navigates instead, so this is left unbuilt rather than added on a guess.
     """
+    if strategy == "playwright" and method == "POST":
+        raise NotImplementedError(
+            "strategy 'playwright' does not support method 'POST': "
+            "no site currently needs a browser-driven form POST"
+        )
     if strategy == "httpx":
-        return await _fetch_httpx(url, timeout_s=timeout_s)
+        return await _fetch_httpx(url, method=method, data=data, timeout_s=timeout_s)
     if strategy == "curl_cffi":
-        return await _fetch_curl_cffi(url, timeout_s=timeout_s)
+        return await _fetch_curl_cffi(
+            url, method=method, data=data, timeout_s=timeout_s
+        )
     if strategy == "playwright":
         return await _fetch_playwright(url, timeout_s=timeout_s)
     raise ValueError(f"unknown fetch strategy: {strategy!r}")
 
 
-async def _fetch_httpx(url: str, *, timeout_s: int) -> FetchResult:
+async def _fetch_httpx(
+    url: str, *, method: Method, data: FormData | None, timeout_s: int
+) -> FetchResult:
     async with httpx.AsyncClient(
         headers={"User-Agent": DEFAULT_USER_AGENT},
         follow_redirects=True,
         timeout=timeout_s,
     ) as client:
-        response = await client.get(url)
+        if method == "POST":
+            response = await client.post(url, data=data)
+        else:
+            response = await client.get(url)
     return FetchResult(
         url=str(response.url),
         status_code=response.status_code,
@@ -97,12 +128,19 @@ async def _fetch_httpx(url: str, *, timeout_s: int) -> FetchResult:
     )
 
 
-async def _fetch_curl_cffi(url: str, *, timeout_s: int) -> FetchResult:
+async def _fetch_curl_cffi(
+    url: str, *, method: Method, data: FormData | None, timeout_s: int
+) -> FetchResult:
     # impersonate="chrome" sets a matching TLS/JA3 fingerprint *and* header set
     # together; overriding just the User-Agent header on top would desync the two
     # and defeat the point, so no custom headers are passed here.
     async with CurlAsyncSession() as session:
-        response = await session.get(url, impersonate="chrome", timeout=timeout_s)
+        if method == "POST":
+            response = await session.post(
+                url, data=data, impersonate="chrome", timeout=timeout_s
+            )
+        else:
+            response = await session.get(url, impersonate="chrome", timeout=timeout_s)
     return FetchResult(
         url=str(response.url),
         status_code=response.status_code,

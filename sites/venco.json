@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "venco",
+  "name": "Venco Cosmetic",
+  "base_url": "https://www.vencosmetic.com",
+  "platform": null,
+  "strategy": "httpx",
+  "extraction": "embedded_json",
+  "search": {
+    "url_template": "{base_url}/arama?k={query}",
+    "result_item": ".card-product",
+    "result_url": "a.c-p-i-link::attr(href)",
+    "result_title": ".title::text"
+  },
+  "embedded_json": {
+    "source": "script",
+    "marker": "variants:",
+    "variants_path": "summary",
+    "field_map": {
+      "size_raw": "@key",
+      "price": "price_list.fiyat",
+      "in_stock": "in_stock"
+    }
+  },
+  "variant_rules": {
+    "size_from": "variant_label",
+    "size_pattern": "(\\d+[.,]?\\d*)\\s*(ml|cc)",
+    "exclude_keywords": ["Tester", "Full Şişe", "Orijinal Şişe", "Kutulu", "Set"],
+    "max_size_ml": 30
+  },
+  "shipping": {
+    "free_shipping_threshold_kurus": null,
+    "shipping_cost_kurus": 0,
+    "notes": "PLACEHOLDER: kargo bilgisi hiç toplanmadı, elle girilmedi. shipping_cost_kurus=0 gerçek değer değil."
+  },
+  "discovered_at": "2026-08-07T13:56:25Z",
+  "needs_review": [
+    "platform: fingerprint doğrulanamadı (muhtemelen T-Soft, _ecom_code çerezi tek kanıt), platform adı yazılmadı",
+    "shipping: hiçbir alan gerçek veri değil, elle doldurulmalı",
+    "PRODUCT_PAGE_DATA outer literal geçersiz JS object literal (unquoted key, single-quoted string); marker 'variants:' bilerek iç, geçerli JSON olan bloğa anchor'landı - marker'ı PRODUCT_PAGE_DATA'ya geri almak parse'ı bozar"
+  ]
+}

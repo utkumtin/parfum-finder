@@ -15,6 +15,19 @@
       "status_code": 200,
       "bytes": 274884,
       "sha256": "32e744513430bee08814f5fd9161446958b0c015333ccabbe41f496f0edb421b"
+    },
+    "related_options": {
+      "url": "https://www.dekantdoktoru.com/product/related-options",
+      "method": "POST",
+      "body": {
+        "parent_product_id": 58,
+        "selected_option_group_id": 2,
+        "selected_options[]": 6
+      },
+      "captured_at": "2026-08-08T02:44:54Z",
+      "status_code": 200,
+      "bytes": 1454,
+      "sha256": "b88c1c9fd46a66fdb4f43d31acbe19225eebc8a64c710c5a60deace791455e50"
     }
   }
 }

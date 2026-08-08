@@ -29,7 +29,10 @@ TODO: define a SiteResult type here (site_id, status, variants, error/diagnostic
 and the multi-site run loop, wrapping search_site in a per-site semaphore, the
 profile's rate_limit_ms delay and retries. Until that lands search_site fires its
 requests back to back with no pause between them, so it should not be pointed at
-a live shop: the targets are small businesses, not infrastructure.
+a live shop: the targets are small businesses, not infrastructure. A POST endpoint
+rung multiplies this further, one request per size option a product page names
+instead of one request per product, so a site on that layer is not just unpaced
+but unpaced several times over per product.
 """
 
 from __future__ import annotations
@@ -40,7 +43,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote, urljoin
 
 from selectolax.parser import HTMLParser
@@ -51,6 +54,7 @@ from parfum_finder.extract import (
     extract_embedded_variants,
     extract_endpoint_variants,
     extract_jsonld_variants,
+    select_all,
     select_field,
 )
 from parfum_finder.fetch import FetchResult, Strategy, fetch
@@ -235,6 +239,15 @@ def apply_variant_rules(
     Sizes at or above `max_size_ml` are dropped too, whatever they call
     themselves. That threshold is the profile's, so a shop selling an unusual
     range can move it.
+
+    A price that comes out to exactly 0 kuruş is read as no price, not a free
+    perfume. At least one platform prints "0,00 TL" in every price field of a
+    size that is out of stock rather than leaving the field out, so the raw
+    value cannot be told apart from a genuine free item by its shape alone.
+    Nothing in this domain is actually free, so the zero is read the same way
+    a missing field already is: `price_kurus=None`, which is what keeps a dead
+    row from looking like the cheapest option in the table, or the cheapest
+    thing a basket optimizer could pick.
     """
     variants: list[Variant] = []
     for row in rows:
@@ -243,12 +256,13 @@ def apply_variant_rules(
             continue
         if _is_excluded(row, rules, size_ml):
             continue
+        price_kurus = _to_kurus(row.price)
         variants.append(
             Variant(
                 size_ml_x10=int((size_ml * 10).quantize(Decimal(1), ROUND_HALF_UP)),
                 raw_title=row.title,
                 product_url=row.url,
-                price_kurus=_to_kurus(row.price),
+                price_kurus=price_kurus if price_kurus else None,
                 in_stock=row.in_stock,
             )
         )
@@ -340,11 +354,20 @@ def _strategy(profile: dict[str, Any], role: str) -> Strategy:
     return strategy
 
 
-async def _fetch_page(profile: dict[str, Any], url: str, *, role: str) -> FetchResult:
+async def _fetch_page(
+    profile: dict[str, Any],
+    url: str,
+    *,
+    role: str,
+    method: Literal["GET", "POST"] = "GET",
+    data: Mapping[str, str] | None = None,
+) -> FetchResult:
     """Fetch one page with the strategy and timeout the profile asks for."""
     return await fetch(
         url,
         _strategy(profile, role),
+        method=method,
+        data=data,
         timeout_s=int(profile.get("timeout_s", 20)),
     )
 
@@ -419,26 +442,79 @@ async def _read_variants(
 async def _read_endpoint_variants(
     profile: dict[str, Any], candidate: ProductCandidate
 ) -> tuple[RawVariant, ...]:
-    """Ask a platform's variant endpoint for every size in one request.
+    """Ask a platform's variant endpoint for every size.
 
-    The endpoint URL is built from the profile's template, which is why this rung
-    never opens the product page itself: the whole point of the layer is that one
-    request answers what the page would need several to say.
+    A GET endpoint answers everything in one request built from the profile's
+    URL template, which is why that branch never opens the product page: the
+    whole point of the layer is that one request answers what the page would
+    need several to say.
 
-    Only endpoints reachable by a plain GET work here. One platform in use needs a
-    POST whose body is assembled from ids sitting in the product page's markup,
-    and fetch.py issues GETs only, so a profile for it cannot be written yet.
+    A POST endpoint does not work that way: it answers one size option at a
+    time, and which options exist and which product they belong to are not
+    something a URL can template ahead of time, only something sitting in the
+    product page's own markup. `_read_endpoint_variants_post` opens that page
+    first and asks the endpoint once per option instead.
     """
     config = profile["endpoint"]
+    if config.get("method") == "POST":
+        return await _read_endpoint_variants_post(profile, config, candidate)
     url = str(config["product_json"]).format(
         base_url=profile["base_url"], product_url=candidate.url
     )
     result = await _fetch_page(profile, url, role="product")
+    return _parse_endpoint_document(profile["id"], url, result.html, config)
+
+
+async def _read_endpoint_variants_post(
+    profile: dict[str, Any], config: Mapping[str, Any], candidate: ProductCandidate
+) -> tuple[RawVariant, ...]:
+    """Drive a platform's POST variant endpoint, one size option per request.
+
+    `body` names the endpoint's static form fields and, for each, the selector
+    that reads its value off the product page, such as a product id sitting on
+    the add-to-cart button. `option_selector` finds every size option's own id
+    on that same page; `option_body_key` is the form field one of those ids
+    goes in, one request per id. A static field the page does not have aborts
+    the product outright, since posting the request anyway would either be
+    silently rejected by the endpoint or, worse, answered for the wrong product.
+    """
+    page = await _fetch_page(profile, candidate.url, role="product")
+    root = HTMLParser(page.html).root
+    if root is None:
+        raise ExtractionFailed(f"{profile['id']}: {candidate.url} parsed to no markup")
+    body: dict[str, str] = {}
+    for field, selector in config["body"].items():
+        value = select_field(root, str(selector))
+        if value is None:
+            raise ExtractionFailed(
+                f"{profile['id']}: could not read the POST field {field!r} "
+                f"({selector!r}) off {candidate.url}"
+            )
+        body[field] = value
+    option_ids = select_all(root, str(config["option_selector"]))
+    option_key = str(config["option_body_key"])
+    url = str(config["product_json"]).format(base_url=profile["base_url"])
+    rows: list[RawVariant] = []
+    for option_id in option_ids:
+        result = await _fetch_page(
+            profile,
+            url,
+            role="product",
+            method="POST",
+            data={**body, option_key: option_id},
+        )
+        rows.extend(_parse_endpoint_document(profile["id"], url, result.html, config))
+    return tuple(rows)
+
+
+def _parse_endpoint_document(
+    site_id: str, url: str, raw: str, config: Mapping[str, Any]
+) -> tuple[RawVariant, ...]:
+    """Parse one endpoint response and read its variant rows out of it."""
     try:
-        document = json.loads(result.html)
+        document = json.loads(raw)
     except json.JSONDecodeError as e:
         raise ExtractionFailed(
-            f"{profile['id']}: the variant endpoint {url} did not answer with "
-            f"JSON ({e})"
+            f"{site_id}: the variant endpoint {url} did not answer with JSON ({e})"
         ) from e
     return extract_endpoint_variants(document, config)

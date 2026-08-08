@@ -15,6 +15,19 @@
       "status_code": 200,
       "bytes": 307751,
       "sha256": "450fe34b8d3ccff22007da2a869830479d4a54b57a763e56e72a3c6003e6da0b"
+    },
+    "related_options": {
+      "url": "https://www.dekantparfum.com.tr/product/related-options",
+      "method": "POST",
+      "body": {
+        "parent_product_id": 14,
+        "selected_option_group_id": 1,
+        "selected_options[]": 6
+      },
+      "captured_at": "2026-08-08T02:33:08Z",
+      "status_code": 200,
+      "bytes": 1929,
+      "sha256": "e200997a78f77cceadf80d3ef7752dbadc59ab9e7ac43d3ab38285a5dd0fc217"
     }
   }
 }

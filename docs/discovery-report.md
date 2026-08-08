@@ -157,17 +157,22 @@ Dönen cevap tek istekte ihtiyaç duyulan her şeyi veriyor:
 }]}}
 ```
 
-İki sitede de doğrulandı (dekantdoktoru: ana ürün 58, dekantparfum: ana ürün 14). Bu, deseni
-B'nin doğru çözümü: `playwright`'a düşmeden bütün ölçülerin fiyat ve stoğu alınıyor.
+İki sitede de doğrulandı (dekantdoktoru: ana ürün 58, dekantparfum: ana ürün 14).
 
-**Dikkat edilecek iki nokta:**
+**M4 sırasında düzeltilen iki nokta (2026-08-08):**
 
-- `product_price` içinde hem `price` hem `sale_price` var ve bu örnekte `sale_price` (540)
-  `price`'tan (450) **büyük**. Yani alan adları sezgiye ters; hangisinin sepette tahsil edilen
-  tutar olduğu **doğrulanmadı**. Profile yazmadan önce bir üründe elle kontrol edilmeli.
-- Her ölçü aslında kendi URL'si olan ayrı bir ürün (`/urun/<slug>-3-ml`). Yani çıkarım
-  istenirse ölçü başına ayrı sayfa da çekebilir, ama endpoint tek istekte hepsini verdiği için
-  bu gereksiz.
+- **"Tek istekte hepsi geliyor" yanlıştı.** `selected_options[]`'a grubun bütün id'leri birden
+  verilince (`[49,6,2,10,3,4,5,7]`) cevap `{"data":{"options":[]}}` dönüyor, boş liste. Endpoint
+  gerçekte istek başına tek ölçü cevaplıyor; bütün ölçüleri okumak ölçü sayısı kadar ayrı POST
+  istiyor. Motor (`engine.py`) buna göre yazıldı: sayfadaki her `option_id` için bir istek.
+- **`price` / `sale_price` ayrımı doğrulandı.** Üç farklı üründe (Baccarat Rouge 540, Dior
+  Sauvage Extrait, Chanel No 19 EDT) canlı siteye tek POST atılıp cevaptaki `sale_price`,
+  ürün sayfasının kendi gösterdiği fiyatla (sırasıyla 540, 750, 290 TL) karşılaştırıldı; üçünde
+  de birebir eşleşti. `price` ise üçünde de `sale_price / 1,2` — cevaptaki `tax: 20,
+  tax_included: true` alanlarıyla tutarlı, yani KDV'siz hali. `field_map.price` bu yüzden
+  `product_price.sale_price`'ı okuyor. Gerçek POST cevabı `fixtures/dekantparfum/
+  related-options.json` altında; istek gövdesi ve yakalama anı aynı sitenin `meta.json`'ında.
+- Her ölçü aslında kendi URL'si olan ayrı bir ürün (`/urun/<slug>-3-ml`).
 
 ### `ruxangroup` — ruxangroup.com
 
@@ -223,10 +228,10 @@ verilmiş bir strateji ölçülmüş gibi görünmüyor.
 Toplam 3,9 MB ham HTML. `decantall` `--strategy playwright` ile çekildi, çünkü arama sayfası
 `httpx` ile boş kabuk dönüyor ve boş kabuk fixture'ı doğrulamayı yanlış yeşile boyardı.
 
-Kapsam dışı bırakılan: İdeasoft'un `/product/related-options` cevabı fixture olarak
-kaydedilmedi. Kaydetmek `discover`'a platforma özel POST gövdesi kurmayı gerektirirdi;
-o iş platform şablonlarıyla birlikte M3'e ait. Bunun bedeli, M5'te İdeasoft'un katman 2'sinin
-offline doğrulanamayacak olması.
+İdeasoft'un `/product/related-options` cevabı M2 turunda fixture olarak kaydedilmemişti
+(`discover`'a platforma özel POST gövdesi kurmak gerekiyordu, o iş M3/M4'e bırakılmıştı).
+M4 sırasında elle bir POST atılıp cevap `fixtures/dekantparfum/related-options.json` olarak
+eklendi; artık katman 2 de offline doğrulanabiliyor.
 
 ---
 
@@ -249,15 +254,15 @@ varyantlı gösteriyordu.
 
 ## Açık kalan sorular (M3 / M4 girdisi)
 
-1. **Sayfa başına strateji.** `decantall`'ın ürün sayfası `httpx`, arama sayfası `playwright`
-   istiyor. Profil şeması şu an site başına tek strateji tutuyor; M3'te bunun sayfa rolüne
-   göre ayrışması gerekecek, yoksa `decantall` ya boş arama sonucu döndürür ya da her istek
-   gereksiz yere tarayıcı açar.
+1. **Sayfa başına strateji — M4'te çözüldü.** Profil şeması `search.strategy` alanıyla site
+   genelindeki stratejiyi arama sayfası için override edebiliyor; `decantall`'ın profili
+   `strategy: "httpx"` + `search.strategy: "playwright"` yazıyor.
 2. **`venco`'nun platformunun adı.** HTML grep'i ve yanıt başlıkları denendi, ikisi de adı
    yazmıyor. `_ecom_code` çerezi ayırt edici görünüyor ama tek başına isim kanıtı değil.
 3. **`probe`'un fingerprint'i ikas ve `venco`'yu tanımıyor**, ikisi de `-` dönüyor. İdeasoft
    `ideasoft?` (soru işaretiyle) dönüyor, imza güçlendirilebilir.
-4. **İdeasoft `price` / `sale_price` ayrımı** doğrulanmadı (yukarıya bakın).
+4. **İdeasoft `price` / `sale_price` ayrımı — M4'te doğrulandı** (yukarıya, `dekantparfum`
+   bölümüne bakın).
 5. **Kargo bilgisi hiç toplanmadı** — tasarım gereği. Ücretsiz kargo eşiği, kargo ücreti ve
    notlar her site için elle girilecek.
 6. **`ruxangroup`'ta hangi ürünler dekant taşıyor?** Katalog karışık: kimi ürün variable ve

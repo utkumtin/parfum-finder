@@ -71,11 +71,7 @@ SITE_IDENTITY: dict[str, Any] = {
 # Everything a site on this platform still has to write by hand, on top of
 # SITE_IDENTITY. The point of a template is that these dicts stay small.
 REMAINING_SITE_FIELDS: dict[str, dict[str, Any]] = {
-    # The ideasoft template deliberately sets no extraction, so the site has to
-    # name one. Any value that needs no companion block works here; the real
-    # layer for these sites is a POST whose body is built from ids in the markup,
-    # and no extraction value can describe that yet.
-    "ideasoft": {"extraction": "jsonld", "search": SEARCH_SELECTORS},
+    "ideasoft": {"search": SEARCH_SELECTORS},
     "woocommerce": {"search": SEARCH_SELECTORS},
     # ikas is a one-site platform so far, and that one site builds its search
     # results in the browser. There is no second site to prove a shared search
@@ -131,14 +127,18 @@ def test_woocommerce_template_carries_search_and_extraction() -> None:
     assert defaults["extraction"] == "embedded_json"
 
 
-def test_ideasoft_template_leaves_extraction_to_the_site() -> None:
-    # Declaring extraction "endpoint" here would make the schema demand an
-    # endpoint block from the template, and the block cannot describe the POST
-    # these sites actually use. Every ideasoft profile would then fail to load.
-    # Leaving extraction out keeps the search URL usable in the meantime.
+def test_ideasoft_template_carries_the_post_variant_endpoint() -> None:
+    # Both ideasoft sites share the same theme JS, so the endpoint's URL, its
+    # request shape and its field map are all platform facts, not per-site
+    # ones. A second ideasoft site should need neither of these in its own
+    # profile, only the search URL is theme-specific and stays here too.
     defaults = load_platform_template("ideasoft")["defaults"]
-    assert "extraction" not in defaults
+    assert defaults["extraction"] == "endpoint"
     assert defaults["search"]["url_template"] == "{base_url}/arama/{query}"
+    endpoint = defaults["endpoint"]
+    assert endpoint["method"] == "POST"
+    assert endpoint["option_body_key"] == "selected_options[]"
+    assert endpoint["field_map"]["price"] == "product_price.sale_price"
 
 
 def test_every_shipped_template_is_backed_by_a_captured_site() -> None:

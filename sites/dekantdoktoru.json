@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "dekantdoktoru",
+  "name": "Dekant Doktoru",
+  "base_url": "https://www.dekantdoktoru.com",
+  "platform": "ideasoft",
+  "strategy": "httpx",
+  "search": {
+    "url_template": "{base_url}/arama/{query}",
+    "result_item": ".showcase",
+    "result_url": ".showcase-title a::attr(href)",
+    "result_title": ".showcase-title a::text"
+  },
+  "variant_rules": {
+    "size_from": "variant_label",
+    "size_pattern": "(\\d+[.,]?\\d*)\\s*(ml|cc)",
+    "exclude_keywords": ["Tester", "Full Şişe", "Orijinal Şişe", "Kutulu", "Set"],
+    "max_size_ml": 30
+  },
+  "shipping": {
+    "free_shipping_threshold_kurus": null,
+    "shipping_cost_kurus": 0,
+    "notes": "PLACEHOLDER: kargo bilgisi hiç toplanmadı, elle girilmedi. shipping_cost_kurus=0 gerçek değer değil."
+  },
+  "discovered_at": "2026-08-07T13:56:58Z",
+  "needs_review": [
+    "shipping: hiçbir alan gerçek veri değil, elle doldurulmalı",
+    "en büyük gözlenen ölçü (30ml) ARCHITECTURE.md §4'teki size_ml >= 30 kuralıyla eleniyor"
+  ]
+}

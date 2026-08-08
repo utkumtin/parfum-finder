@@ -6,4 +6,5 @@ Profil şemasının yetmediği tuhaf siteler için opsiyonel Python kaçış kap
 çıkarımını tamamen devralır). Kanca eklemek kolay olmamalı. Her yeni ihtiyaç önce
 profil şemasının genişletilip genişletilemeyeceği sorusunu doğurmalı.
 
-Şu an boş: henüz hiçbir site profili yok, dolayısıyla hiçbir kanca gerekmedi.
+Şu an boş: `sites/` altındaki altı profilin hiçbiri kanca gerektirmedi, hepsi şema ile
+sürülüyor.

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "decantall",
+  "name": "Decantall",
+  "base_url": "https://decantall.com",
+  "platform": "ikas",
+  "strategy": "httpx",
+  "search": {
+    "url_template": "{base_url}/search?s={query}",
+    "result_item": "div[data-id]",
+    "result_url": "a::attr(href)",
+    "result_title": ".product-name::text",
+    "strategy": "playwright"
+  },
+  "variant_rules": {
+    "size_from": "variant_label",
+    "size_pattern": "(\\d+[.,]?\\d*)\\s*(ml|cc)",
+    "exclude_keywords": ["Tester", "Full Şişe", "Orijinal Şişe", "Kutulu", "Set"],
+    "max_size_ml": 30
+  },
+  "shipping": {
+    "free_shipping_threshold_kurus": null,
+    "shipping_cost_kurus": 0,
+    "notes": "PLACEHOLDER: kargo bilgisi hiç toplanmadı, elle girilmedi. shipping_cost_kurus=0 gerçek değer değil."
+  },
+  "discovered_at": "2026-08-07T13:56:37Z",
+  "needs_review": [
+    "shipping: hiçbir alan gerçek veri değil, elle doldurulmalı",
+    "search.result_item ('div[data-id]') tek sonuçlu bir arama sayfasından (yalnızca bir ürün) çıkarıldı; birden çok kart yan yana geldiğinde aynı kalıbı koruyup korumadığı doğrulanmadı",
+    "extraction katman 3'te (embedded_json / __NEXT_DATA__), katman 1 (JSON-LD) gerçek fiyat üretiyor ama ml etiketi taşımıyor - bu yüzden katman 3 seçildi, ARCHITECTURE.md §4 Desen C"
+  ]
+}

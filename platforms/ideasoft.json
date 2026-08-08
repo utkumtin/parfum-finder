@@ -5,8 +5,28 @@
     "any": ["ideasoft logosu", "/idea/"]
   },
   "defaults": {
+    "extraction": "endpoint",
     "search": {
       "url_template": "{base_url}/arama/{query}"
+    },
+    "endpoint": {
+      "product_json": "{base_url}/product/related-options",
+      "method": "POST",
+      "body": {
+        "parent_product_id": "a.add-to-cart-button[data-context=\"detail\"]::attr(data-product-id)",
+        "selected_option_group_id": "div.variant-list-group::attr(data-group-id)"
+      },
+      "option_selector": "span.variant-text::attr(data-option-id)",
+      "option_body_key": "selected_options[]",
+      "variants_path": "data.options",
+      "field_map": {
+        "size_raw": "option_title",
+        "price": "product_price.sale_price",
+        "in_stock": "product_stock_amount",
+        "title": "product_name",
+        "url": "product_url",
+        "sku": "product_sku"
+      }
     }
   }
 }

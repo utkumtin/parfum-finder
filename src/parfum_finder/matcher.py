@@ -31,6 +31,14 @@ from parfum_finder.normalize import casefold_tr
 # included, is a separator.
 _WORD_PATTERN = re.compile(r"[^\W\d_]+|\d+")
 
+# A size, however a shop writes it: a number with an optional comma or dot
+# decimal, optional space, then "ml" or "cc" glued right onto the next letters
+# ("30mldekant") or standing alone. Matched and cut out of the text before
+# tokenizing, not filtered out token by token afterward, because a token-level
+# filter cannot see that the unit was ever there once punctuation and spacing
+# have already split the number away from it.
+_SIZE_SPAN = re.compile(r"\d+(?:[.,]\d+)?\s*(?:ml|cc)")
+
 # The concentration a title names, in the spellings sites actually use. Longer
 # forms come first so "eau de parfum" is read as EDP instead of leaving "eau de"
 # behind and matching the bare "parfum" entry.
@@ -146,19 +154,24 @@ def match_title(
 
 
 def _tokenize(text: str) -> tuple[str, ...]:
-    """Fold, cut into words and numbers, and drop noise.
+    """Fold, cut a size out, split into words and numbers, and drop noise.
 
-    Digits are split off from letters, so the "5ml" a shop writes without a space
-    becomes a number and a unit rather than one word belonging to neither.
+    A size span ("5 ml", "2,7 ml", "30mldekant") is cut out of the folded text
+    first, before the text is split into words at all, because by the time "ml"
+    has become its own token there is no way to tell it apart from a number that
+    is simply part of the name.
 
-    Then the numbers go: a title's "5" belongs to the size, not to the perfume,
-    and keeping it would score two sizes of one perfume as two products. The cost
-    is that a number inside a name, the 540 of Baccarat Rouge 540, goes with it.
-    Both sides of the comparison lose it, so they still match each other.
+    A bare number that survives that cut stays as its own token instead of being
+    dropped. The 540 of Baccarat Rouge 540 and the 212 of Carolina Herrera 212
+    are not noise, they are the only thing distinguishing that product from
+    every other one sharing the rest of its words; treating every digit as size
+    noise made "212" and "212 VIP" tokenize to the same leftover words and
+    stopped the matcher telling them apart.
     """
     folded = casefold_tr(text)
+    folded = _SIZE_SPAN.sub(" ", folded)
     words = _WORD_PATTERN.findall(folded)
-    return tuple(word for word in words if word not in _NOISE and not word.isdigit())
+    return tuple(word for word in words if word not in _NOISE)
 
 
 def _covers(title_tokens: tuple[str, ...], brand_tokens: tuple[str, ...]) -> bool:
