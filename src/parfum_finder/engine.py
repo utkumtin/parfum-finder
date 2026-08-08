@@ -57,7 +57,7 @@ from parfum_finder.extract import (
     select_all,
     select_field,
 )
-from parfum_finder.fetch import FetchResult, Strategy, fetch
+from parfum_finder.fetch import Fetcher, FetchResult, Strategy, fetch
 from parfum_finder.normalize import casefold_tr, parse_size_ml
 from parfum_finder.profiles import DEFAULT_HOOKS_DIR, SiteHooks, load_site_hooks
 
@@ -119,7 +119,11 @@ class SearchHit:
 
 
 async def search_site(
-    profile: dict[str, Any], query: str, *, hooks_dir: Path = DEFAULT_HOOKS_DIR
+    profile: dict[str, Any],
+    query: str,
+    *,
+    hooks_dir: Path = DEFAULT_HOOKS_DIR,
+    fetcher: Fetcher = fetch,
 ) -> tuple[SearchHit, ...]:
     """Run one query against one site and read every hit's sizes.
 
@@ -132,6 +136,11 @@ async def search_site(
     candidate list after the results page is read, or the variant extraction. The
     rest of the flow, and the whole profile, still apply either way. A site with
     no hook file behaves exactly as before, which is every site so far.
+
+    `fetcher` is what actually gets the bytes, the real network by default. It is
+    a parameter so that offline profile validation can serve this site's saved
+    fixtures through this very function, rather than validating a second flow
+    that only resembles the one production runs.
 
     Each hit's sizes come back already read in millilitres and filtered down to
     the decants, per the profile's variant rules. Pairing a hit with the perfume
@@ -165,7 +174,9 @@ async def search_site(
                 f"{type(rewritten).__name__}, not the query string to send"
             )
         query = rewritten
-    result = await _fetch_page(profile, _search_url(profile, query), role="search")
+    result = await _fetch_page(
+        profile, _search_url(profile, query), role="search", fetcher=fetcher
+    )
     candidates = _read_candidates(profile, result.html, result.url)
     if hooks.after_search is not None:
         candidates = tuple(hooks.after_search(profile, candidates, result.html))
@@ -174,7 +185,7 @@ async def search_site(
     hits: list[SearchHit] = []
     extracted_a_price = False
     for candidate in candidates:
-        rows = await _read_variants(profile, candidate, hooks)
+        rows = await _read_variants(profile, candidate, hooks, fetcher)
         rows = tuple(_with_candidate_identity(row, candidate) for row in rows)
         extracted_a_price |= any(row.price is not None for row in rows)
         variants = apply_variant_rules(rows, rules)
@@ -359,11 +370,12 @@ async def _fetch_page(
     url: str,
     *,
     role: str,
+    fetcher: Fetcher,
     method: Literal["GET", "POST"] = "GET",
     data: Mapping[str, str] | None = None,
 ) -> FetchResult:
     """Fetch one page with the strategy and timeout the profile asks for."""
-    return await fetch(
+    return await fetcher(
         url,
         _strategy(profile, role),
         method=method,
@@ -405,7 +417,10 @@ def _read_candidates(
 
 
 async def _read_variants(
-    profile: dict[str, Any], candidate: ProductCandidate, hooks: SiteHooks
+    profile: dict[str, Any],
+    candidate: ProductCandidate,
+    hooks: SiteHooks,
+    fetcher: Fetcher,
 ) -> tuple[RawVariant, ...]:
     """Open one product page and read its sizes on the profile's layer.
 
@@ -421,15 +436,19 @@ async def _read_variants(
     layer = profile["extraction"]
     page: FetchResult | None = None
     if hooks.parse_variants is not None:
-        page = await _fetch_page(profile, candidate.url, role="product")
+        page = await _fetch_page(
+            profile, candidate.url, role="product", fetcher=fetcher
+        )
         rows = await hooks.parse_variants(profile, candidate, page.html)
         if rows is not None:
             return tuple(rows)
 
     if layer == "endpoint":
-        return await _read_endpoint_variants(profile, candidate)
+        return await _read_endpoint_variants(profile, candidate, fetcher)
     if page is None:
-        page = await _fetch_page(profile, candidate.url, role="product")
+        page = await _fetch_page(
+            profile, candidate.url, role="product", fetcher=fetcher
+        )
     if layer == "jsonld":
         return extract_jsonld_variants(page.html)
     if layer == "embedded_json":
@@ -440,7 +459,7 @@ async def _read_variants(
 
 
 async def _read_endpoint_variants(
-    profile: dict[str, Any], candidate: ProductCandidate
+    profile: dict[str, Any], candidate: ProductCandidate, fetcher: Fetcher
 ) -> tuple[RawVariant, ...]:
     """Ask a platform's variant endpoint for every size.
 
@@ -457,16 +476,19 @@ async def _read_endpoint_variants(
     """
     config = profile["endpoint"]
     if config.get("method") == "POST":
-        return await _read_endpoint_variants_post(profile, config, candidate)
+        return await _read_endpoint_variants_post(profile, config, candidate, fetcher)
     url = str(config["product_json"]).format(
         base_url=profile["base_url"], product_url=candidate.url
     )
-    result = await _fetch_page(profile, url, role="product")
+    result = await _fetch_page(profile, url, role="product", fetcher=fetcher)
     return _parse_endpoint_document(profile["id"], url, result.html, config)
 
 
 async def _read_endpoint_variants_post(
-    profile: dict[str, Any], config: Mapping[str, Any], candidate: ProductCandidate
+    profile: dict[str, Any],
+    config: Mapping[str, Any],
+    candidate: ProductCandidate,
+    fetcher: Fetcher,
 ) -> tuple[RawVariant, ...]:
     """Drive a platform's POST variant endpoint, one size option per request.
 
@@ -478,7 +500,7 @@ async def _read_endpoint_variants_post(
     the product outright, since posting the request anyway would either be
     silently rejected by the endpoint or, worse, answered for the wrong product.
     """
-    page = await _fetch_page(profile, candidate.url, role="product")
+    page = await _fetch_page(profile, candidate.url, role="product", fetcher=fetcher)
     root = HTMLParser(page.html).root
     if root is None:
         raise ExtractionFailed(f"{profile['id']}: {candidate.url} parsed to no markup")
@@ -500,6 +522,7 @@ async def _read_endpoint_variants_post(
             profile,
             url,
             role="product",
+            fetcher=fetcher,
             method="POST",
             data={**body, option_key: option_id},
         )

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
 import httpx
 from curl_cffi.requests import AsyncSession as CurlAsyncSession
@@ -70,6 +70,26 @@ class FetchResult:
     status_code: int
     html: str
     strategy: Strategy
+
+
+class Fetcher(Protocol):
+    """Anything that can stand in for `fetch`.
+
+    Offline profile validation runs the real engine against saved fixtures, so it
+    needs to hand the engine something that serves bytes off disk. Naming the
+    shape here keeps that substitution honest: a stand-in that drifts from
+    `fetch`'s signature is a type error instead of a surprise at runtime.
+    """
+
+    async def __call__(
+        self,
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult: ...
 
 
 async def fetch(

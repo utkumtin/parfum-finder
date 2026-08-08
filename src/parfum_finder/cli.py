@@ -3,7 +3,7 @@
 Subcommands will be added incrementally as the project grows:
     probe <url>               - check which fetch strategy a site needs
     discover <url> [--id]     - generate a site profile
-    validate [<id>] [--live]  - check that a profile still works
+    validate [<id>...]        - check that a profile still works (offline)
     search <query> [--site]   - search for a perfume across sites
     (default) tui              - launch the interactive app
 
@@ -23,6 +23,8 @@ from parfum_finder.discover import format_report as format_discovery_report
 from parfum_finder.fetch import Strategy
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.probe import probe
+from parfum_finder.validate import format_report as format_validation_report
+from parfum_finder.validate import validate_all_offline
 
 # Golden fixtures live outside the installed package, next to sites/ and
 # platforms/, because they are project data a person edits and reviews.
@@ -134,6 +136,16 @@ def main() -> None:
         help="per-request timeout in seconds (default: 20)",
     )
 
+    validate_parser = subparsers.add_parser(
+        "validate", help="check that site profiles still work against their fixtures"
+    )
+    validate_parser.add_argument(
+        "site_id",
+        nargs="*",
+        metavar="ID",
+        help="only validate these sites (default: every profile under sites/)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "probe":
@@ -159,3 +171,18 @@ def main() -> None:
             )
         )
         print(format_discovery_report(discovery))
+    elif args.command == "validate":
+        try:
+            results = asyncio.run(validate_all_offline(tuple(args.site_id) or None))
+        except FileNotFoundError as e:
+            # Being asked about a site that has no profile is a mistake in the
+            # request, not a finding about a profile, so it gets its own exit
+            # code and leaves 1 to mean "a profile is broken".
+            print(f"no profile under sites/ for the site asked about: {e}")
+            sys.exit(2)
+        print(format_validation_report(results))
+        if any(not result.ok for result in results):
+            # A broken profile has to fail the command, not just print in red:
+            # this is what lets CI run offline validation as a gate instead of
+            # producing output nobody reads.
+            sys.exit(1)
