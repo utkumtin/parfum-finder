@@ -30,6 +30,9 @@ VALID_SITE_PROFILE: dict[str, Any] = {
     "timeout_s": 20,
     "search": {
         "url_template": "{base_url}/search?q={query}",
+        "result_item": ".product-card",
+        "result_url": "a::attr(href)",
+        "result_title": ".product-title::text",
     },
     "product": {
         "title": None,
@@ -106,10 +109,11 @@ def test_site_schema_rejects_a_missing_required_field(missing_field: str) -> Non
         _site_validator().validate(broken)
 
 
-def test_site_schema_rejects_css_extraction_without_selectors() -> None:
-    # extraction=css needs real selectors; leaving search at its jsonld shape
-    # (just a url_template) would silently produce zero scraped results.
+def test_site_schema_rejects_css_extraction_without_a_product_block() -> None:
+    # extraction=css reads the product page with selectors too, so a profile on
+    # that layer without a product block would silently produce zero prices.
     broken = {**VALID_SITE_PROFILE, "extraction": "css"}
+    broken.pop("product")
     with pytest.raises(jsonschema.ValidationError):
         _site_validator().validate(broken)
 
@@ -126,6 +130,24 @@ def test_site_schema_rejects_trailing_slash_on_base_url() -> None:
     broken = {**VALID_SITE_PROFILE, "base_url": "https://ornek-site.com/"}
     with pytest.raises(jsonschema.ValidationError):
         _site_validator().validate(broken)
+
+
+def test_site_schema_accepts_a_search_page_with_its_own_strategy() -> None:
+    # One site builds its search results in the browser while its product pages
+    # arrive complete over plain HTTP. The engine reads search.strategy for that,
+    # and the search block rejects unknown keys, so the schema and the engine have
+    # to agree on this name or the first real profile using it fails to load.
+    profile = {**VALID_SITE_PROFILE}
+    profile["search"] = {**profile["search"], "strategy": "playwright"}
+
+    _site_validator().validate(profile)
+
+
+def test_site_schema_rejects_an_unknown_search_strategy() -> None:
+    profile = {**VALID_SITE_PROFILE}
+    profile["search"] = {**profile["search"], "strategy": "selenium"}
+    with pytest.raises(jsonschema.ValidationError):
+        _site_validator().validate(profile)
 
 
 def test_site_schema_rejects_wrong_timestamp_format() -> None:

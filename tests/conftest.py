@@ -168,8 +168,109 @@ _WOO_VARIATION_HTML = b"""<html><body>
 </body></html>"""
 
 
+# A search listing as the profile-driven engine has to read it: three rows, one
+# of which has no link at all. That third row is what a theme's "no results,
+# try these categories" box looks like, and following it would put a product in
+# the table that can never carry a price.
+_ENGINE_SEARCH_HTML = b"""<html><body>
+<div class="card"><a href="engine-product">Test Parfum Dekant</a></div>
+<div class="card"><a href="/engine-product">Test Parfum EDP Dekant</a></div>
+<div class="card"><span>Kategoriye goz atin</span></div>
+</body></html>"""
+
+# A listing that names, as its one result's title, the path the request came in
+# on. It turns "which URL did the caller build" into something a test can assert
+# on without reaching into the server.
+_ENGINE_ECHO_TEMPLATE = b"""<html><body>
+<div class="card"><a href="/engine-product">%s</a></div>
+</body></html>"""
+
+# A listing off a mixed catalog: one decant product with a size table, one plain
+# full bottle that has none. Both are ordinary rows on the same results page.
+_ENGINE_SEARCH_MIXED_HTML = b"""<html><body>
+<div class="card"><a href="/engine-product">Test Parfum Dekant</a></div>
+<div class="card"><a href="/engine-product-bare">Test Parfum 100 ml Tam Sise</a></div>
+</body></html>"""
+
+_ENGINE_SEARCH_CSS_HTML = b"""<html><body>
+<div class="card"><a href="/engine-product-css">Test Parfum Dekant</a></div>
+</body></html>"""
+
+_ENGINE_SEARCH_EMPTY_HTML = b"""<html><body>
+<p>Aradiginiz urun bulunamadi.</p>
+</body></html>"""
+
+# A product page whose sizes live in an escaped JSON attribute, the shape two of
+# the captured sites use.
+_ENGINE_PRODUCT_HTML = b"""<html><body>
+<h1>Test Parfum Dekant</h1>
+<form class="variations_form"
+      data-product_variations="[{&quot;attributes&quot;:{&quot;attribute_pa_hacim&quot;:&quot;5ml&quot;},&quot;display_price&quot;:150,&quot;is_in_stock&quot;:true},{&quot;attributes&quot;:{&quot;attribute_pa_hacim&quot;:&quot;10ml&quot;},&quot;display_price&quot;:290,&quot;is_in_stock&quot;:false}]">
+</form>
+</body></html>"""
+
+# The same page after a redesign dropped the blob: reachable, plausible, and
+# worth nothing. Reading this as "no sizes" is the silent-empty failure.
+_ENGINE_PRODUCT_BARE_HTML = b"""<html><body>
+<h1>Test Parfum Dekant</h1>
+</body></html>"""
+
+# The same product for a site whose sizes are only in the rendered markup, with
+# no JSON anywhere: the last-resort layer.
+_ENGINE_PRODUCT_CSS_HTML = b"""<html><body>
+<h1>Test Parfum Dekant</h1>
+<div class="size-row" data-sku="V5">
+  <span class="ml">5 ml</span><span class="tl">150,00 TL</span>
+  <span class="stok">Stokta</span>
+</div>
+<div class="size-row" data-sku="V10">
+  <span class="ml">10 ml</span><span class="tl">290,00 TL</span>
+  <span class="stok">Tukendi</span>
+</div>
+</body></html>"""
+
+_ENGINE_PRODUCT_JSON = (
+    b'{"variants": [{"title": "5 ml", "price": 150, "available": true},'
+    b' {"title": "10 ml", "price": 290, "available": false}]}'
+)
+
+
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        if self.path.startswith("/engine-redirect-search"):
+            self.send_response(302)
+            self.send_header("Location", "/shop/engine-search")
+            self.end_headers()
+            return
+        if self.path.startswith("/engine-search-mixed"):
+            self._send(200, _ENGINE_SEARCH_MIXED_HTML)
+            return
+        if self.path.startswith("/engine-search-css"):
+            self._send(200, _ENGINE_SEARCH_CSS_HTML)
+            return
+        if self.path.startswith("/engine-search-empty"):
+            self._send(200, _ENGINE_SEARCH_EMPTY_HTML)
+            return
+        if self.path.startswith(("/engine-search", "/shop/engine-search")):
+            self._send(200, _ENGINE_SEARCH_HTML)
+            return
+        if self.path.startswith("/engine-echo"):
+            # A listing whose one row is titled with the path this request
+            # arrived on, so a test can read back the URL the caller built.
+            self._send(200, _ENGINE_ECHO_TEMPLATE % self.path.encode())
+            return
+        if self.path == "/engine-product.js":
+            self._send(200, _ENGINE_PRODUCT_JSON)
+            return
+        if self.path in ("/engine-product", "/shop/engine-product"):
+            self._send(200, _ENGINE_PRODUCT_HTML)
+            return
+        if self.path == "/engine-product-css":
+            self._send(200, _ENGINE_PRODUCT_CSS_HTML)
+            return
+        if self.path == "/engine-product-bare":
+            self._send(200, _ENGINE_PRODUCT_BARE_HTML)
+            return
         if self.path == "/redirect":
             self.send_response(302)
             self.send_header("Location", "/page")

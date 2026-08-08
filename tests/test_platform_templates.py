@@ -37,6 +37,15 @@ FIXTURE_IDS: dict[str, list[str]] = {
 
 PLATFORM_NAMES = list(FIXTURE_IDS)
 
+# Which selectors pick result rows out of a listing is a theme detail, not a
+# platform one: two shops on the same platform run different themes. So no
+# template supplies these and every site profile writes its own.
+SEARCH_SELECTORS: dict[str, Any] = {
+    "result_item": ".product-card",
+    "result_url": "a::attr(href)",
+    "result_title": ".product-title::text",
+}
+
 # Identity and shipping are never scraped, so they stay the site owner's job no
 # matter which platform a profile is based on.
 SITE_IDENTITY: dict[str, Any] = {
@@ -66,12 +75,14 @@ REMAINING_SITE_FIELDS: dict[str, dict[str, Any]] = {
     # name one. Any value that needs no companion block works here; the real
     # layer for these sites is a POST whose body is built from ids in the markup,
     # and no extraction value can describe that yet.
-    "ideasoft": {"extraction": "jsonld"},
-    "woocommerce": {},
+    "ideasoft": {"extraction": "jsonld", "search": SEARCH_SELECTORS},
+    "woocommerce": {"search": SEARCH_SELECTORS},
     # ikas is a one-site platform so far, and that one site builds its search
     # results in the browser. There is no second site to prove a shared search
     # URL shape, so the template does not guess one.
-    "ikas": {"search": {"url_template": "{base_url}/search?s={query}"}},
+    "ikas": {
+        "search": {"url_template": "{base_url}/search?s={query}", **SEARCH_SELECTORS}
+    },
 }
 
 

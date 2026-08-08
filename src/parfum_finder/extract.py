@@ -273,21 +273,25 @@ def extract_css_variants(
 def _css_variant(node: Node, config: Mapping[str, Any]) -> RawVariant:
     """Read one variant's fields out of its container node."""
     return RawVariant(
-        title=_select(node, config.get("title")),
-        url=_select(node, config.get("url")),
-        sku=_select(node, config.get("sku")),
-        size_raw=_select(node, config.get("size_raw")),
-        price=_parse_price_value(_select(node, config.get("price"))),
-        in_stock=_coerce_in_stock(_select(node, config.get("in_stock"))),
+        title=select_field(node, config.get("title")),
+        url=select_field(node, config.get("url")),
+        sku=select_field(node, config.get("sku")),
+        size_raw=select_field(node, config.get("size_raw")),
+        price=_parse_price_value(select_field(node, config.get("price"))),
+        in_stock=_coerce_in_stock(select_field(node, config.get("in_stock"))),
     )
 
 
-def _select(node: Node, selector: str | None) -> str | None:
+def select_field(node: Node, selector: str | None) -> str | None:
     """Run one "<css>::text" / "<css>::attr(name)" selector inside a node.
 
     The node itself is a candidate, not just its descendants: on a page where the
     container already is the price element, a selector meant to read it would
     otherwise find nothing.
+
+    Public because reading a search result row needs exactly the same thing, and
+    two copies of this would be two places for the two selector spellings to
+    drift apart.
     """
     if not selector:
         return None

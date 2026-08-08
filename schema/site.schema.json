@@ -26,13 +26,15 @@
     "search": {
       "type": "object",
       "additionalProperties": false,
+      "description": "How to run a query and read the result list. The three result selectors are required whatever the product page's extraction layer is, because no search page seen so far carries structured data: the list of hits is always read out of the rendered markup. strategy overrides the site-wide one for this one page, which some sites need when their results are built in the browser but their product pages are not.",
       "properties": {
         "url_template": { "type": "string" },
         "result_item": { "type": "string" },
         "result_url": { "type": "string" },
-        "result_title": { "type": "string" }
+        "result_title": { "type": "string" },
+        "strategy": { "enum": ["httpx", "curl_cffi", "playwright"] }
       },
-      "required": ["url_template"]
+      "required": ["url_template", "result_item", "result_url", "result_title"]
     },
     "product": {
       "type": "object",
@@ -154,14 +156,7 @@
         "properties": { "extraction": { "const": "css" } },
         "required": ["extraction"]
       },
-      "then": {
-        "required": ["product"],
-        "properties": {
-          "search": {
-            "required": ["url_template", "result_item", "result_url", "result_title"]
-          }
-        }
-      }
+      "then": { "required": ["product"] }
     },
     {
       "if": {

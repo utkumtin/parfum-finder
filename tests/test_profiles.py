@@ -24,7 +24,12 @@ SHOPIFY_TEMPLATE: dict[str, Any] = {
     "fingerprint": {"any": ["cdn.shopify.com", "Shopify.theme", "/cart/add"]},
     "defaults": {
         "extraction": "endpoint",
-        "search": {"url_template": "{base_url}/search?q={query}"},
+        "search": {
+            "url_template": "{base_url}/search?q={query}",
+            "result_item": ".product-card",
+            "result_url": "a::attr(href)",
+            "result_title": ".product-title::text",
+        },
         "endpoint": {
             "product_json": "{product_url}.js",
             "variants_path": "variants",
@@ -68,7 +73,12 @@ STANDALONE_SITE: dict[str, Any] = {
     "platform": None,
     "strategy": "httpx",
     "extraction": "jsonld",
-    "search": {"url_template": "{base_url}/search?q={query}"},
+    "search": {
+        "url_template": "{base_url}/search?q={query}",
+        "result_item": ".product-card",
+        "result_url": "a::attr(href)",
+        "result_title": ".product-title::text",
+    },
     "variant_rules": {
         "size_from": "title",
         "size_pattern": r"(\d+[.,]?\d*)\s*(ml|cc)",
