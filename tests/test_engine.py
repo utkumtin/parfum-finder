@@ -10,6 +10,7 @@ handling and the URL resolution are all real, with no network.
 
 from dataclasses import replace
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -429,3 +430,131 @@ def test_size_from_field_skips_the_pattern() -> None:
     (variant,) = apply_variant_rules([_row("5")], rules)
 
     assert variant.size_ml_x10 == 50
+
+
+def _write_hook(hooks_dir: Path, source: str) -> None:
+    """Give the test profile's site id a hook file. The id is what binds them."""
+    (hooks_dir / "testsite.py").write_text(source)
+
+
+async def test_before_search_rewrites_the_query_that_is_actually_sent(
+    server_url: str, tmp_path: Path
+) -> None:
+    # The escape hatch for a site whose search box wants something other than the
+    # perfume name as typed. The echo page reports the URL it was asked for, so
+    # this reads what really went out rather than what the hook returned.
+    _write_hook(
+        tmp_path,
+        "def before_search(profile, query):\n    return query.replace(' ', '+')\n",
+    )
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-echo?q={query}"
+
+    (hit,) = await search_site(profile, "creed aventus", hooks_dir=tmp_path)
+
+    assert hit.candidate.raw_title == "/engine-echo?q=creed%2Baventus"
+
+
+async def test_after_search_can_drop_a_result_the_selectors_could_not(
+    server_url: str, tmp_path: Path
+) -> None:
+    # Some listings mix in rows no selector separates, for instance a promoted
+    # product. Without the hook the site would need a selector it does not have.
+    _write_hook(
+        tmp_path,
+        "def after_search(profile, candidates, html):\n"
+        "    return [c for c in candidates if 'EDP' not in (c.raw_title or '')]\n",
+    )
+
+    hits = await search_site(_profile(server_url), "test parfum", hooks_dir=tmp_path)
+
+    assert [h.candidate.raw_title for h in hits] == ["Test Parfum Dekant"]
+
+
+async def test_parse_variants_takes_over_but_the_profile_still_filters(
+    server_url: str, tmp_path: Path
+) -> None:
+    # The point of handing back raw rows instead of finished variants: the hook
+    # only reads the page, while max_size_ml, the keyword list and the conversion
+    # to kuruş stay in one place and stay the profile's.
+    _write_hook(
+        tmp_path,
+        "from decimal import Decimal\n"
+        "\n"
+        "from parfum_finder.extract import RawVariant\n"
+        "\n"
+        "\n"
+        "async def parse_variants(profile, candidate, html):\n"
+        "    return (\n"
+        "        RawVariant('El Yazimi', candidate.url, None, '5 ml', "
+        "Decimal('120.50'), True),\n"
+        "        RawVariant('Full Şişe', candidate.url, None, '100 ml', "
+        "Decimal('4000'), True),\n"
+        "    )\n",
+    )
+
+    hits = await search_site(_profile(server_url), "test parfum", hooks_dir=tmp_path)
+
+    # Both rows came from the hook; only the decant survived the profile's rules.
+    assert [v.size_ml_x10 for v in hits[0].variants] == [50]
+    assert [v.price_kurus for v in hits[0].variants] == [12050]
+    assert [v.raw_title for v in hits[0].variants] == ["El Yazimi"]
+
+
+async def test_parse_variants_returning_none_leaves_the_page_to_the_profile(
+    server_url: str, tmp_path: Path
+) -> None:
+    # A hook written for one odd product shape must not have to reimplement the
+    # normal one as well, so declining a page means the profile's layer runs.
+    _write_hook(
+        tmp_path,
+        "async def parse_variants(profile, candidate, html):\n"
+        "    if 'engine-product-bare' in candidate.url:\n"
+        "        return ()\n"
+        "    return None\n",
+    )
+
+    hits = await search_site(_profile(server_url), "test parfum", hooks_dir=tmp_path)
+
+    # Same result as with no hook at all: the embedded_json layer read both sizes.
+    assert [v.size_ml_x10 for v in hits[0].variants] == [50, 100]
+
+
+async def test_a_site_with_no_hook_file_is_driven_by_its_profile_alone(
+    server_url: str, tmp_path: Path
+) -> None:
+    # The case that stays true for every site so far. An empty hooks directory
+    # must not change a single thing about how the site is read.
+    hits = await search_site(_profile(server_url), "test parfum", hooks_dir=tmp_path)
+
+    assert [v.size_ml_x10 for v in hits[0].variants] == [50, 100]
+
+
+async def test_a_before_search_that_returns_no_query_is_refused(
+    server_url: str, tmp_path: Path
+) -> None:
+    # A hook that forgets its return gives None back. Coercing it would search
+    # the shop for the word "None", find nothing, and report that as the perfume
+    # not being sold there, which is the one answer that must never be guessed.
+    _write_hook(tmp_path, "def before_search(profile, query):\n    query.strip()\n")
+
+    with pytest.raises(ValueError, match="before_search returned NoneType"):
+        await search_site(_profile(server_url), "test parfum", hooks_dir=tmp_path)
+
+
+async def test_a_hook_that_reads_nothing_is_named_as_the_culprit(
+    server_url: str, tmp_path: Path
+) -> None:
+    # The message decides which file gets opened next. When a hook did the
+    # reading, blaming the profile's extraction layer sends the reader to code
+    # that never ran on this page.
+    _write_hook(
+        tmp_path,
+        "async def parse_variants(profile, candidate, html):\n    return ()\n",
+    )
+
+    with pytest.raises(ExtractionFailed) as excinfo:
+        await search_site(_profile(server_url), "test parfum", hooks_dir=tmp_path)
+
+    assert "parse_variants hook" in str(excinfo.value)
+    assert "embedded_json" not in str(excinfo.value)

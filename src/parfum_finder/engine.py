@@ -10,9 +10,8 @@ Suspect results are excluded from basket totals as unknown, not treated as simpl
 expensive.
 
 `search_site` is the single-site half of that: it drives one site end to end from
-its profile alone, with no site-specific Python anywhere. Run a query, read the
-result list, open each hit, and read its sizes with whichever extraction layer the
-profile names.
+its profile alone. Run a query, read the result list, open each hit, and read its
+sizes with whichever extraction layer the profile names.
 
 That layer is used and no other. Falling through to a lower rung at runtime would
 paper over exactly the profile rot this project treats as a first-class failure: a
@@ -20,6 +19,11 @@ site whose top layer quietly stopped answering would keep returning plausible ro
 from a weaker layer, and nobody would learn the profile needs rewriting. Trying the
 rungs in order is discovery's job, and reporting that a lower rung could take over
 is `validate`'s.
+
+A site the profile cannot express may add a `hooks/<id>.py` and take over one of
+three named points. That file is meant to stay rare and to stay small: every hook
+written is a sign the profile schema fell short, so the first question a new one
+raises is whether the schema should have covered it.
 
 TODO: define a SiteResult type here (site_id, status, variants, error/diagnostic)
 and the multi-site run loop, wrapping search_site in a per-site semaphore, the
@@ -35,6 +39,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin
 
@@ -50,6 +55,7 @@ from parfum_finder.extract import (
 )
 from parfum_finder.fetch import FetchResult, Strategy, fetch
 from parfum_finder.normalize import parse_size_ml
+from parfum_finder.profiles import DEFAULT_HOOKS_DIR, SiteHooks, load_site_hooks
 
 
 class ExtractionFailed(RuntimeError):
@@ -108,12 +114,20 @@ class SearchHit:
     variants: tuple[Variant, ...]
 
 
-async def search_site(profile: dict[str, Any], query: str) -> tuple[SearchHit, ...]:
+async def search_site(
+    profile: dict[str, Any], query: str, *, hooks_dir: Path = DEFAULT_HOOKS_DIR
+) -> tuple[SearchHit, ...]:
     """Run one query against one site and read every hit's sizes.
 
     Everything site-specific comes from `profile`: the search URL shape, which
     fetch strategy each page needs, the selectors that pick result rows out of
     the listing, and which extraction layer the product pages answer on.
+
+    A site whose shape the profile cannot express may put a `hooks/<id>.py` next
+    to it and take over one of three points: the query before it is sent, the
+    candidate list after the results page is read, or the variant extraction. The
+    rest of the flow, and the whole profile, still apply either way. A site with
+    no hook file behaves exactly as before, which is every site so far.
 
     Each hit's sizes come back already read in millilitres and filtered down to
     the decants, per the profile's variant rules. Pairing a hit with the perfume
@@ -135,24 +149,45 @@ async def search_site(profile: dict[str, Any], query: str) -> tuple[SearchHit, .
     here" and "we stopped being able to see it", which is what a silent empty
     result destroys.
     """
+    hooks = load_site_hooks(str(profile["id"]), hooks_dir)
+    if hooks.before_search is not None:
+        rewritten = hooks.before_search(profile, query)
+        if not isinstance(rewritten, str):
+            # Coercing instead would search the site for the word "None" when a
+            # hook forgets its return, get an empty results page, and report that
+            # as the perfume not being sold here.
+            raise ValueError(
+                f"{profile['id']}: before_search returned "
+                f"{type(rewritten).__name__}, not the query string to send"
+            )
+        query = rewritten
     result = await _fetch_page(profile, _search_url(profile, query), role="search")
     candidates = _read_candidates(profile, result.html, result.url)
+    if hooks.after_search is not None:
+        candidates = tuple(hooks.after_search(profile, candidates, result.html))
 
     rules = profile["variant_rules"]
     hits: list[SearchHit] = []
     extracted_a_price = False
     for candidate in candidates:
-        rows = await _read_variants(profile, candidate)
+        rows = await _read_variants(profile, candidate, hooks)
         rows = tuple(_with_candidate_identity(row, candidate) for row in rows)
         extracted_a_price |= any(row.price is not None for row in rows)
         variants = apply_variant_rules(rows, rules)
         if variants:
             hits.append(SearchHit(candidate=candidate, variants=variants))
     if candidates and not extracted_a_price:
+        # Name what actually read the pages. A hook that took the job over is the
+        # thing to open, and blaming the profile's layer for it sends whoever
+        # reads this to the wrong file.
+        source = (
+            f"the parse_variants hook of {profile['id']}"
+            if hooks.parse_variants is not None
+            else f"the {profile['extraction']!r} layer"
+        )
         raise ExtractionFailed(
-            f"{profile['id']}: the {profile['extraction']!r} layer read no priced "
-            f"size from any of the {len(candidates)} search results, starting with "
-            f"{candidates[0].url}"
+            f"{profile['id']}: {source} read no priced size from any of the "
+            f"{len(candidates)} search results, starting with {candidates[0].url}"
         )
     return tuple(hits)
 
@@ -357,20 +392,37 @@ def _read_candidates(
 
 
 async def _read_variants(
-    profile: dict[str, Any], candidate: ProductCandidate
+    profile: dict[str, Any], candidate: ProductCandidate, hooks: SiteHooks
 ) -> tuple[RawVariant, ...]:
-    """Open one product page and read its sizes on the profile's layer."""
+    """Open one product page and read its sizes on the profile's layer.
+
+    A site's `parse_variants` hook is offered the page first and may take the
+    whole job. It hands back the same raw rows the four extraction layers do,
+    never finished variants, so the profile's `variant_rules` still decide what
+    counts as a decant and the prices are still converted in one place.
+
+    Returning None means the hook declined this page, and the profile's own layer
+    runs as usual. That is what lets a hook cover only the one product shape it
+    was written for instead of having to reimplement the normal case as well.
+    """
     layer = profile["extraction"]
+    page: FetchResult | None = None
+    if hooks.parse_variants is not None:
+        page = await _fetch_page(profile, candidate.url, role="product")
+        rows = await hooks.parse_variants(profile, candidate, page.html)
+        if rows is not None:
+            return tuple(rows)
+
     if layer == "endpoint":
         return await _read_endpoint_variants(profile, candidate)
-
-    result = await _fetch_page(profile, candidate.url, role="product")
+    if page is None:
+        page = await _fetch_page(profile, candidate.url, role="product")
     if layer == "jsonld":
-        return extract_jsonld_variants(result.html)
+        return extract_jsonld_variants(page.html)
     if layer == "embedded_json":
-        return extract_embedded_variants(result.html, profile["embedded_json"])
+        return extract_embedded_variants(page.html, profile["embedded_json"])
     if layer == "css":
-        return extract_css_variants(result.html, profile.get("product") or {})
+        return extract_css_variants(page.html, profile.get("product") or {})
     raise ExtractionFailed(f"{profile['id']}: unknown extraction layer {layer!r}")
 
 
