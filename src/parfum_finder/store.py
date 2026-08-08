@@ -9,13 +9,16 @@ Timestamps go through a single now_iso() helper (UTC, "YYYY-MM-DDTHH:MM:SSZ").
 Nothing in this codebase calls datetime.now().isoformat() directly, because mixing
 timestamp formats would silently break "most recent" ordering.
 
-TODO: snapshot writes, and syncing a profile's identity/shipping fields into
-the sites table.
+TODO: syncing a profile's identity/shipping fields into the sites table.
 """
 
 import sqlite3
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+
+from parfum_finder.engine import Variant
 
 DEFAULT_DB_PATH = Path("parfum-finder.db")
 
@@ -145,3 +148,217 @@ def now_iso() -> str:
     make "most recent" silently wrong.
     """
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@dataclass(frozen=True)
+class SnapshotRow:
+    """One priced size of one perfume on one site, ready to be written.
+
+    The perfume is named by its three identity parts rather than by an id,
+    because that is the identity the price history is keyed on and the caller
+    already holds it. `match_score` is the matcher's verdict on this site's
+    wording, stored so a wrong match can be found again later instead of only
+    being noticed once.
+    """
+
+    site_id: str
+    brand: str
+    name: str
+    concentration: str
+    match_score: int
+    variant: Variant
+
+
+def record_snapshot(
+    conn: sqlite3.Connection,
+    *,
+    site_id: str,
+    brand: str,
+    name: str,
+    concentration: str,
+    match_score: int,
+    variant: Variant,
+    fetched_at: str | None = None,
+) -> int | None:
+    """Write one scan's reading of one size, and return its snapshot id.
+
+    The perfume, the site-perfume match and the size row are upserted, so a
+    second scan finds the same rows and only moves their last_seen. The price
+    row is never upserted: price_snapshots is append-only, and every scan adds
+    one line to it. That table is the only record of when something got cheaper,
+    and an UPDATE would erase exactly the reading somebody wants to compare
+    against.
+
+    Returns None when the size had no price. The size still gets its row, since
+    "this shop lists a 5 ml" is worth knowing even on a scan that could not read
+    what it costs, but price_kurus has no honest value to hold: a 0 there reads
+    as free and would come out of a basket optimizer as the cheapest offer on
+    the table.
+
+    Nothing is committed here beyond this one row, so a caller writing a whole
+    site's results wants write_snapshots instead.
+    """
+    with conn:
+        return _record(
+            conn,
+            site_id=site_id,
+            brand=brand,
+            name=name,
+            concentration=concentration,
+            match_score=match_score,
+            variant=variant,
+            fetched_at=fetched_at or now_iso(),
+        )
+
+
+def write_snapshots(
+    conn: sqlite3.Connection,
+    rows: Iterable[SnapshotRow],
+    *,
+    fetched_at: str | None = None,
+) -> int:
+    """Write a whole scan at once and return how many prices were recorded.
+
+    Every row gets the same fetched_at, taken once at the start. A scan is one
+    reading of the market, and letting each row stamp itself would spread a slow
+    run across several timestamps and make a later "what did this cost on the
+    same visit" comparison line up rows that were never compared.
+
+    The count is of price rows, not of input rows: sizes that came back without
+    a price are stored as sizes and do not count as prices.
+
+    One transaction for the batch. A run that dies halfway through leaves the
+    database as it was rather than a site with three of its eight sizes updated.
+    """
+    stamp = fetched_at or now_iso()
+    written = 0
+    with conn:
+        for row in rows:
+            snapshot_id = _record(
+                conn,
+                site_id=row.site_id,
+                brand=row.brand,
+                name=row.name,
+                concentration=row.concentration,
+                match_score=row.match_score,
+                variant=row.variant,
+                fetched_at=stamp,
+            )
+            if snapshot_id is not None:
+                written += 1
+    return written
+
+
+def _record(
+    conn: sqlite3.Connection,
+    *,
+    site_id: str,
+    brand: str,
+    name: str,
+    concentration: str,
+    match_score: int,
+    variant: Variant,
+    fetched_at: str,
+) -> int | None:
+    """Do the writing, without opening a transaction of its own."""
+    if variant.raw_title is None:
+        # The stored title is how a person checks later whether the match was
+        # right, so a row without one cannot be audited at all. Getting here
+        # means neither the size nor the listing it came from had a title,
+        # which is a profile that stopped reading the page, not a shop selling
+        # something nameless.
+        raise ValueError(
+            f"{site_id}: a {variant.size_ml_x10 / 10:g} ml size of "
+            f"{brand} {name} came back with no title to store"
+        )
+    perfume_id = _perfume_id(conn, brand, name, concentration, fetched_at)
+    product_id = _product_id(conn, site_id, perfume_id, match_score, fetched_at)
+    variant_id = _variant_id(conn, product_id, variant, fetched_at)
+    if variant.price_kurus is None:
+        return None
+    cursor = conn.execute(
+        "INSERT INTO price_snapshots (variant_id, fetched_at, price_kurus, in_stock)"
+        " VALUES (?, ?, ?, ?)",
+        (variant_id, fetched_at, variant.price_kurus, int(bool(variant.in_stock))),
+    )
+    return int(cursor.lastrowid or 0)
+
+
+def _perfume_id(
+    conn: sqlite3.Connection, brand: str, name: str, concentration: str, ts: str
+) -> int:
+    conn.execute(
+        "INSERT INTO perfumes (brand, name, concentration, created_at)"
+        " VALUES (?, ?, ?, ?)"
+        " ON CONFLICT (brand, name, concentration) DO NOTHING",
+        (brand, name, concentration, ts),
+    )
+    return _scalar(
+        conn,
+        "SELECT perfume_id FROM perfumes"
+        " WHERE brand = ? AND name = ? AND concentration = ?",
+        (brand, name, concentration),
+    )
+
+
+def _product_id(
+    conn: sqlite3.Connection, site_id: str, perfume_id: int, match_score: int, ts: str
+) -> int:
+    # match_score is overwritten rather than kept from the first sighting: a shop
+    # that reworded its listing is judged on the wording it has now, and that is
+    # the number the results table shows next to today's price.
+    conn.execute(
+        "INSERT INTO products (site_id, perfume_id, match_score, first_seen, last_seen)"
+        " VALUES (?, ?, ?, ?, ?)"
+        " ON CONFLICT (site_id, perfume_id) DO UPDATE SET"
+        " match_score = excluded.match_score, last_seen = excluded.last_seen",
+        (site_id, perfume_id, match_score, ts, ts),
+    )
+    return _scalar(
+        conn,
+        "SELECT product_id FROM products WHERE site_id = ? AND perfume_id = ?",
+        (site_id, perfume_id),
+    )
+
+
+def _variant_id(
+    conn: sqlite3.Connection, product_id: int, variant: Variant, ts: str
+) -> int:
+    # raw_title and product_url are refreshed on every sighting. They are not part
+    # of the identity, so a renamed listing or a moved slug updates in place and
+    # the price series carries on instead of starting over under a new row.
+    conn.execute(
+        "INSERT INTO product_variants"
+        " (product_id, size_ml_x10, raw_title, product_url, first_seen, last_seen)"
+        " VALUES (?, ?, ?, ?, ?, ?)"
+        " ON CONFLICT (product_id, size_ml_x10) DO UPDATE SET"
+        " raw_title = excluded.raw_title, product_url = excluded.product_url,"
+        " last_seen = excluded.last_seen",
+        (
+            product_id,
+            variant.size_ml_x10,
+            variant.raw_title,
+            variant.product_url,
+            ts,
+            ts,
+        ),
+    )
+    return _scalar(
+        conn,
+        "SELECT variant_id FROM product_variants"
+        " WHERE product_id = ? AND size_ml_x10 = ?",
+        (product_id, variant.size_ml_x10),
+    )
+
+
+def _scalar(conn: sqlite3.Connection, sql: str, params: tuple[object, ...]) -> int:
+    """Read back the id of a row that was just inserted or already existed.
+
+    RETURNING would save the second statement, but only reports a row when the
+    upsert actually touched one. Reading it back is the one form that answers
+    the same way whether this scan created the row or the last one did.
+    """
+    row = conn.execute(sql, params).fetchone()
+    if row is None:
+        raise RuntimeError(f"row vanished right after being written: {sql}")
+    return int(row[0])
