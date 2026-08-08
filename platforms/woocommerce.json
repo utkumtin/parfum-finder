@@ -8,6 +8,17 @@
     "extraction": "embedded_json",
     "search": {
       "url_template": "{base_url}/?s={query}&post_type=product"
+    },
+    "embedded_json": {
+      "source": "attribute",
+      "selector": "[data-product_variations]",
+      "attribute": "data-product_variations",
+      "field_map": {
+        "size_raw": "attributes.attribute_pa_hacim",
+        "price": "display_price",
+        "in_stock": "is_in_stock",
+        "sku": "sku"
+      }
     }
   }
 }

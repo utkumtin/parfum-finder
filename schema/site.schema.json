@@ -56,12 +56,50 @@
           "properties": {
             "size_raw": { "type": "string" },
             "price": { "type": "string" },
-            "in_stock": { "type": "string" }
+            "in_stock": { "type": "string" },
+            "title": { "type": "string" },
+            "url": { "type": "string" },
+            "sku": { "type": "string" }
           },
           "required": ["size_raw", "price", "in_stock"]
         }
       },
       "required": ["product_json", "variants_path", "field_map"]
+    },
+    "embedded_json": {
+      "description": "Where on the page a JSON blob hides that carries the variant table. source=script reads a <script> body, optionally scanning forward from marker to the JSON value that follows it; source=attribute reads an attribute value. variants_path locates the variant list or size-keyed object inside that JSON, and is omitted when the document itself is the list. In field_map, the value \"@key\" means the key a variant sits under rather than a field inside it.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "enum": ["script", "attribute"] },
+        "marker": { "type": "string" },
+        "selector": { "type": "string" },
+        "attribute": { "type": "string" },
+        "variants_path": { "type": "string" },
+        "field_map": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "size_raw": { "type": "string" },
+            "price": { "type": "string" },
+            "in_stock": { "type": "string" },
+            "title": { "type": "string" },
+            "url": { "type": "string" },
+            "sku": { "type": "string" }
+          },
+          "required": ["size_raw", "price", "in_stock"]
+        }
+      },
+      "required": ["source", "field_map"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "source": { "const": "attribute" } },
+            "required": ["source"]
+          },
+          "then": { "required": ["selector", "attribute"] }
+        }
+      ]
     },
     "variant_rules": {
       "type": "object",
@@ -131,6 +169,13 @@
         "required": ["extraction"]
       },
       "then": { "required": ["endpoint"] }
+    },
+    {
+      "if": {
+        "properties": { "extraction": { "const": "embedded_json" } },
+        "required": ["extraction"]
+      },
+      "then": { "required": ["embedded_json"] }
     }
   ]
 }

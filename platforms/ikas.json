@@ -5,6 +5,17 @@
     "any": ["cdn.myikas.com"]
   },
   "defaults": {
-    "extraction": "embedded_json"
+    "extraction": "embedded_json",
+    "embedded_json": {
+      "source": "script",
+      "selector": "script#__NEXT_DATA__",
+      "variants_path": "props.pageProps.pageSpecificData.variants",
+      "field_map": {
+        "size_raw": "variantValues.0.name",
+        "price": "prices.0.sellPrice",
+        "in_stock": "stocks.0.stockCount",
+        "sku": "sku"
+      }
+    }
   }
 }
