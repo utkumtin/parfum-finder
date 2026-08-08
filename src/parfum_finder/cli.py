@@ -5,7 +5,8 @@ Subcommands will be added incrementally as the project grows:
     discover <url> [--id]     - generate a site profile
     validate [<id>...] [--live] - check that a profile still works
     search <perfume> [--site] [--db] - scan every site and store the prices
-    (default) tui              - launch the interactive app
+    tui [--db]                 - launch the interactive app
+    (default, no subcommand)   - same as tui
 
 CLI framework: argparse (stdlib). A handful of subcommands with plain
 positional/flag arguments don't need a third-party library -- argparse's
@@ -23,11 +24,11 @@ from parfum_finder.discover import discover
 from parfum_finder.discover import format_report as format_discovery_report
 from parfum_finder.engine import SiteResult, run_sites
 from parfum_finder.fetch import Strategy
-from parfum_finder.matcher import PerfumeQuery, match_title, parse_query
+from parfum_finder.matcher import PerfumeQuery, parse_query
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.probe import probe
 from parfum_finder.profiles import load_site_profile, sync_to_db
-from parfum_finder.store import DEFAULT_DB_PATH, SnapshotRow, connect, now_iso
+from parfum_finder.store import DEFAULT_DB_PATH, connect, now_iso, snapshot_rows
 from parfum_finder.store import write_snapshots as write_site_snapshots
 from parfum_finder.validate import (
     format_live_report,
@@ -138,33 +139,11 @@ def _store_site_result(
     so a single unstorable row from one shop would roll back every other shop's
     prices too, and this command exists to prove that one site breaking leaves
     the others alone.
+
+    The matching and row-building itself lives in store.snapshot_rows, so the
+    TUI's own scan can call the same function and never drift from these rules.
     """
-    rows: list[SnapshotRow] = []
-    for hit in result.hits:
-        if hit.candidate.raw_title is None:
-            continue
-        match = match_title(hit.candidate.raw_title, query)
-        if match is None:
-            # A rejection, not a weak score: the title names another brand or
-            # another concentration. Storing it would put a different perfume's
-            # price into this one's history.
-            continue
-        rows.extend(
-            SnapshotRow(
-                site_id=result.site_id,
-                brand=query.brand,
-                name=query.name,
-                # What the title named, not what was asked for. An EDT and an
-                # EDP are two products with two prices, and a query that named
-                # neither would otherwise merge them into one perfume row.
-                concentration=match.concentration,
-                match_score=match.score,
-                variant=variant,
-            )
-            for variant in hit.variants
-            if variant.raw_title is not None
-        )
-    return write_site_snapshots(conn, rows)
+    return write_site_snapshots(conn, snapshot_rows(result, query))
 
 
 def _report_line(result: SiteResult) -> str:
@@ -183,7 +162,7 @@ def _report_line(result: SiteResult) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="parfum-finder")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command")
 
     probe_parser = subparsers.add_parser(
         "probe", help="check which fetch strategy a URL needs"
@@ -296,9 +275,25 @@ def main() -> None:
         help=f"price database to write to (default: {DEFAULT_DB_PATH})",
     )
 
+    tui_parser = subparsers.add_parser("tui", help="launch the interactive app")
+    tui_parser.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_DB_PATH,
+        metavar="PATH",
+        help=f"price database to read and write (default: {DEFAULT_DB_PATH})",
+    )
+
     args = parser.parse_args()
 
-    if args.command == "probe":
+    if args.command is None or args.command == "tui":
+        # Imported here, not at module load, so that every other subcommand
+        # keeps running without textual installed and without waiting on it.
+        from parfum_finder.tui.app import ParfumFinderApp
+
+        db_path = args.db if args.command == "tui" else DEFAULT_DB_PATH
+        ParfumFinderApp(sites_dir=SITES_DIR, db_path=db_path).run()
+    elif args.command == "probe":
         probe_report = asyncio.run(probe(args.url, timeout_s=args.timeout))
         print(format_probe_report(probe_report))
     elif args.command == "discover":

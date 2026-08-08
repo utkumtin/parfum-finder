@@ -19,7 +19,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from parfum_finder.engine import Variant
+from parfum_finder.engine import SiteResult, Variant
+from parfum_finder.matcher import PerfumeQuery, match_title
 
 DEFAULT_DB_PATH = Path("parfum-finder.db")
 
@@ -168,6 +169,40 @@ class SnapshotRow:
     concentration: str
     match_score: int
     variant: Variant
+
+
+def snapshot_rows(result: SiteResult, query: PerfumeQuery) -> list[SnapshotRow]:
+    """Turn one site's hits into the rows write_snapshots is ready to store.
+
+    Shared by the CLI and the TUI so the two can never diverge on which titles
+    get stored as this perfume: both call this, neither hand-rolls the match.
+    """
+    rows: list[SnapshotRow] = []
+    for hit in result.hits:
+        if hit.candidate.raw_title is None:
+            continue
+        match = match_title(hit.candidate.raw_title, query)
+        if match is None:
+            # A rejection, not a weak score: the title names another brand or
+            # another concentration. Storing it would put a different perfume's
+            # price into this one's history.
+            continue
+        rows.extend(
+            SnapshotRow(
+                site_id=result.site_id,
+                brand=query.brand,
+                name=query.name,
+                # What the title named, not what was asked for. An EDT and an
+                # EDP are two products with two prices, and a query that named
+                # neither would otherwise merge them into one perfume row.
+                concentration=match.concentration,
+                match_score=match.score,
+                variant=variant,
+            )
+            for variant in hit.variants
+            if variant.raw_title is not None
+        )
+    return rows
 
 
 def record_snapshot(
@@ -350,6 +385,83 @@ def _variant_id(
         " WHERE product_id = ? AND size_ml_x10 = ?",
         (product_id, variant.size_ml_x10),
     )
+
+
+def add_basket_item(
+    conn: sqlite3.Connection,
+    *,
+    brand: str,
+    name: str,
+    concentration: str,
+    size_ml_x10: int,
+    qty: int = 1,
+    added_at: str | None = None,
+) -> int:
+    """Add a size of a perfume to the basket, and return the basket_item_id.
+
+    The perfume must already exist: it is named by brand/name/concentration
+    because that is all the TUI ever holds, but a basket line for a perfume
+    nobody has priced is a bug, not a state worth inventing a row for.
+
+    Adding the same perfume and size again bumps qty instead of failing or
+    overwriting, and keeps the original added_at so the basket screen's
+    ordering by it does not move just because someone added one more bottle.
+    """
+    with conn:
+        row = conn.execute(
+            "SELECT perfume_id FROM perfumes"
+            " WHERE brand = ? AND name = ? AND concentration = ?",
+            (brand, name, concentration),
+        ).fetchone()
+        if row is None:
+            raise ValueError(
+                f"no perfume on record for {brand} {name} {concentration};"
+                " it has to be scanned before it can be put in the basket"
+            )
+        perfume_id = int(row[0])
+        ts = added_at or now_iso()
+        conn.execute(
+            "INSERT INTO basket_items (perfume_id, size_ml_x10, qty, added_at)"
+            " VALUES (?, ?, ?, ?)"
+            " ON CONFLICT (perfume_id, size_ml_x10) DO UPDATE SET"
+            " qty = qty + excluded.qty",
+            (perfume_id, size_ml_x10, qty, ts),
+        )
+        return _scalar(
+            conn,
+            "SELECT basket_item_id FROM basket_items"
+            " WHERE perfume_id = ? AND size_ml_x10 = ?",
+            (perfume_id, size_ml_x10),
+        )
+
+
+def price_history(
+    conn: sqlite3.Connection,
+    *,
+    site_id: str,
+    brand: str,
+    name: str,
+    concentration: str,
+    size_ml_x10: int,
+    limit: int = 20,
+) -> list[sqlite3.Row]:
+    """Return one variant's past readings, newest first, capped at limit.
+
+    Empty for a perfume/site/size nobody has scanned yet: a variant with no
+    history is a normal state, not an error to raise on.
+    """
+    return conn.execute(
+        "SELECT s.fetched_at, s.price_kurus, s.in_stock"
+        " FROM price_snapshots s"
+        " JOIN product_variants v USING (variant_id)"
+        " JOIN products         p USING (product_id)"
+        " JOIN perfumes         pf ON pf.perfume_id = p.perfume_id"
+        " WHERE p.site_id = ? AND pf.brand = ? AND pf.name = ?"
+        " AND pf.concentration = ? AND v.size_ml_x10 = ?"
+        " ORDER BY s.fetched_at DESC, s.snapshot_id DESC"
+        " LIMIT ?",
+        (site_id, brand, name, concentration, size_ml_x10, limit),
+    ).fetchall()
 
 
 def _scalar(conn: sqlite3.Connection, sql: str, params: tuple[object, ...]) -> int:

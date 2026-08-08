@@ -6,6 +6,8 @@ argument dropped) actually fails here instead of only showing up by hand.
 """
 
 import json
+import sys
+import types
 from pathlib import Path
 from typing import Any
 
@@ -233,15 +235,58 @@ def test_the_platform_prompt_picks_nothing_with_no_terminal_to_ask_at(
     assert capsys.readouterr().out == ""
 
 
-def test_no_subcommand_exits_with_usage_error() -> None:
-    import sys
+def _fake_tui_app(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    """Stand in for parfum_finder.tui.app.ParfumFinderApp before it exists.
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(sys, "argv", ["parfum-finder"])
-        with pytest.raises(SystemExit) as exc_info:
-            main()
+    main() imports it lazily inside the branch that launches the TUI, so
+    dropping fake modules into sys.modules under its exact dotted path is
+    enough to test the wiring without the real textual app.
+    """
+    seen: dict[str, object] = {}
 
-    assert exc_info.value.code != 0
+    class FakeApp:
+        def __init__(self, *, sites_dir: Path, db_path: Path) -> None:
+            seen["sites_dir"] = sites_dir
+            seen["db_path"] = db_path
+
+        def run(self) -> None:
+            seen["ran"] = True
+
+    fake_tui = types.ModuleType("parfum_finder.tui")
+    fake_app_module = types.ModuleType("parfum_finder.tui.app")
+    fake_app_module.ParfumFinderApp = FakeApp  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "parfum_finder.tui", fake_tui)
+    monkeypatch.setitem(sys.modules, "parfum_finder.tui.app", fake_app_module)
+    return seen
+
+
+def test_no_subcommand_launches_the_tui_against_the_default_db(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # dev-docs/APP_FLOW.md section 1: bare `parfum-finder` opens the TUI, the
+    # same as `tui` with no --db.
+    seen = _fake_tui_app(monkeypatch)
+    monkeypatch.setattr(sys, "argv", ["parfum-finder"])
+
+    main()
+
+    assert seen == {
+        "sites_dir": cli.SITES_DIR,
+        "db_path": cli.DEFAULT_DB_PATH,
+        "ran": True,
+    }
+
+
+def test_tui_subcommand_passes_the_db_flag_through(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    seen = _fake_tui_app(monkeypatch)
+    db_path = tmp_path / "custom.db"
+    monkeypatch.setattr(sys, "argv", ["parfum-finder", "tui", "--db", str(db_path)])
+
+    main()
+
+    assert seen == {"sites_dir": cli.SITES_DIR, "db_path": db_path, "ran": True}
 
 
 def test_the_live_flag_runs_the_live_pass_and_prints_both_columns(

@@ -16,12 +16,16 @@ from unittest.mock import patch
 
 import pytest
 
-from parfum_finder.engine import Variant
+from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
+from parfum_finder.matcher import PerfumeQuery, parse_query
 from parfum_finder.store import (
     SnapshotRow,
+    add_basket_item,
     connect,
     now_iso,
+    price_history,
     record_snapshot,
+    snapshot_rows,
     write_snapshots,
 )
 
@@ -506,3 +510,227 @@ def test_write_snapshots_rolls_the_whole_batch_back_on_failure(
 
     assert conn.execute("SELECT COUNT(*) FROM price_snapshots").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM product_variants").fetchone()[0] == 0
+
+
+def test_snapshot_rows_drops_a_title_the_matcher_rejects() -> None:
+    """Another house's bottle on the same results page must not enter this history.
+
+    match_title returns None for a title naming a different brand, and that
+    rejection has to survive all the way to the stored rows, not just to a
+    printed report: a row that slipped through here would put a stranger's
+    price into this perfume's series.
+    """
+    result = SiteResult(
+        site_id="ornek",
+        status="ok",
+        hits=(
+            SearchHit(
+                candidate=ProductCandidate(
+                    raw_title="Dior Sauvage EDP Dekant", url="u"
+                ),
+                variants=(_variant(50, 12500, raw_title="Dior Sauvage EDP 5 ml"),),
+            ),
+            SearchHit(
+                candidate=ProductCandidate(
+                    raw_title="Chanel Bleu EDP Dekant", url="u2"
+                ),
+                variants=(_variant(50, 9900, raw_title="Chanel Bleu EDP 5 ml"),),
+            ),
+        ),
+        detail="ok",
+    )
+    query = PerfumeQuery(brand="Dior", name="Sauvage", concentration="")
+
+    rows = snapshot_rows(result, query)
+
+    assert len(rows) == 1
+    assert rows[0].variant.price_kurus == 12500
+
+
+def test_snapshot_rows_stores_the_titles_own_concentration() -> None:
+    """EDT and EDP are different products, so the row has to say which one this was.
+
+    A row stamped with the queried concentration instead would merge whatever
+    the shop actually sells into whichever concentration happened to be typed
+    into the search box.
+    """
+    result = SiteResult(
+        site_id="ornek",
+        status="ok",
+        hits=(
+            SearchHit(
+                candidate=ProductCandidate(
+                    raw_title="Dior Sauvage EDT Dekant", url="u"
+                ),
+                variants=(_variant(50, 12500, raw_title="Dior Sauvage EDT 5 ml"),),
+            ),
+        ),
+        detail="ok",
+    )
+    # Asked with no concentration named, so the title's own EDT is what has to
+    # end up on the row.
+    query = PerfumeQuery(brand="Dior", name="Sauvage", concentration="")
+
+    rows = snapshot_rows(result, query)
+
+    assert rows[0].concentration == "EDT"
+
+
+def test_add_basket_item_bumps_qty_instead_of_resetting_it(
+    conn: sqlite3.Connection,
+) -> None:
+    """Adding the same perfume and size twice must accumulate, not clobber.
+
+    The basket line stands for how many bottles someone wants, so re-adding a
+    size that is already in the basket has to add to that count. Overwriting it
+    back to whatever qty this call passed would silently lose an earlier add.
+    """
+    _seed_variant(conn)
+
+    first_id = add_basket_item(
+        conn,
+        brand="Dior",
+        name="Sauvage",
+        concentration="EDT",
+        size_ml_x10=50,
+        qty=1,
+        added_at="2026-08-07T10:00:00Z",
+    )
+    second_id = add_basket_item(
+        conn,
+        brand="Dior",
+        name="Sauvage",
+        concentration="EDT",
+        size_ml_x10=50,
+        qty=2,
+        added_at="2026-08-08T10:00:00Z",
+    )
+
+    assert second_id == first_id
+    row = conn.execute(
+        "SELECT qty, added_at FROM basket_items WHERE basket_item_id = ?", (first_id,)
+    ).fetchone()
+    assert row["qty"] == 3
+    # The basket screen orders by added_at, so a later top-up must not move a
+    # line that was already sitting in the list.
+    assert row["added_at"] == "2026-08-07T10:00:00Z"
+
+
+def test_add_basket_item_refuses_a_perfume_with_no_price_on_record(
+    conn: sqlite3.Connection,
+) -> None:
+    """A basket line for a perfume nobody has priced is a bug, not a state to keep.
+
+    The TUI only ever holds brand/name/concentration, never a perfume_id, so
+    without this check a typo or a perfume that was never scanned would
+    silently create an empty perfume row instead of failing loud.
+    """
+    with pytest.raises(ValueError, match="no perfume on record"):
+        add_basket_item(
+            conn,
+            brand="Dior",
+            name="Sauvage",
+            concentration="EDT",
+            size_ml_x10=50,
+        )
+
+
+def test_price_history_is_newest_first_and_capped_at_limit(
+    conn: sqlite3.Connection,
+) -> None:
+    """The trend panel reads row 0 as the latest reading, so order is the point.
+
+    A history that came back oldest-first, or uncapped, would show yesterday's
+    price where the panel expects today's, or flood a long-running variant's
+    trend view with more rows than it asked for.
+    """
+    _seed_site(conn)
+    stamps = [
+        "2026-08-05T10:00:00Z",
+        "2026-08-06T10:00:00Z",
+        "2026-08-07T10:00:00Z",
+        "2026-08-08T10:00:00Z",
+    ]
+    for i, ts in enumerate(stamps):
+        _record(conn, _variant(price_kurus=10000 + i * 100), fetched_at=ts)
+
+    rows = price_history(
+        conn,
+        site_id="ornek",
+        brand="Dior",
+        name="Sauvage",
+        concentration="EDT",
+        size_ml_x10=50,
+        limit=2,
+    )
+
+    assert [row["fetched_at"] for row in rows] == stamps[::-1][:2]
+    assert [row["price_kurus"] for row in rows] == [10300, 10200]
+
+
+def test_price_history_is_empty_for_an_unknown_variant(
+    conn: sqlite3.Connection,
+) -> None:
+    """No history yet is a normal state for a variant, not an error to raise on."""
+    assert (
+        price_history(
+            conn,
+            site_id="ornek",
+            brand="Dior",
+            name="Sauvage",
+            concentration="EDT",
+            size_ml_x10=50,
+        )
+        == []
+    )
+
+
+def test_a_scanned_perfume_can_be_read_back_by_basket_and_history(
+    conn: sqlite3.Connection,
+) -> None:
+    """The identity a real scan writes must be the identity these lookups accept.
+
+    add_basket_item and price_history take brand/name/concentration by hand,
+    but the only row they ever have to find in practice is one snapshot_rows
+    wrote from a parsed query, which folds brand and name to lowercase and the
+    concentration to its canonical spelling. A test that seeds 'Dior'/'Sauvage'
+    directly and then looks it up the same way could pass while the real path,
+    which writes 'dior'/'sauvage', silently never matches.
+    """
+    _seed_site(conn)
+    query = parse_query("Dior Sauvage EDT")
+    result = SiteResult(
+        site_id="ornek",
+        status="ok",
+        hits=(
+            SearchHit(
+                candidate=ProductCandidate(
+                    raw_title="Dior Sauvage EDT Dekant", url="u"
+                ),
+                variants=(_variant(50, 12500, raw_title="Dior Sauvage EDT 5 ml"),),
+            ),
+        ),
+        detail="ok",
+    )
+    written = write_snapshots(conn, snapshot_rows(result, query))
+    assert written == 1
+
+    history = price_history(
+        conn,
+        site_id="ornek",
+        brand=query.brand,
+        name=query.name,
+        concentration="EDT",
+        size_ml_x10=50,
+    )
+    basket_item_id = add_basket_item(
+        conn,
+        brand=query.brand,
+        name=query.name,
+        concentration="EDT",
+        size_ml_x10=50,
+    )
+
+    assert len(history) == 1
+    assert history[0]["price_kurus"] == 12500
+    assert basket_item_id is not None
