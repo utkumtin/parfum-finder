@@ -709,6 +709,47 @@ async def test_a_page_of_full_bottles_only_is_empty_too(server_url: str) -> None
     assert result.status == "empty"
 
 
+async def test_a_dead_row_selector_on_a_full_page_is_suspect(server_url: str) -> None:
+    # The expensive silent failure: the shop redesigned, the row selector matches
+    # nothing, and a page full of perfumes reads as "not sold here". The site
+    # would drop out of the comparison and the cheapest price would be decided on
+    # a table with a hole in it.
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-search-renamed?q={query}"
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "suspect"
+    # The selector that stopped matching is named, because the fix is someone
+    # opening that page and writing a new one.
+    assert ".card" in str(result.detail)
+
+
+async def test_a_dead_link_selector_is_suspect_not_empty(server_url: str) -> None:
+    # One notch more certain than the case above and needing no heuristic: the
+    # rows are provably still there, so the link selector under them is what
+    # died. Every candidate gets dropped for having no page to open.
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-search-no-links?q={query}"
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "suspect"
+    assert "2 result row(s)" in str(result.detail)
+
+
+async def test_some_rows_without_links_is_not_suspect(server_url: str) -> None:
+    # Rows disappearing one at a time is normal and must not trip the check. One
+    # captured shop lists five cards where only one is a product link, and
+    # flagging that would mark a working site broken on every run.
+    profile = _profile(server_url)
+    profile["search"]["result_item"] = ".card, nav"
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "ok"
+
+
 async def test_a_profile_that_reads_nothing_is_suspect_not_empty(
     server_url: str,
 ) -> None:
@@ -997,6 +1038,25 @@ async def test_a_dead_site_does_not_take_the_others_down(
 
 async def test_no_sites_is_an_empty_run_not_a_crash() -> None:
     assert await run_sites([], "test parfum") == ()
+
+
+async def test_a_profile_that_breaks_on_setup_is_contained_too(
+    server_url: str,
+) -> None:
+    # The isolation boundary has to cover the whole of a site's run, not just
+    # the fetching. A bad rate_limit_ms breaks while the pacing is being built,
+    # which is before any request goes out, and a failure there escaping into
+    # the TaskGroup would cancel the shops that were answering fine.
+    profiles = [
+        _profile(server_url, id="saglam"),
+        _profile(server_url, id="bozuk", rate_limit_ms="hizli"),
+    ]
+
+    results = await run_sites(profiles, "test parfum")
+
+    assert [r.status for r in results] == ["ok", "error"]
+    assert results[0].hits
+    assert "ValueError" in str(results[1].detail)
 
 
 # --- Pacing, one site at a time ------------------------------------------------

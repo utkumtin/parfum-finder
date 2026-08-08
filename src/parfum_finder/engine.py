@@ -69,6 +69,7 @@ from parfum_finder.fetch import (
     fetch,
 )
 from parfum_finder.normalize import casefold_tr, parse_size_ml
+from parfum_finder.probe import _PRODUCT_MARKUP_SELECTOR
 from parfum_finder.profiles import DEFAULT_HOOKS_DIR, SiteHooks, load_site_hooks
 
 # How many times one request may be sent before the failure is the caller's.
@@ -86,6 +87,20 @@ RETRY_BACKOFF_MS = 1000
 # asking directly; the 5xx ones are it having a bad moment. A 403 or a 404 is an
 # answer, and repeating the request cannot change it.
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+
+# How much product-shaped markup a search page has to carry before a run with no
+# results off it is read as a dead selector rather than an honest "not sold here".
+#
+# The number is measured, not chosen: it is the smallest count any of the six
+# captured search fixtures produces, from a page listing four products. The
+# selector being counted is probe's, and probe warns it is a relative figure
+# meant for comparing strategies on one page, not an absolute verdict. Using it
+# absolutely is why the floor is taken from real pages instead of picked. A shop
+# page's own chrome, the category links in its header and footer, lands well
+# under this, which is what keeps a genuine no-results page from wearing the
+# badge. Getting that wrong is worse than missing a break, because a badge that
+# cries wolf on every unstocked perfume is one nobody reads.
+PRODUCT_MARKUP_FLOOR = 8
 
 # Bound at module level so tests can replace it and assert on the delays that were
 # asked for. Sleeping for real would make the suite pay the pacing it is checking,
@@ -315,9 +330,15 @@ async def run_site(
     in cause but not in what can be done with them, which is nothing but tell
     the user this site is out of this comparison and why.
     """
+    # Only the id is read outside the boundary, because it is what a report row
+    # is addressed by: a profile without one is not a site this can speak about,
+    # so there is no honest SiteResult to hand back for it. Everything else,
+    # setting up the pacing included, happens inside. A profile whose
+    # rate_limit_ms is not a number would otherwise raise on the way in, before
+    # the try, and take every other site in the TaskGroup down with it.
     site_id = str(profile["id"])
-    paced = _paced_fetcher(profile, fetcher)
     try:
+        paced = _paced_fetcher(profile, fetcher)
         hits = await search_site(profile, query, hooks_dir=hooks_dir, fetcher=paced)
     except ExtractionFailed as e:
         return SiteResult(site_id, "suspect", (), str(e))
@@ -417,12 +438,16 @@ async def search_site(
 
     Raises ExtractionFailed only when the search returned hits and the extraction
     layer read not one price from any of them, measured before the decant filter
-    runs. An empty result list is not an error, because a shop may genuinely not
-    stock the perfume, and neither is a page of nothing but full bottles. But a
+    runs. An empty result list off a page with nothing product-shaped on it is
+    not an error, because a shop may genuinely not stock the perfume, and
+    neither is a page of nothing but full bottles. But a
     page full of results where every product page reads as empty is a broken
     profile until proven otherwise: that is the difference between "not sold
     here" and "we stopped being able to see it", which is what a silent empty
     result destroys.
+
+    Raises for the same reason one step earlier when the search page itself came
+    back with no rows while plainly listing products, per `_check_empty_search`.
 
     Also raises when a profile names a `variant_control` and the page's size
     picker offers more options than the layer produced rows. That is the same
@@ -447,6 +472,8 @@ async def search_site(
     candidates = _read_candidates(profile, result.html, result.url)
     if hooks.after_search is not None:
         candidates = tuple(hooks.after_search(profile, candidates, result.html))
+    if not candidates:
+        _check_empty_search(profile, result)
 
     rules = profile["variant_rules"]
     hits: list[SearchHit] = []
@@ -473,6 +500,50 @@ async def search_site(
             f"{len(candidates)} search results, starting with {candidates[0].url}"
         )
     return tuple(hits)
+
+
+def _check_empty_search(profile: dict[str, Any], result: FetchResult) -> None:
+    """Fail when a search yielded no rows off a page that plainly lists products.
+
+    The first line of the fail-loud table, and the one that costs the most when
+    it is missing: a shop whose search selectors died answers 200 with a full
+    page of perfumes, this reads nothing off it, and the shop drops out of the
+    comparison looking exactly like a shop that does not stock the perfume. The
+    cheapest site then wins on a table with a silent hole in it.
+
+    Two separate reasons to be suspicious, and the first needs no guessing. If
+    the row selector matched nodes but not one of them gave up a link, the rows
+    are there and the link selector underneath them is dead. Rows going missing
+    one at a time is not the same thing and stays allowed: one captured shop
+    really does list five cards where only one is a product link.
+
+    The second reason is the guess. Nothing matched at all, so there is no
+    evidence from the profile itself, only from the page: enough product-shaped
+    markup on it and a run that read nothing is a broken selector rather than an
+    answer. A page that is genuinely empty of products fails this and is
+    correctly reported as empty.
+
+    Only reached when the search produced nothing, so the reparse costs the
+    normal path nothing.
+    """
+    root = HTMLParser(result.html).root
+    if root is None:
+        raise ExtractionFailed(f"{profile['id']}: {result.url} parsed to no markup")
+    selector = str(profile["search"]["result_item"])
+    rows = len(root.css(selector))
+    if rows:
+        raise ExtractionFailed(
+            f"{profile['id']}: {result.url} has {rows} result row(s) "
+            f"({selector!r}) but none of them carried a link "
+            f"({profile['search']['result_url']!r}), so every hit was dropped"
+        )
+    cards = len(root.css(_PRODUCT_MARKUP_SELECTOR))
+    if cards >= PRODUCT_MARKUP_FLOOR:
+        raise ExtractionFailed(
+            f"{profile['id']}: {selector!r} matched nothing on {result.url}, "
+            f"but the page carries {cards} product-shaped node(s), so it is "
+            f"listing something this profile can no longer see"
+        )
 
 
 def _check_variant_control(

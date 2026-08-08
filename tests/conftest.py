@@ -198,8 +198,43 @@ _ENGINE_SEARCH_CSS_HTML = b"""<html><body>
 <div class="card"><a href="/engine-product-css">Test Parfum Dekant</a></div>
 </body></html>"""
 
+# A genuine "we don't stock that" page, with the chrome a real shop's no-results
+# page carries: category links in the header and footer that name products, and a
+# nav wrapper whose class does too. This is the false-positive case for the
+# empty-vs-suspect check, so a bare <p> here would make that test unable to fail.
 _ENGINE_SEARCH_EMPTY_HTML = b"""<html><body>
+<nav class="urun-menu">
+  <a href="/urun-kategori/erkek">Erkek Parfum</a>
+  <a href="/urun-kategori/kadin">Kadin Parfum</a>
+</nav>
 <p>Aradiginiz urun bulunamadi.</p>
+<footer><a href="/urun-kategori/niche">Niche</a></footer>
+</body></html>"""
+
+# The same shop after a redesign renamed its result rows. Plenty of perfumes on
+# the page, and the profile's ".card" matches none of them.
+_ENGINE_SEARCH_RENAMED_HTML = b"""<html><body>
+<div class="product-grid">
+  <div class="product-tile">
+    <a class="product-link" href="/engine-product">Test Parfum Dekant</a>
+    <span class="product-price">250,00 TL</span>
+  </div>
+  <div class="product-tile">
+    <a class="product-link" href="/engine-product">Baska Parfum Dekant</a>
+    <span class="product-price">300,00 TL</span>
+  </div>
+  <div class="product-tile">
+    <a class="product-link" href="/engine-product">Ucuncu Parfum Dekant</a>
+    <span class="product-price">180,00 TL</span>
+  </div>
+</div>
+</body></html>"""
+
+# Rows still match, the link inside them moved. Every hit gets dropped for having
+# no page to open.
+_ENGINE_SEARCH_NO_LINKS_HTML = b"""<html><body>
+<div class="card"><span>Test Parfum Dekant</span></div>
+<div class="card"><span>Baska Parfum Dekant</span></div>
 </body></html>"""
 
 # A product page whose sizes live in an escaped JSON attribute, the shape two of
@@ -338,6 +373,12 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path.startswith("/engine-search-empty"):
             self._send(200, _ENGINE_SEARCH_EMPTY_HTML)
+            return
+        if self.path.startswith("/engine-search-renamed"):
+            self._send(200, _ENGINE_SEARCH_RENAMED_HTML)
+            return
+        if self.path.startswith("/engine-search-no-links"):
+            self._send(200, _ENGINE_SEARCH_NO_LINKS_HTML)
             return
         if self.path.startswith("/engine-search-post-endpoint-mixed"):
             self._send(200, _ENGINE_SEARCH_POST_ENDPOINT_MIXED_HTML)
