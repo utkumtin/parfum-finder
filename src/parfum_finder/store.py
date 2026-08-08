@@ -57,7 +57,10 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE TABLE IF NOT EXISTS product_variants (
     variant_id   INTEGER PRIMARY KEY,
     product_id   INTEGER NOT NULL REFERENCES products(product_id),
-    size_ml_x10  INTEGER NOT NULL,
+    -- A zero here would be a failed ml parse, not a real variant. Rejecting it
+    -- at the table keeps latest_prices from dividing by it and handing back a
+    -- NULL price per ml that reads like "no data" instead of "broken row".
+    size_ml_x10  INTEGER NOT NULL CHECK (size_ml_x10 > 0),
     raw_title    TEXT    NOT NULL,
     product_url  TEXT,
     first_seen   TEXT    NOT NULL,
@@ -76,7 +79,7 @@ CREATE TABLE IF NOT EXISTS price_snapshots (
 CREATE TABLE IF NOT EXISTS basket_items (
     basket_item_id INTEGER PRIMARY KEY,
     perfume_id     INTEGER NOT NULL REFERENCES perfumes(perfume_id),
-    size_ml_x10    INTEGER NOT NULL,
+    size_ml_x10    INTEGER NOT NULL CHECK (size_ml_x10 > 0),
     qty            INTEGER NOT NULL DEFAULT 1 CHECK (qty > 0),
     added_at       TEXT    NOT NULL,
     UNIQUE (perfume_id, size_ml_x10)

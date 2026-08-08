@@ -159,6 +159,34 @@ def test_latest_prices_skips_variants_without_a_snapshot(
     assert conn.execute("SELECT * FROM latest_prices").fetchall() == []
 
 
+def test_product_variants_rejects_a_zero_size(conn: sqlite3.Connection) -> None:
+    """A zero ml variant is a parse failure, and it must not reach the table.
+
+    If it did, latest_prices would divide by it and report a NULL price per ml,
+    which the search table would show as an empty cell rather than as the
+    broken row it is.
+    """
+    _seed_variant(conn)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO product_variants"
+            " (product_id, size_ml_x10, raw_title, first_seen, last_seen)"
+            " VALUES (1, 0, 'Sauvage EDT', '2026-08-08T10:00:00Z',"
+            " '2026-08-08T10:00:00Z')"
+        )
+
+
+def test_basket_items_rejects_a_zero_size(conn: sqlite3.Connection) -> None:
+    _seed_variant(conn)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO basket_items (perfume_id, size_ml_x10, qty, added_at)"
+            " VALUES (1, 0, 1, '2026-08-08T10:00:00Z')"
+        )
+
+
 def test_basket_items_rejects_a_zero_quantity(conn: sqlite3.Connection) -> None:
     _seed_variant(conn)
 
