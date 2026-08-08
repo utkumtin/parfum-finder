@@ -1,4 +1,4 @@
-"""Number parsing and formatting for prices and volumes.
+"""Number parsing and formatting for prices and volumes, plus text folding.
 
 This is the correctness core of the whole app. Parsing is tolerant: both Turkish
 (1.250,00) and English (1,250.00) thousands/decimal conventions are recognized.
@@ -16,6 +16,21 @@ import re
 from decimal import Decimal
 
 _NUMBER_PATTERN = re.compile(r"\d[\d.,]*")
+
+
+def casefold_tr(text: str) -> str:
+    """Lower-case text for comparison, without breaking Turkish "İ".
+
+    Python folds "İ" to "i" plus a separate combining dot, so "ORİJİNAL ŞİŞE"
+    comes out as "ori̇jinal şi̇şe" and a word written "orijinal şişe" does not
+    appear in it. Comparisons against it would silently never match. Mapping that
+    one letter first is what makes the two strings comparable.
+
+    Dotless "I" is left to plain casefolding on purpose. Turkish would fold it to
+    "ı", which would break the English words that fill these titles, "ORIGINAL"
+    among them.
+    """
+    return text.replace("İ", "i").casefold()
 
 
 def parse_price(raw: str) -> Decimal:

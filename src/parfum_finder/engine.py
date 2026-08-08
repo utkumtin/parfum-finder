@@ -54,7 +54,7 @@ from parfum_finder.extract import (
     select_field,
 )
 from parfum_finder.fetch import FetchResult, Strategy, fetch
-from parfum_finder.normalize import parse_size_ml
+from parfum_finder.normalize import casefold_tr, parse_size_ml
 from parfum_finder.profiles import DEFAULT_HOOKS_DIR, SiteHooks, load_site_hooks
 
 
@@ -289,20 +289,10 @@ def _is_excluded(row: RawVariant, rules: Mapping[str, Any], size_ml: Decimal) ->
     """
     if size_ml >= Decimal(str(rules["max_size_ml"])):
         return True
-    haystack = _fold(" ".join(part for part in (row.title, row.size_raw) if part))
-    return any(_fold(str(keyword)) in haystack for keyword in rules["exclude_keywords"])
-
-
-def _fold(text: str) -> str:
-    """Lower-case text for comparison, without breaking Turkish "İ".
-
-    Python folds "İ" to "i" plus a separate combining dot, so "ORİJİNAL ŞİŞE"
-    comes out as "ori̇jinal şi̇şe" and a keyword written "orijinal şişe" does not
-    appear in it. The keyword would silently never match, and a full bottle would
-    stay in a decant comparison. Mapping that one letter first is what makes the
-    two strings comparable.
-    """
-    return text.replace("İ", "i").casefold()
+    haystack = casefold_tr(" ".join(part for part in (row.title, row.size_raw) if part))
+    return any(
+        casefold_tr(str(keyword)) in haystack for keyword in rules["exclude_keywords"]
+    )
 
 
 def _to_kurus(price: Decimal | None) -> int | None:
