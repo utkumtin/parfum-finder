@@ -21,8 +21,11 @@ on a real product page, so the report says whether the profile can be repaired
 by moving it to another layer or whether the site stopped publishing the data
 altogether.
 
-TODO: an age badge based on when a profile was last (re)discovered. Marking a
-site suspect at runtime lives with the run itself, in engine.run_site.
+Both reports also carry a profile's age, taken from its `discovered_at`. A
+profile that passes every check can still be describing a site as it was months
+ago, and the age is the only warning that exists before the checks start
+failing. Marking a site suspect at runtime lives with the run itself, in
+engine.run_site.
 """
 
 from __future__ import annotations
@@ -30,7 +33,8 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, unquote_plus, urljoin, urlparse
@@ -69,6 +73,15 @@ DEFAULT_FIXTURES_DIR = _REPO_ROOT / "fixtures"
 # has to survive being formatted into a search URL template.
 _OFFLINE_QUERY = "test"
 
+# How old a profile gets before the report says so. Nothing breaks at this line,
+# it is a prompt to re-run discover, so it is deliberately loose: shops redesign
+# on the order of months, and a threshold tight enough to flag every profile
+# every week would be read as noise and ignored.
+STALE_PROFILE_DAYS = 90
+
+# The one timestamp format profiles are allowed to carry, same as store.now_iso.
+_DISCOVERED_AT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
 
 @dataclass(frozen=True)
 class Check:
@@ -98,11 +111,24 @@ class SiteValidation:
     layer would read the page today. It is empty for a profile that works and
     for offline mode, which has nothing new to learn from a page it already
     knows the answer for.
+
+    `age_days` is how long ago the profile was discovered, and it is kept apart
+    from `checks` on purpose. Age is not a failure: an old profile that still
+    reads its site correctly passes, and folding age into the checks would
+    either report a working profile as broken or bury the real break under a
+    warning. It is None when the age could not be read, which only happens for
+    a profile the `profile` check already reported broken.
     """
 
     site_id: str
     checks: tuple[Check, ...]
     fallbacks: tuple[Check, ...] = field(default=())
+    age_days: int | None = None
+
+    @property
+    def stale(self) -> bool:
+        """Whether the profile is old enough to be worth re-discovering."""
+        return self.age_days is not None and self.age_days >= STALE_PROFILE_DAYS
 
     @property
     def ok(self) -> bool:
@@ -224,6 +250,22 @@ def site_ids(sites_dir: Path = DEFAULT_SITES_DIR) -> tuple[str, ...]:
     return tuple(sorted(path.stem for path in sites_dir.glob("*.json")))
 
 
+def profile_age_days(discovered_at: str, now: datetime | None = None) -> int:
+    """Whole days between a profile's `discovered_at` and now.
+
+    Only the exact UTC format the schema requires is accepted. Being lenient
+    here would let a profile carrying a local-time or offset timestamp report an
+    age that is quietly wrong by hours, and an age badge nobody can trust is
+    worse than none: it is the one signal saying a passing profile might still
+    be describing a site that has moved on.
+
+    `now` is a parameter so the tests can ask about a fixed date instead of
+    today, which is the only way to assert on an age at all.
+    """
+    stamp = datetime.strptime(discovered_at, _DISCOVERED_AT_FORMAT).replace(tzinfo=UTC)
+    return ((now or datetime.now(UTC)) - stamp).days
+
+
 async def validate_offline(
     site_id: str,
     *,
@@ -330,19 +372,43 @@ async def validate_all_offline(
 
     Serial rather than concurrent: nothing here touches the network, so the only
     thing parallelism would buy is a report whose lines arrive out of order.
+
+    The age is stapled on here rather than computed inside validate_offline
+    because it is not a check: it comes straight off the profile file without
+    running anything, and threading it through every early return of a function
+    whose job is to stop at the first break would only spread it around.
     """
     return tuple(
         [
-            await validate_offline(
-                site_id,
-                sites_dir=sites_dir,
-                fixtures_dir=fixtures_dir,
-                platforms_dir=platforms_dir,
-                hooks_dir=hooks_dir,
+            replace(
+                await validate_offline(
+                    site_id,
+                    sites_dir=sites_dir,
+                    fixtures_dir=fixtures_dir,
+                    platforms_dir=platforms_dir,
+                    hooks_dir=hooks_dir,
+                ),
+                age_days=_age_of(sites_dir / f"{site_id}.json"),
             )
             for site_id in (ids if ids is not None else site_ids(sites_dir))
         ]
     )
+
+
+def _age_of(path: Path) -> int | None:
+    """The profile's age in days, or None if the file cannot say.
+
+    Reads the site file directly instead of the merged profile: `discovered_at`
+    is the site's own field and a platform template has no business supplying
+    one. None means the file is unreadable or its timestamp is not in the schema
+    format, and in both cases validate_offline's `profile` check has already
+    reported the same file as broken with a better message.
+    """
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        return profile_age_days(raw["discovered_at"])
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
 
 
 # The extraction ladder, most durable first. Live mode walks it when a profile
@@ -752,6 +818,11 @@ def format_report(results: tuple[SiteValidation, ...]) -> str:
     A passing site takes one line, because a wall of green is what makes the one
     red line easy to miss. A failing site gets the name of the step that broke
     and its detail underneath, which is the whole reason to run this.
+
+    A stale profile adds its own line under the site, and the closing summary
+    counts stale profiles separately from broken ones. They are different jobs:
+    a broken profile needs fixing now, a stale one needs re-discovering before
+    it breaks.
     """
     if not results:
         return "no site profiles to validate."
@@ -765,13 +836,40 @@ def format_report(results: tuple[SiteValidation, ...]) -> str:
         else:
             lines.append(f"{result.site_id:<{width}}  BROKEN   {failure.name}")
             lines.append(f"{' ' * width}           -> {failure.detail}")
+        age_line = _age_line(result)
+        if age_line is not None:
+            lines.append(f"{' ' * width}           {age_line}")
     broken = [result.site_id for result in results if not result.ok]
+    stale = [result.site_id for result in results if result.stale]
     lines.append("")
     lines.append(
         f"{len(results) - len(broken)}/{len(results)} profiles pass offline"
         + (f"; broken: {', '.join(broken)}" if broken else "")
+        + (f"; stale: {', '.join(stale)}" if stale else "")
     )
     return "\n".join(lines)
+
+
+def _age_line(result: SiteValidation) -> str | None:
+    """The age note for one site, or None when its age is unremarkable.
+
+    A profile younger than the threshold says nothing worth a line. A profile
+    dated in the future does: it means someone hand-edited `discovered_at`, and
+    the number that hides a stale profile is exactly the one worth showing.
+    """
+    if result.age_days is None:
+        return None
+    if result.age_days < 0:
+        return (
+            f"suspect age: discovered_at is {-result.age_days} day(s) in the "
+            f"future, so this profile's age says nothing"
+        )
+    if result.age_days < STALE_PROFILE_DAYS:
+        return None
+    return (
+        f"stale: discovered {result.age_days} days ago, over the "
+        f"{STALE_PROFILE_DAYS}-day mark -- re-run discover"
+    )
 
 
 def format_live_report(
@@ -789,6 +887,9 @@ def format_live_report(
     with the edit that would adopt it, naming sites/<id>.json rather than the
     platform template: a platform file is shared, and repairing one site by
     editing it moves every other site on that platform too.
+
+    The age note comes from the offline half of the pair, since the age is a
+    property of the profile file and the live pass never reads it.
     """
     if not pairs:
         return "no site profiles to validate."
@@ -823,10 +924,15 @@ def format_live_report(
                     f'{" " * width}     set "extraction": "{fallback.name}" in '
                     f"sites/{live.site_id}.json"
                 )
+        age_line = _age_line(offline)
+        if age_line is not None:
+            lines.append(f"{' ' * width}  {age_line}")
     broken = [live.site_id for _, live in pairs if not live.ok]
+    stale = [offline.site_id for offline, _ in pairs if offline.stale]
     lines.append("")
     lines.append(
         f"{len(pairs) - len(broken)}/{len(pairs)} profiles pass live"
         + (f"; broken: {', '.join(broken)}" if broken else "")
+        + (f"; stale: {', '.join(stale)}" if stale else "")
     )
     return "\n".join(lines)

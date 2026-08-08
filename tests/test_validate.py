@@ -9,6 +9,7 @@ same useless step, so each case pins the step by name.
 """
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote_plus
@@ -18,9 +19,11 @@ import pytest
 from parfum_finder.fetch import FetchResult, FormData, Headers, Method, Strategy
 from parfum_finder.profiles import load_site_profile
 from parfum_finder.validate import (
+    STALE_PROFILE_DAYS,
     format_live_report,
     format_report,
     live_query,
+    profile_age_days,
     site_ids,
     validate_all_offline,
     validate_live,
@@ -50,6 +53,17 @@ def _corrupted_sites_dir(
     directory.mkdir(exist_ok=True)
     (directory / f"{site_id}.json").write_text(json.dumps(profile))
     return directory
+
+
+def _iso_days_ago(days: int) -> str:
+    """A discovered_at stamp that lands a fixed number of days in the past.
+
+    Relative to now rather than a hard-coded date, because a profile written
+    with a literal date would drift past the staleness threshold as time passes
+    and quietly turn the fresh-profile case into a stale one.
+    """
+    stamp = datetime.now(UTC) - timedelta(days=days, hours=1)
+    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 async def test_every_real_profile_passes_against_its_own_fixtures() -> None:
@@ -450,3 +464,102 @@ async def test_the_live_report_names_the_edit_that_would_repair_the_profile(
     assert '"extraction": "jsonld"' in report
     assert "sites/venco.json" in report
     assert "0/1 profiles pass live" in report
+
+
+def test_profile_age_is_counted_in_whole_days_from_the_schema_timestamp() -> None:
+    # The age is asserted against a fixed "now" rather than today's date, because
+    # a test that recomputes the current time would pass no matter what this
+    # returns. A partial day does not count: 91 days and 23 hours is still 91.
+    now = datetime(2026, 8, 8, 12, 0, 0, tzinfo=UTC)
+
+    assert profile_age_days("2026-08-08T12:00:00Z", now) == 0
+    assert profile_age_days("2026-05-09T13:00:00Z", now) == 90
+    assert profile_age_days("2026-05-09T12:00:01Z", now) == 90
+
+
+def test_a_timestamp_that_is_not_the_schema_format_is_rejected() -> None:
+    # A local-time or offset stamp would silently shift the age by hours. Nothing
+    # downstream can tell a wrong age from a right one, so it has to fail here.
+    with pytest.raises(ValueError):
+        profile_age_days("2026-08-07T11:22:00+03:00")
+
+
+async def test_a_profile_that_passes_every_check_is_still_reported_as_stale(
+    tmp_path: Path,
+) -> None:
+    # The reason this milestone step exists. Every check passing means the
+    # profile agrees with a capture taken months ago, which is not the same as
+    # agreeing with the site today. Without the age line the report would call
+    # this site healthy and say nothing about the only evidence to the contrary.
+    old = _iso_days_ago(STALE_PROFILE_DAYS + 4)
+    sites_dir = _corrupted_sites_dir(tmp_path, "venco", discovered_at=old)
+
+    results = await validate_all_offline(("venco",), sites_dir=sites_dir)
+
+    assert results[0].ok
+    assert results[0].stale
+    report = format_report(results)
+    assert "  ok  " in report
+    assert "stale: venco" in report
+    assert f"discovered {STALE_PROFILE_DAYS + 4} days ago" in report
+
+
+async def test_a_fresh_profile_gets_no_age_line(tmp_path: Path) -> None:
+    # The badge is only worth anything if it is rare. A line on every site would
+    # be scrolled past, which is the same as not printing it.
+    fresh = _iso_days_ago(STALE_PROFILE_DAYS - 1)
+    sites_dir = _corrupted_sites_dir(tmp_path, "venco", discovered_at=fresh)
+
+    results = await validate_all_offline(("venco",), sites_dir=sites_dir)
+
+    assert not results[0].stale
+    assert results[0].age_days == STALE_PROFILE_DAYS - 1
+    assert "stale" not in format_report(results)
+
+
+async def test_a_future_dated_profile_is_called_out_rather_than_read_as_fresh(
+    tmp_path: Path,
+) -> None:
+    # A hand-edited discovered_at in the future would otherwise report as the
+    # freshest profile in the list, which is exactly backwards: the one number
+    # that can hide a stale profile is the one worth printing.
+    sites_dir = _corrupted_sites_dir(
+        tmp_path, "venco", discovered_at=_iso_days_ago(-10)
+    )
+
+    results = await validate_all_offline(("venco",), sites_dir=sites_dir)
+
+    assert not results[0].stale
+    assert "in the future" in format_report(results)
+
+
+async def test_the_live_report_carries_the_age_from_the_offline_half(
+    tmp_path: Path,
+) -> None:
+    # The live pass never reads discovered_at, so the age in the side-by-side
+    # report can only come from the offline result it is paired with. A stale
+    # profile that still works live is the case worth printing: nothing is
+    # broken yet, and the age is the only reason to go look at it.
+    old = _iso_days_ago(STALE_PROFILE_DAYS + 4)
+    sites_dir = _corrupted_sites_dir(tmp_path, "venco", discovered_at=old)
+    search_html = (
+        "<html><body>" + "<div class='card-product'>"
+        "<a class='c-p-i-link' href='/p/1'>Dior Sauvage 5 ml</a></div>"
+        * 40
+        + "</body></html>"
+    )
+    product_html = (
+        '<html><body><script type="application/ld+json">'
+        '{"@type": "Product", "name": "Dior Sauvage EDP 5 ml", "offers": '
+        '{"@type": "Offer", "price": "149.90", "availability": "InStock"}}'
+        "</script></body></html>"
+    )
+    offline = (await validate_all_offline(("venco",), sites_dir=sites_dir))[0]
+    live = await validate_live(
+        "venco", sites_dir=sites_dir, fetcher=_FakeSite(search_html, product_html)
+    )
+
+    report = format_live_report(((offline, live),))
+
+    assert f"discovered {STALE_PROFILE_DAYS + 4} days ago" in report
+    assert "; stale: venco" in report
