@@ -8,6 +8,7 @@ The pages come from the local HTTP server in conftest, so the fetch, the redirec
 handling and the URL resolution are all real, with no network.
 """
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import replace
 from decimal import Decimal
@@ -20,6 +21,7 @@ from parfum_finder.engine import (
     ExtractionFailed,
     apply_variant_rules,
     run_site,
+    run_sites,
     search_site,
 )
 from parfum_finder.extract import RawVariant
@@ -918,3 +920,70 @@ async def test_the_search_page_can_refuse_the_headers_the_rest_of_the_site_needs
         product_headers
     )
     assert product_headers
+
+
+async def test_sites_run_in_parallel_and_report_in_profile_order(
+    server_url: str,
+) -> None:
+    # The point of the run loop: three unrelated shops have no reason to wait for
+    # each other, so the run should cost the slowest site, not their sum. The
+    # fetcher below refuses to answer until all three sites have a request in
+    # flight, so a loop that ran them one after another would deadlock here
+    # rather than merely be slow.
+    started = asyncio.Event()
+    in_flight = 0
+
+    async def gated(
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        headers: Headers | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        nonlocal in_flight
+        if "engine-search" in url:
+            in_flight += 1
+            if in_flight == 3:
+                started.set()
+            async with asyncio.timeout(5):
+                await started.wait()
+        return await fetch(
+            url,
+            strategy,
+            method=method,
+            data=data,
+            headers=headers,
+            timeout_s=timeout_s,
+        )
+
+    profiles = [_profile(server_url, id=site_id) for site_id in ("bir", "iki", "uc")]
+
+    results = await run_sites(profiles, "test parfum", fetcher=gated)
+
+    # Profile order, not finish order, so the same shops always read the same way.
+    assert [r.site_id for r in results] == ["bir", "iki", "uc"]
+    assert [r.status for r in results] == ["ok", "ok", "ok"]
+
+
+async def test_a_dead_site_does_not_take_the_others_down(
+    server_url: str, unused_tcp_port: int
+) -> None:
+    # The whole reason run_site swallows: inside a TaskGroup a raising task
+    # cancels its siblings, and one shop being offline would then erase the
+    # prices of every shop that answered.
+    profiles = [
+        _profile(server_url, id="saglam"),
+        _profile(f"http://127.0.0.1:{unused_tcp_port}", id="olu"),
+        _profile(server_url, id="saglam2"),
+    ]
+
+    results = await run_sites(profiles, "test parfum")
+
+    assert [r.status for r in results] == ["ok", "error", "ok"]
+    assert results[0].hits and results[2].hits
+
+
+async def test_no_sites_is_an_empty_run_not_a_crash() -> None:
+    assert await run_sites([], "test parfum") == ()

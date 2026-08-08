@@ -25,17 +25,20 @@ three named points. That file is meant to stay rare and to stay small: every hoo
 written is a sign the profile schema fell short, so the first question a new one
 raises is whether the schema should have covered it.
 
-TODO: the multi-site run loop, wrapping run_site in a per-site semaphore, the
-profile's rate_limit_ms delay and retries. Until that lands search_site fires its
-requests back to back with no pause between them, so it should not be pointed at
-a live shop: the targets are small businesses, not infrastructure. A POST endpoint
-rung multiplies this further, one request per size option a product page names
-instead of one request per product, so a site on that layer is not just unpaced
-but unpaced several times over per product.
+`run_sites` is the other half: it starts every site at once and lets each one walk
+its own pages in order.
+
+TODO: the per-site semaphore, the profile's rate_limit_ms delay and retries. Until
+that lands a site fires its requests back to back with no pause between them, so
+this should not be pointed at a live shop: the targets are small businesses, not
+infrastructure. A POST endpoint rung multiplies this further, one request per size
+option a product page names instead of one request per product, so a site on that
+layer is not just unpaced but unpaced several times over per product.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -196,6 +199,45 @@ async def run_site(
         hits,
         f"{site_id}: {len(hits)} product(s), {sizes} decant size(s)",
     )
+
+
+async def run_sites(
+    profiles: Sequence[dict[str, Any]],
+    query: str,
+    *,
+    hooks_dir: Path = DEFAULT_HOOKS_DIR,
+    fetcher: Fetcher = fetch,
+) -> tuple[SiteResult, ...]:
+    """Run every site against one query, all at once, and report each separately.
+
+    Parallel across sites, serial inside one. The sites are unrelated shops, so
+    nothing is gained by waiting for one before starting the next, and the run
+    takes as long as the slowest site rather than the sum of all of them. Inside
+    a site the pages stay in order: a shop's search page has to be read before
+    its product pages can be opened, and firing a small business's whole product
+    list at once is exactly what this project does not do.
+
+    Fault isolation comes from `run_site`, which turns a site's failure into a
+    `SiteResult` rather than an exception. That is what makes a TaskGroup the
+    right tool here despite its all-or-nothing reputation: no task raises, so
+    nothing ever cancels its siblings, and the group is used for the guarantee
+    that no task outlives this call. A site that blows up shows up as an `error`
+    row next to the sites that answered.
+
+    Results come back in profile order, not finish order, so the same set of
+    sites always reads the same way regardless of which shop happened to be
+    slow. The TUI's streaming table wants the opposite and will need its own
+    channel; ordering here is for callers that want the whole comparison.
+    """
+    async with asyncio.TaskGroup() as group:
+        tasks = [
+            group.create_task(
+                run_site(profile, query, hooks_dir=hooks_dir, fetcher=fetcher),
+                name=f"site:{profile['id']}",
+            )
+            for profile in profiles
+        ]
+    return tuple(task.result() for task in tasks)
 
 
 async def search_site(
