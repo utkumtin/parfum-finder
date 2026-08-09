@@ -19,6 +19,14 @@ a list of every brand that exists, and a brand missing from that list would
 quietly stop being a brand. Looking for the one brand that was actually asked for
 needs no list and cannot go stale.
 
+Shops write brands out more fully than people type them. "Christian Dior
+Sauvage" for a search of "Dior Sauvage", "Jean Paul Gaultier Le Male" for "Le
+Male". Every extra word costs score, so perfect matches were coming back in the
+forties and the number on screen stopped meaning anything. A title whose last
+words are the whole query, in order, is therefore treated as an exact match:
+whatever a shop puts in front of the searched words is the rest of the brand.
+Contiguous and at the end, both, because that is what keeps the guards intact.
+
 Some shops sell clones next to originals and name the original in parentheses:
 "Armaf - Club De Nuit Untold (Maison Francis Kurkdjian - Baccarat Rouge 540)".
 That parenthesis is a reference, not part of what the bottle is, and reading it
@@ -234,16 +242,23 @@ def _match_text(raw_title: str, query: PerfumeQuery, *, threshold: int) -> Match
     brand_tokens = _tokenize(query.brand)
     if not _covers(title_tokens, brand_tokens):
         return None
-    title_tokens = _without(title_tokens, brand_tokens)
 
-    found, title_tokens = _split_concentration(title_tokens)
-    wanted, name_tokens = _split_concentration(_tokenize(query.name))
+    found, title_rest = _split_concentration(title_tokens)
+    wanted, query_rest = _split_concentration(brand_tokens + _tokenize(query.name))
     if query.concentration:
         wanted = _canonical(query.concentration)
     if wanted and found != wanted:
         return None
 
-    score = _similarity(name_tokens, title_tokens)
+    if _ends_with(title_rest, query_rest):
+        return Match(score=100, concentration=found, confident=True)
+
+    # Both sides lose the brand's words, not just the title's. Dropping them
+    # from one side only made a query whose brand word also appears later in
+    # the name ("Le Male Le Parfum") score its own perfect match badly.
+    score = _similarity(
+        _without(query_rest, brand_tokens), _without(title_rest, brand_tokens)
+    )
     return Match(score=score, concentration=found, confident=score >= threshold)
 
 
@@ -276,6 +291,31 @@ def _covers(title_tokens: tuple[str, ...], brand_tokens: tuple[str, ...]) -> boo
     everything, which is how a query with no brand stays possible at all.
     """
     return all(token in title_tokens for token in brand_tokens)
+
+
+def _ends_with(title_tokens: tuple[str, ...], query_tokens: tuple[str, ...]) -> bool:
+    """Whether the whole query sits at the end of the title, word for word.
+
+    This is the one shape where extra title words are certainly not part of the
+    perfume: everything a shop puts in front of the searched words is the rest
+    of the brand it wrote out in full. "Dior Sauvage" typed against "Christian
+    Dior Sauvage", or "Le Male Le Parfum" against "Jean Paul Gaultier Le Male Le
+    Parfum", is the same bottle, and scoring those in the forties made every
+    score on the screen mean nothing.
+
+    Contiguous and at the end, both. Contiguity keeps "Dior Sauvage" away from
+    "Dior Eau Sauvage", where the extra word is what makes it another perfume.
+    The end position keeps "Carolina Herrera 212" away from "Carolina Herrera
+    212 VIP", where the words that follow are the ones that matter.
+
+    What it cannot tell apart is a longer name ending in the searched one, like
+    "Ultra Le Male" against a search for "Le Male" with no brand typed. A search
+    that names no brand cannot separate those anyway, and the results table
+    shows every title in full for exactly this reason.
+    """
+    if not query_tokens:
+        return False
+    return title_tokens[-len(query_tokens) :] == query_tokens
 
 
 def _without(tokens: tuple[str, ...], remove: tuple[str, ...]) -> tuple[str, ...]:

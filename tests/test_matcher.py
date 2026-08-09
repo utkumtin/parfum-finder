@@ -357,3 +357,53 @@ def test_a_parenthesis_holding_only_a_note_leaves_a_normal_match_alone() -> None
     assert match is not None
     assert match.confident
     assert match.clone_of == ""
+
+
+def test_a_brand_the_shop_writes_out_in_full_does_not_cost_the_match() -> None:
+    # A shop writes "Christian Dior" where the search said "Dior". Every word of
+    # the query is there, in order, at the end of the title, and the only extra
+    # is the rest of the house's own name. Scored as an extra name word this came
+    # back at 58, which flagged a perfect match and made every score on screen
+    # untrustworthy.
+    match = match_title(
+        "Christian Dior Sauvage EDP 5 ml Dekant", parse_query("Dior Sauvage EDP")
+    )
+
+    assert match is not None
+    assert match.score == 100
+    assert match.confident
+
+
+def test_a_search_that_names_no_brand_still_matches_the_full_title() -> None:
+    # Typed without a brand at all. The first word becomes the "brand", and its
+    # second appearance inside the name used to be stripped from the title but
+    # not from the query, so the right bottle scored 47.
+    match = match_title(
+        "Jean Paul Gaultier Le Male Le Parfum 5 ml", parse_query("Le Male Le Parfum")
+    )
+
+    assert match is not None
+    assert match.score == 100
+    assert match.confident
+
+
+def test_an_extra_word_inside_the_name_is_still_a_different_perfume() -> None:
+    # The guard the full-title rule must not break. Dior Eau Sauvage is not Dior
+    # Sauvage, and the query's words are not contiguous in the title, so this
+    # stays flagged instead of being lifted to a perfect score.
+    match = match_title("Dior Eau Sauvage EDP 5 ml", parse_query("Dior Sauvage EDP"))
+
+    assert match is not None
+    assert not match.confident
+
+
+def test_words_after_the_searched_name_still_count_against_it() -> None:
+    # 212 VIP is its own product. The query is contiguous here but not at the
+    # end of the title, and what follows is exactly what makes it another
+    # bottle, so it must not be lifted to a perfect score.
+    match = match_title(
+        "Carolina Herrera 212 VIP 5 ml", parse_query("Carolina Herrera 212")
+    )
+
+    assert match is not None
+    assert match.score < 100
