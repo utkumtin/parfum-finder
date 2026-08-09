@@ -31,6 +31,7 @@ from parfum_finder.engine import (
     run_sites,
 )
 from parfum_finder.fetch import Strategy, browser_session
+from parfum_finder.logging_setup import setup_logging
 from parfum_finder.matcher import (
     MAX_QUERIES,
     PerfumeQuery,
@@ -363,6 +364,9 @@ def main() -> None:
         # keeps running without textual installed and without waiting on it.
         from parfum_finder.tui.app import ParfumFinderApp
 
+        # Only the TUI logs to a file. Every other subcommand prints its own
+        # errors to the terminal, where they belong.
+        setup_logging()
         db_path = args.db if args.command == "tui" else DEFAULT_DB_PATH
         ParfumFinderApp(sites_dir=SITES_DIR, db_path=db_path).run()
     elif args.command == "probe":

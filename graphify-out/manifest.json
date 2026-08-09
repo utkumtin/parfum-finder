@@ -1,0 +1,382 @@
+{
+  "fixtures/decantall/meta.json": {
+    "mtime": 1786180320.6567822,
+    "ast_hash": "11577bae1dd469f427d6831a9b1d5fdf",
+    "semantic_hash": "11577bae1dd469f427d6831a9b1d5fdf"
+  },
+  "fixtures/dekantdoktoru/meta.json": {
+    "mtime": 1786180318.6270537,
+    "ast_hash": "8449037e639877d79b35f8ed3850641a",
+    "semantic_hash": "8449037e639877d79b35f8ed3850641a"
+  },
+  "fixtures/dekantdoktoru/related-options.json": {
+    "mtime": 1786180318.626856,
+    "ast_hash": "b87a9c027b13df2f93adbbeaea9ebfce",
+    "semantic_hash": "b87a9c027b13df2f93adbbeaea9ebfce"
+  },
+  "fixtures/dekantparfum/meta.json": {
+    "mtime": 1786180316.3247113,
+    "ast_hash": "1b54f0177b1f104d607f1e705a50e338",
+    "semantic_hash": "1b54f0177b1f104d607f1e705a50e338"
+  },
+  "fixtures/dekantparfum/related-options.json": {
+    "mtime": 1786180316.3245146,
+    "ast_hash": "4fdfde65b0fbc4d28f6b86294c2a2000",
+    "semantic_hash": "4fdfde65b0fbc4d28f6b86294c2a2000"
+  },
+  "fixtures/luxurydekant/meta.json": {
+    "mtime": 1786180301.6326241,
+    "ast_hash": "b2f723f693fc67b920c031928fd567cf",
+    "semantic_hash": "b2f723f693fc67b920c031928fd567cf"
+  },
+  "fixtures/ruxangroup/meta.json": {
+    "mtime": 1786180306.5538158,
+    "ast_hash": "9265dbe6aa367b66e050de3e1d903ee2",
+    "semantic_hash": "9265dbe6aa367b66e050de3e1d903ee2"
+  },
+  "fixtures/venco/meta.json": {
+    "mtime": 1786180300.0659454,
+    "ast_hash": "266dbe9476227cad085c1d0a26ddd2d9",
+    "semantic_hash": "266dbe9476227cad085c1d0a26ddd2d9"
+  },
+  "platforms/ideasoft.json": {
+    "mtime": 1786179714.181563,
+    "ast_hash": "492dbb25481bec29f2afdbeb80395c17",
+    "semantic_hash": "492dbb25481bec29f2afdbeb80395c17"
+  },
+  "platforms/ikas.json": {
+    "mtime": 1786150712.1418707,
+    "ast_hash": "3dde19f4c2502588a356d1e38ec92193",
+    "semantic_hash": "3dde19f4c2502588a356d1e38ec92193"
+  },
+  "platforms/woocommerce.json": {
+    "mtime": 1786177387.4452333,
+    "ast_hash": "ac8f739a67049bb2d527b0cb75e148d3",
+    "semantic_hash": "ac8f739a67049bb2d527b0cb75e148d3"
+  },
+  "pyproject.toml": {
+    "mtime": 1786094205.4758751,
+    "ast_hash": "6df18fd0fe965235c664db10cec418e3",
+    "semantic_hash": "6df18fd0fe965235c664db10cec418e3"
+  },
+  "schema/platform.schema.json": {
+    "mtime": 1786093296.4256556,
+    "ast_hash": "d8301b412dfa156eac9c2c7bdce2fa4a",
+    "semantic_hash": "d8301b412dfa156eac9c2c7bdce2fa4a"
+  },
+  "schema/site.schema.json": {
+    "mtime": 1786179714.181436,
+    "ast_hash": "9d721d85686b21521af4490a3b6815d0",
+    "semantic_hash": "9d721d85686b21521af4490a3b6815d0"
+  },
+  "sites/decantall.json": {
+    "mtime": 1786256531.2562194,
+    "ast_hash": "46a5129d795b00c440a23bd1b9df667c",
+    "semantic_hash": "46a5129d795b00c440a23bd1b9df667c"
+  },
+  "sites/dekantdoktoru.json": {
+    "mtime": 1786256668.5430512,
+    "ast_hash": "bba9f946d150c1a7b16fe09cb7fa00ab",
+    "semantic_hash": "bba9f946d150c1a7b16fe09cb7fa00ab"
+  },
+  "sites/dekantparfum.json": {
+    "mtime": 1786256513.8951864,
+    "ast_hash": "86c4657a08c9514286aa4da4218aa694",
+    "semantic_hash": "86c4657a08c9514286aa4da4218aa694"
+  },
+  "sites/luxurydekant.json": {
+    "mtime": 1786256523.461666,
+    "ast_hash": "5d67243c265eccc23c11dea4cc21e50d",
+    "semantic_hash": "5d67243c265eccc23c11dea4cc21e50d"
+  },
+  "sites/ruxangroup.json": {
+    "mtime": 1786256728.4863458,
+    "ast_hash": "d250bf3c74605974b03e173f4fe783a0",
+    "semantic_hash": "d250bf3c74605974b03e173f4fe783a0"
+  },
+  "sites/venco.json": {
+    "mtime": 1786256552.1844215,
+    "ast_hash": "6aab4fd6cd5af7c8c1fba378ea06f145",
+    "semantic_hash": "6aab4fd6cd5af7c8c1fba378ea06f145"
+  },
+  "src/parfum_finder/__init__.py": {
+    "mtime": 1786090467.538463,
+    "ast_hash": "29e1c8c337ccb81b976387a66d716c6a",
+    "semantic_hash": "29e1c8c337ccb81b976387a66d716c6a"
+  },
+  "src/parfum_finder/basket.py": {
+    "mtime": 1786245193.0811276,
+    "ast_hash": "c3d100f6c0c56e5d6f341df5952186fb",
+    "semantic_hash": "c3d100f6c0c56e5d6f341df5952186fb"
+  },
+  "src/parfum_finder/cli.py": {
+    "mtime": 1786253327.0431497,
+    "ast_hash": "797cfccfc8d02276b778076aa7ce8ddc",
+    "semantic_hash": "797cfccfc8d02276b778076aa7ce8ddc"
+  },
+  "src/parfum_finder/discover.py": {
+    "mtime": 1786125985.1006696,
+    "ast_hash": "9dc7091434471a3cdf8f25cb7891f4ad",
+    "semantic_hash": "9dc7091434471a3cdf8f25cb7891f4ad"
+  },
+  "src/parfum_finder/engine.py": {
+    "mtime": 1786253305.9627473,
+    "ast_hash": "be64902e6f73dacc988e875290184504",
+    "semantic_hash": "be64902e6f73dacc988e875290184504"
+  },
+  "src/parfum_finder/extract.py": {
+    "mtime": 1786248029.764828,
+    "ast_hash": "bad731d96cfbcaf644d1e1647f939d19",
+    "semantic_hash": "bad731d96cfbcaf644d1e1647f939d19"
+  },
+  "src/parfum_finder/fetch.py": {
+    "mtime": 1786252663.5545805,
+    "ast_hash": "bfb86f2cf40bd53f255152fba8118e73",
+    "semantic_hash": "bfb86f2cf40bd53f255152fba8118e73"
+  },
+  "src/parfum_finder/matcher.py": {
+    "mtime": 1786251902.054925,
+    "ast_hash": "ab21e80379a93083aa7d77fea3181327",
+    "semantic_hash": "ab21e80379a93083aa7d77fea3181327"
+  },
+  "src/parfum_finder/normalize.py": {
+    "mtime": 1786154278.968632,
+    "ast_hash": "596b74d3e507c99fb7581ee42e8ee969",
+    "semantic_hash": "596b74d3e507c99fb7581ee42e8ee969"
+  },
+  "src/parfum_finder/probe.py": {
+    "mtime": 1786101929.2667851,
+    "ast_hash": "c5801a079ec63925f8a1fbe162bab84e",
+    "semantic_hash": "c5801a079ec63925f8a1fbe162bab84e"
+  },
+  "src/parfum_finder/profiles.py": {
+    "mtime": 1786192615.1426408,
+    "ast_hash": "481c534f5b72e5e07b07995cbc9d71f9",
+    "semantic_hash": "481c534f5b72e5e07b07995cbc9d71f9"
+  },
+  "src/parfum_finder/store.py": {
+    "mtime": 1786246691.4392183,
+    "ast_hash": "aa31929da22f63395b79ed5703b8b0f2",
+    "semantic_hash": "aa31929da22f63395b79ed5703b8b0f2"
+  },
+  "src/parfum_finder/tui/__init__.py": {
+    "mtime": 1786090521.9434986,
+    "ast_hash": "0bb96a35cb3826477cf32c5eadc36bc7",
+    "semantic_hash": "0bb96a35cb3826477cf32c5eadc36bc7"
+  },
+  "src/parfum_finder/tui/app.py": {
+    "mtime": 1786270888.995249,
+    "ast_hash": "839c0697bc4cc8f081171dbabc01f57e",
+    "semantic_hash": "839c0697bc4cc8f081171dbabc01f57e"
+  },
+  "src/parfum_finder/tui/basket_screen.py": {
+    "mtime": 1786270840.8914025,
+    "ast_hash": "ab012e2e26357464c561eee454848b17",
+    "semantic_hash": "ab012e2e26357464c561eee454848b17"
+  },
+  "src/parfum_finder/tui/search_screen.py": {
+    "mtime": 1786271393.3000338,
+    "ast_hash": "40a6e05440db912e9b0381416ebeab19",
+    "semantic_hash": "40a6e05440db912e9b0381416ebeab19"
+  },
+  "src/parfum_finder/validate.py": {
+    "mtime": 1786248038.6608183,
+    "ast_hash": "44016b1e66343e2df23d1e851193a345",
+    "semantic_hash": "44016b1e66343e2df23d1e851193a345"
+  },
+  "tests/conftest.py": {
+    "mtime": 1786193286.2431204,
+    "ast_hash": "08ac0f23b6878faeea7bfe3e45dc763f",
+    "semantic_hash": "08ac0f23b6878faeea7bfe3e45dc763f"
+  },
+  "tests/test_basket.py": {
+    "mtime": 1786245164.7796326,
+    "ast_hash": "ec3c4e9c511567a2db18309d5d5b85a3",
+    "semantic_hash": "ec3c4e9c511567a2db18309d5d5b85a3"
+  },
+  "tests/test_basket_screen.py": {
+    "mtime": 1786270849.9020574,
+    "ast_hash": "cc0663a95a2973027efc5eb7a05b6c75",
+    "semantic_hash": "cc0663a95a2973027efc5eb7a05b6c75"
+  },
+  "tests/test_cli.py": {
+    "mtime": 1786253359.9830887,
+    "ast_hash": "b0e4e4a2ad177cb09ac6c8fca2c25954",
+    "semantic_hash": "b0e4e4a2ad177cb09ac6c8fca2c25954"
+  },
+  "tests/test_discover.py": {
+    "mtime": 1786250326.4399042,
+    "ast_hash": "42b0c7e3955252e746d75f8c304c691f",
+    "semantic_hash": "42b0c7e3955252e746d75f8c304c691f"
+  },
+  "tests/test_engine.py": {
+    "mtime": 1786252368.1571915,
+    "ast_hash": "75a5a79dd05f17babd525a93644b12be",
+    "semantic_hash": "75a5a79dd05f17babd525a93644b12be"
+  },
+  "tests/test_extract.py": {
+    "mtime": 1786150996.4647586,
+    "ast_hash": "f757d016daeb5405440787218756c222",
+    "semantic_hash": "f757d016daeb5405440787218756c222"
+  },
+  "tests/test_fetch.py": {
+    "mtime": 1786252574.7790792,
+    "ast_hash": "634324d4ee1fde7e3c292e382ffb355e",
+    "semantic_hash": "634324d4ee1fde7e3c292e382ffb355e"
+  },
+  "tests/test_matcher.py": {
+    "mtime": 1786251882.592727,
+    "ast_hash": "4bd78d362ae1685cc8bdbfa3d85f020c",
+    "semantic_hash": "4bd78d362ae1685cc8bdbfa3d85f020c"
+  },
+  "tests/test_normalize.py": {
+    "mtime": 1786092299.5422096,
+    "ast_hash": "ad671aa15e712987822bdfa1102c6f00",
+    "semantic_hash": "ad671aa15e712987822bdfa1102c6f00"
+  },
+  "tests/test_platform_templates.py": {
+    "mtime": 1786155991.0077565,
+    "ast_hash": "2d5ac84ed30ad31f3e66f4ebd493de68",
+    "semantic_hash": "2d5ac84ed30ad31f3e66f4ebd493de68"
+  },
+  "tests/test_probe.py": {
+    "mtime": 1786101909.030217,
+    "ast_hash": "726200aacac4afd1e8e11ad13adb58e3",
+    "semantic_hash": "726200aacac4afd1e8e11ad13adb58e3"
+  },
+  "tests/test_profiles.py": {
+    "mtime": 1786192651.7456331,
+    "ast_hash": "0dbd9a00ee3e5dab37f9e5123b277406",
+    "semantic_hash": "0dbd9a00ee3e5dab37f9e5123b277406"
+  },
+  "tests/test_site_schema.py": {
+    "mtime": 1786248051.8962317,
+    "ast_hash": "77825f33f6fb382ef9aaec353765d43f",
+    "semantic_hash": "77825f33f6fb382ef9aaec353765d43f"
+  },
+  "tests/test_sites_end_to_end.py": {
+    "mtime": 1786179505.9418185,
+    "ast_hash": "21a0608e0f71961c7f7237c12abb4edb",
+    "semantic_hash": "21a0608e0f71961c7f7237c12abb4edb"
+  },
+  "tests/test_store.py": {
+    "mtime": 1786246749.044959,
+    "ast_hash": "d9ab6ca4a61dcc28546f0f25dcb09984",
+    "semantic_hash": "d9ab6ca4a61dcc28546f0f25dcb09984"
+  },
+  "tests/test_tui.py": {
+    "mtime": 1786271445.110472,
+    "ast_hash": "3accafe7d8e8057f2ae48bfe33162baf",
+    "semantic_hash": "3accafe7d8e8057f2ae48bfe33162baf"
+  },
+  "tests/test_validate.py": {
+    "mtime": 1786181381.232334,
+    "ast_hash": "e4903f6b9e14dde5eae73fa33cfc43f5",
+    "semantic_hash": "e4903f6b9e14dde5eae73fa33cfc43f5"
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1786247350.8148344,
+    "ast_hash": "e6115ba91866f1842d6221340cc3e02e",
+    "semantic_hash": "e6115ba91866f1842d6221340cc3e02e"
+  },
+  "ARCHITECTURE.md": {
+    "mtime": 1786253401.6944082,
+    "ast_hash": "a1197b779b2ee8c62c7ab7384f89b546",
+    "semantic_hash": "a1197b779b2ee8c62c7ab7384f89b546"
+  },
+  "README.md": {
+    "mtime": 1786253415.9392338,
+    "ast_hash": "f44a03c50bd19f1a03b57e7d5b09abed",
+    "semantic_hash": "f44a03c50bd19f1a03b57e7d5b09abed"
+  },
+  "docs/discovery-report.md": {
+    "mtime": 1786156440.0251172,
+    "ast_hash": "d5dfd272fefffcbb43f0dff1baa65b0d",
+    "semantic_hash": "d5dfd272fefffcbb43f0dff1baa65b0d"
+  },
+  "fixtures/README.md": {
+    "mtime": 1786090563.7800443,
+    "ast_hash": "0d0df3d5a8954bcecc780d57f6c06d33",
+    "semantic_hash": "0d0df3d5a8954bcecc780d57f6c06d33"
+  },
+  "fixtures/decantall/product.html": {
+    "mtime": 1786180320.6547694,
+    "ast_hash": "30050561afec4ecca0af2bfba6742b5b",
+    "semantic_hash": "30050561afec4ecca0af2bfba6742b5b"
+  },
+  "fixtures/decantall/search.html": {
+    "mtime": 1786180320.2003121,
+    "ast_hash": "c0d639aff991fa7d907be560fb66ae28",
+    "semantic_hash": "c0d639aff991fa7d907be560fb66ae28"
+  },
+  "fixtures/dekantdoktoru/product.html": {
+    "mtime": 1786180318.1758823,
+    "ast_hash": "4c27c62bb78a025500128d8bada19721",
+    "semantic_hash": "4c27c62bb78a025500128d8bada19721"
+  },
+  "fixtures/dekantdoktoru/search.html": {
+    "mtime": 1786180317.2238529,
+    "ast_hash": "2f3344b9b567c0303031c39b3acdca4d",
+    "semantic_hash": "2f3344b9b567c0303031c39b3acdca4d"
+  },
+  "fixtures/dekantparfum/product.html": {
+    "mtime": 1786180315.821813,
+    "ast_hash": "3e5f4753e7da0eaf1c092a15c59baa34",
+    "semantic_hash": "3e5f4753e7da0eaf1c092a15c59baa34"
+  },
+  "fixtures/dekantparfum/search.html": {
+    "mtime": 1786180314.3400717,
+    "ast_hash": "c67f10751d1e15d3b48c1e3fefa81a90",
+    "semantic_hash": "c67f10751d1e15d3b48c1e3fefa81a90"
+  },
+  "fixtures/luxurydekant/product.html": {
+    "mtime": 1786180301.6314461,
+    "ast_hash": "186a9ea3e9790be725666df4785739b9",
+    "semantic_hash": "186a9ea3e9790be725666df4785739b9"
+  },
+  "fixtures/luxurydekant/search.html": {
+    "mtime": 1786180301.4998784,
+    "ast_hash": "33feb32bf4a6ade324969a91313e34b8",
+    "semantic_hash": "33feb32bf4a6ade324969a91313e34b8"
+  },
+  "fixtures/ruxangroup/product.html": {
+    "mtime": 1786180306.5527174,
+    "ast_hash": "925ff897b8324ce856d16b6c5ee8f60a",
+    "semantic_hash": "925ff897b8324ce856d16b6c5ee8f60a"
+  },
+  "fixtures/ruxangroup/search.html": {
+    "mtime": 1786180304.216123,
+    "ast_hash": "4caa821d5acb54b57db0c0dad24df643",
+    "semantic_hash": "4caa821d5acb54b57db0c0dad24df643"
+  },
+  "fixtures/venco/product.html": {
+    "mtime": 1786180300.065437,
+    "ast_hash": "184c48220de915e4c84bbcb9b944f19c",
+    "semantic_hash": "184c48220de915e4c84bbcb9b944f19c"
+  },
+  "fixtures/venco/search.html": {
+    "mtime": 1786180296.7907314,
+    "ast_hash": "c7d378a6be850e34b56053974c7a6d82",
+    "semantic_hash": "c7d378a6be850e34b56053974c7a6d82"
+  },
+  "hooks/README.md": {
+    "mtime": 1786157209.2435973,
+    "ast_hash": "af4a8c873c90af44438724be937ca847",
+    "semantic_hash": "af4a8c873c90af44438724be937ca847"
+  },
+  "platforms/README.md": {
+    "mtime": 1786155965.119278,
+    "ast_hash": "02a268e99b3de7ba71274513764ead0c",
+    "semantic_hash": "02a268e99b3de7ba71274513764ead0c"
+  },
+  "schema/README.md": {
+    "mtime": 1786090830.960277,
+    "ast_hash": "3ccdc8d71a98024ba8e21b8c81ef3739",
+    "semantic_hash": "3ccdc8d71a98024ba8e21b8c81ef3739"
+  },
+  "sites/README.md": {
+    "mtime": 1786157220.1420805,
+    "ast_hash": "1ace38b114728f91d869060aeccb1a0f",
+    "semantic_hash": "1ace38b114728f91d869060aeccb1a0f"
+  }
+}

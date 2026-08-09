@@ -17,6 +17,9 @@ htmlcov/
 *.db
 *.db-journal
 
+# Uygulama günlüğü
+*.log
+
 # Editör/OS
 .env
 .DS_Store

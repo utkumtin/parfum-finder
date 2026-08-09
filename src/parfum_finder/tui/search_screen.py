@@ -35,6 +35,7 @@ from textual.widgets import Button, DataTable, Footer, Input, Static
 
 from parfum_finder.engine import CacheKey, CandidateFilter, SiteResult, VariantsRead
 from parfum_finder.fetch import Fetcher, browser_session
+from parfum_finder.logging_setup import LOG_FILE_NAME, logger
 from parfum_finder.matcher import (
     DEFAULT_THRESHOLD,
     MAX_QUERIES,
@@ -486,8 +487,9 @@ class SearchScreen(Screen[None]):
                 return
             try:
                 rows = snapshot_rows(result, search.query)
-            except Exception as e:
-                self._note(f"⚠ {profile['id']} — sonuç okunamadı ({e})")
+            except Exception:
+                logger.exception("%s — sonuç okunamadı", profile["id"])
+                self._errors += 1
                 self._done += 1
                 self._update_status()
                 continue
@@ -499,13 +501,12 @@ class SearchScreen(Screen[None]):
             try:
                 async with self._write_lock:
                     await asyncio.to_thread(self._write_snapshots, rows)
-            except Exception as e:
+            except Exception:
                 if generation != self._generation:
                     return
-                self._note(
-                    f"⚠ {result.site_id} — fiyatlar kaydedilemedi "
-                    f"({type(e).__name__}: {e})"
-                )
+                logger.exception("%s — fiyatlar kaydedilemedi", result.site_id)
+                self._errors += 1
+                self._update_status()
 
     def _write_snapshots(self, rows: list[SnapshotRow]) -> None:
         conn = connect(self.db_path)
@@ -534,10 +535,12 @@ class SearchScreen(Screen[None]):
                 self._note(f"{about} — eşleşme bulunamadı")
         elif result.status == "suspect":
             self._errors += 1
-            self._note(f"⚠ {about} — profil bozulmuş olabilir: {self._detail(result)}")
+            logger.error(
+                "%s — profil bozulmuş olabilir: %s", about, self._detail(result)
+            )
         else:  # error
             self._errors += 1
-            self._note(f"⚠ {about} — bağlantı hatası ({self._detail(result)})")
+            logger.error("%s — bağlantı hatası: %s", about, self._detail(result))
         self._refresh_table()
         self._set_notices()
         self._update_status()
@@ -702,7 +705,9 @@ class SearchScreen(Screen[None]):
         # shops did eighteen of them.
         text = f"{self._done}/{self._total} tarama tamam"
         if self._errors:
-            text += f" · {self._errors} hata"
+            # The count is the only thing on screen about a failing site now, so
+            # it says where the detail went.
+            text += f" · {self._errors} hata ({LOG_FILE_NAME})"
         if self._hidden_count:
             text += rf" · {self._hidden_count} stoksuz sonuç gizlendi (\[f] göster)"
         self.query_one("#status", Static).update(text)

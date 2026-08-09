@@ -8,6 +8,7 @@ only checks the final table can never catch.
 
 import asyncio
 import json
+import logging
 import sqlite3
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -175,7 +176,9 @@ async def test_streaming_lands_out_of_order_rows_before_pending_site_resolves(
         assert "3/3" in str(screen.query_one("#status", Static).content)
 
 
-async def test_one_site_erroring_does_not_block_the_others(tmp_path: Path) -> None:
+async def test_one_site_erroring_does_not_block_the_others(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
     _write_profile(sites_dir, "site-b", "Site B")
@@ -186,22 +189,30 @@ async def test_one_site_erroring_does_not_block_the_others(tmp_path: Path) -> No
         return _ok_result("site-b", _variant(50, 25000))
 
     app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        await _submit_query(pilot)
-        screen = app.screen
-        await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
+    with caplog.at_level(logging.ERROR, logger="parfum_finder"):
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await _submit_query(pilot)
+            screen = app.screen
+            await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
 
-        table = screen.query_one("#results", DataTable)
-        assert table.row_count == 1
-        assert screen._errors == 1  # type: ignore[attr-defined]
-        notices = str(screen.query_one("#notices", Static).content)
-        assert "⚠ site-a" in notices
-        assert "bağlantı hatası" in notices
+            table = screen.query_one("#results", DataTable)
+            assert table.row_count == 1
+            # The failure never reaches the screen. The count and the log file
+            # name are all the user gets, the reason is in the file.
+            assert screen._errors == 1  # type: ignore[attr-defined]
+            assert str(screen.query_one("#notices", Static).content) == ""
+            status = str(screen.query_one("#status", Static).content)
+            assert "1 hata (parfum-finder.log)" in status
+
+    logged = caplog.text
+    assert "site-a" in logged
+    assert "bağlantı hatası" in logged
+    assert "boom" in logged
 
 
-async def test_suspect_site_shows_notice_and_contributes_no_rows(
-    tmp_path: Path,
+async def test_suspect_site_is_logged_and_contributes_no_rows(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -215,20 +226,20 @@ async def test_suspect_site_shows_notice_and_contributes_no_rows(
     runner = _static_runner({"site-a": suspect})
 
     app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        await _submit_query(pilot)
-        screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+    with caplog.at_level(logging.ERROR, logger="parfum_finder"):
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await _submit_query(pilot)
+            screen = app.screen
+            await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
 
-        table = screen.query_one("#results", DataTable)
-        assert table.row_count == 0
-        notices = str(screen.query_one("#notices", Static).content)
-        assert notices == (
-            "⚠ site-a — profil bozulmuş olabilir: "
-            "the 'css' layer read no priced size from 3 hits"
-        )
-        assert screen._errors == 1  # type: ignore[attr-defined]
+            table = screen.query_one("#results", DataTable)
+            assert table.row_count == 0
+            assert str(screen.query_one("#notices", Static).content) == ""
+            assert screen._errors == 1  # type: ignore[attr-defined]
+
+    assert caplog.text.count("profil bozulmuş olabilir") == 1
+    assert "the 'css' layer read no priced size from 3 hits" in caplog.text
 
 
 async def test_empty_site_shows_the_no_match_notice_without_a_warning_mark(
@@ -709,14 +720,18 @@ async def test_a_late_site_landing_does_not_move_the_cursor_off_the_picked_row(
         assert screen._selected_row() == picked  # type: ignore[attr-defined]
 
 
-async def test_a_failed_write_is_reported_and_still_shows_the_sites_rows(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+async def test_a_failed_write_is_counted_and_still_shows_the_sites_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A database that will not take the prices must not erase the site.
 
     The table needs nothing from sqlite, so a write failure that swallowed the
     rows would leave the footer counter stuck below the total with no reason
-    given, which reads as "that site is still working" forever.
+    given, which reads as "that site is still working" forever. The reason now
+    lives in the log file, but the error count has to move, otherwise a site
+    whose every write fails looks like a clean run.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -728,22 +743,57 @@ async def test_a_failed_write_is_reported_and_still_shows_the_sites_rows(
     monkeypatch.setattr("parfum_finder.tui.search_screen.write_snapshots", explode)
 
     app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        await _submit_query(pilot)
-        screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+    with caplog.at_level(logging.ERROR, logger="parfum_finder"):
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await _submit_query(pilot)
+            screen = app.screen
+            await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
 
-        assert screen.query_one("#results", DataTable).row_count == 1
-        await _wait_until(
-            lambda: (
-                "kaydedilemedi" in str(screen.query_one("#notices", Static).content)
-            ),
-            pilot,
-        )
-        notices = str(screen.query_one("#notices", Static).content)
-        assert "⚠ site-a — fiyatlar kaydedilemedi" in notices
-        assert "database is locked" in notices
+            assert screen.query_one("#results", DataTable).row_count == 1
+            await _wait_until(
+                lambda: screen._errors == 1,  # type: ignore[attr-defined]
+                pilot,
+            )
+            assert str(screen.query_one("#notices", Static).content) == ""
+
+    assert "fiyatlar kaydedilemedi" in caplog.text
+    assert "database is locked" in caplog.text
+
+
+async def test_an_unreadable_result_is_counted_and_logged(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A result the screen cannot read is a broken site, not a quiet skip.
+
+    Nothing about it reaches the screen anymore, so the error count is the only
+    hint that the list came back short.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner = _static_runner({"site-a": _ok_result("site-a", _variant(50, 100000))})
+
+    def explode(*args: Any, **kwargs: Any) -> Any:
+        raise ValueError("no url on that variant")
+
+    monkeypatch.setattr("parfum_finder.tui.search_screen.snapshot_rows", explode)
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    with caplog.at_level(logging.ERROR, logger="parfum_finder"):
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            await _submit_query(pilot)
+            screen = app.screen
+            await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+            assert screen.query_one("#results", DataTable).row_count == 0
+            assert screen._errors == 1  # type: ignore[attr-defined]
+            assert str(screen.query_one("#notices", Static).content) == ""
+
+    assert "sonuç okunamadı" in caplog.text
+    assert "no url on that variant" in caplog.text
 
 
 async def test_disabled_site_is_synced_but_not_scanned(tmp_path: Path) -> None:
