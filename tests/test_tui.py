@@ -279,6 +279,12 @@ async def test_stale_profile_gets_the_age_badge_on_its_site_name(
 
 
 async def test_low_score_row_flags_the_match_percent_cell(tmp_path: Path) -> None:
+    """Only the doubtful text is marked, not the whole line.
+
+    A weak score says the site's title may not be this perfume. It says nothing
+    about the price, size or stock that were read off that listing, so marking
+    those too would put a warning on data that is fine.
+    """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
 
@@ -302,10 +308,83 @@ async def test_low_score_row_flags_the_match_percent_cell(tmp_path: Path) -> Non
 
         from rich.text import Text
 
-        percent_cell = screen.query_one("#results", DataTable).get_row_at(0)[6]
+        from parfum_finder.tui.search_screen import _LOW_CONFIDENCE_STYLE
+
+        cells = screen.query_one("#results", DataTable).get_row_at(0)
+        percent_cell = cells[6]
         assert isinstance(percent_cell, Text)
-        assert percent_cell.style == "bold yellow"
+        assert percent_cell.style == _LOW_CONFIDENCE_STYLE
         assert str(percent_cell) == "31"
+        # The title is the other half of the doubt: it is what did not match.
+        assert isinstance(cells[1], Text)
+        assert cells[1].style == _LOW_CONFIDENCE_STYLE
+        # ml, fiyat, ₺/ml and stok stay plain text, unmarked.
+        assert all(isinstance(cell, str) for cell in cells[2:6])
+
+
+async def test_site_colour_lands_on_the_site_cell_and_nowhere_else(
+    tmp_path: Path,
+) -> None:
+    """The colour marks where one site's block ends and the next begins.
+
+    It stays inside the Site cell so it can never meet the low-confidence
+    marking in the same cell, which would leave two meanings fighting over one
+    piece of text with no rule for which wins.
+    """
+    sites_dir = tmp_path / "sites"
+    # A real site id, and stale enough to earn the age badge: the colour is
+    # looked up by id, so a label the badge has rewritten must still get it.
+    _write_profile(
+        sites_dir, "decantall", "Decantall", discovered_at="2026-01-01T00:00:00Z"
+    )
+    runner = _static_runner(
+        {"decantall": _ok_result("decantall", _variant(50, 100000))}
+    )
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        from rich.text import Text
+
+        from parfum_finder.tui.search_screen import _SITE_STYLES
+
+        cells = screen.query_one("#results", DataTable).get_row_at(0)
+        assert isinstance(cells[0], Text)
+        assert cells[0].style == _SITE_STYLES["decantall"]
+        assert "gün önce keşfedildi" in str(cells[0])
+        assert all(isinstance(cell, str) for cell in cells[1:])
+
+
+def test_every_shipped_site_has_a_colour_that_survives_256_colours() -> None:
+    """Two sites sharing a colour is worse than no colours at all.
+
+    The palette is picked in truecolor, but Terminal.app and anything else
+    without truecolor rounds every one of these to the nearest of 256 slots.
+    Soft tones sit close together, so that rounding is exactly where two of
+    them would land on the same colour, and nothing on a developer's screen
+    would ever show it.
+    """
+    from rich.color import Color, ColorSystem
+
+    from parfum_finder.tui.search_screen import _SITE_STYLES
+    from parfum_finder.validate import DEFAULT_SITES_DIR
+
+    shipped = {
+        json.loads(path.read_text(encoding="utf-8"))["id"]
+        for path in DEFAULT_SITES_DIR.glob("*.json")
+    }
+    assert shipped
+    assert shipped <= set(_SITE_STYLES)
+
+    downgraded = [
+        Color.parse(style).downgrade(ColorSystem.EIGHT_BIT).number
+        for style in _SITE_STYLES.values()
+    ]
+    assert len(set(downgraded)) == len(_SITE_STYLES)
 
 
 async def test_default_sort_is_price_per_ml_ascending_and_keys_reorder(

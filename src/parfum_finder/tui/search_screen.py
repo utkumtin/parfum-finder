@@ -92,6 +92,31 @@ _SORT_BY_COLUMN = {0: "ml", 1: "price", 2: "per_ml"}
 
 _BASE_COLUMNS = ("Site", "Ürün", "ml", "Fiyat", "₺/ml", "Stok", "%")
 
+# One colour per site, so a long table reads as blocks instead of one wall of
+# rows. Keyed by site_id and not by the label, because a stale profile gets a
+# "N gün önce keşfedildi" badge glued to its label and would then miss its
+# colour. A site that is not in here renders plain, which is the honest answer
+# for a profile this palette has never seen.
+#
+# Soft and muted on purpose: these sit on textual-dark all scan long. The hex
+# values are picked so that each one collapses to a different 256-colour index
+# on terminals without truecolor, which is where near neighbours would blur
+# into each other.
+_SITE_STYLES = {
+    "decantall": "#7fa8c9",
+    "dekantdoktoru": "#8bbf8b",
+    "dekantparfum": "#c8b26b",
+    "luxurydekant": "#b294c4",
+    "ruxangroup": "#d18f8f",
+    "venco": "#5fb3b3",
+}
+
+# What a low match score is marked with. Only the site's own title and the
+# score itself carry it: those two are the doubtful part. The price, size and
+# stock of that listing were read correctly whatever the score says, and
+# painting them made a whole row look untrustworthy over one weak title.
+_LOW_CONFIDENCE_STYLE = "#cf9145"
+
 # Where the sortable columns start, with and without the perfume column.
 _FIRST_SORTABLE = _BASE_COLUMNS.index("ml")
 
@@ -646,19 +671,25 @@ class SearchScreen(Screen[None]):
         title = row.raw_title
         if row.clone_of:
             title = f"{title}  KLON ← {row.clone_of}"
-        cells: tuple[object, ...] = (
+        site_style = _SITE_STYLES.get(row.site_id)
+        site: object = (
+            Text(row.site_label, style=site_style)
+            if site_style is not None
+            else row.site_label
+        )
+        score = str(row.match_score)
+        return (
+            # The perfume column is left plain even on a weak match: it repeats
+            # what was typed, and the doubt is about the site's title, not it.
             *((row.query_label,) if self._multi else ()),
-            row.site_label,
-            title,
+            site,
+            title if row.confident else Text(title, style=_LOW_CONFIDENCE_STYLE),
             ml,
             price,
             per_ml,
             stock,
-            str(row.match_score),
+            score if row.confident else Text(score, style=_LOW_CONFIDENCE_STYLE),
         )
-        if not row.confident:
-            return tuple(Text(str(cell), style="bold yellow") for cell in cells)
-        return cells
 
     def _set_notices(self) -> None:
         lines = [self._limit_notice] if self._limit_notice else []
