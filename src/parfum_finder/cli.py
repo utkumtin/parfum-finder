@@ -340,8 +340,11 @@ def main() -> None:
         except FileNotFoundError as e:
             # Being asked about a site that has no profile is a mistake in the
             # request, not a finding about a profile, so it gets its own exit
-            # code and leaves 1 to mean "a profile is broken".
-            print(f"no profile under sites/ for the site asked about: {e}")
+            # code and leaves 1 to mean "a profile is broken". Reporting the
+            # site id rather than the raw OSError avoids saying "no profile"
+            # and "no such file" in the same breath about the same thing.
+            site_id = Path(e.filename).stem if e.filename else str(e)
+            print(f"no profile under sites/ for: {site_id!r}")
             sys.exit(2)
         if args.live:
             print(format_live_report(tuple(zip(results, live, strict=True))))

@@ -325,6 +325,31 @@ def test_the_live_flag_runs_the_live_pass_and_prints_both_columns(
     assert exit_info.value.code == 1
 
 
+def test_validate_on_an_unknown_site_names_it_once(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # profiles.load_site_profile raises the plain OSError text ("[Errno 2] No
+    # such file or directory: ...") that Python's own open() gives, so the CLI
+    # has to turn that into one clean sentence rather than bolting its own
+    # "no profile" wording onto the raw error and saying the same thing twice.
+    async def fake_offline(ids: object = None, **kwargs: object) -> object:
+        raise FileNotFoundError(
+            2, "No such file or directory", "/repo/sites/does-not-exist.json"
+        )
+
+    monkeypatch.setattr(cli, "validate_all_offline", fake_offline)
+    monkeypatch.setattr("sys.argv", ["parfum-finder", "validate", "does-not-exist"])
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+
+    out = capsys.readouterr().out
+    assert out.count("no profile") == 1
+    assert "does-not-exist" in out
+    assert "Errno" not in out
+    assert exit_info.value.code == 2
+
+
 def _search_profile(site_id: str, base_url: str) -> dict[str, Any]:
     """A profile the engine can drive against the conftest server."""
     return {

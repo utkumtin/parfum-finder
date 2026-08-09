@@ -108,6 +108,12 @@ PRODUCT_MARKUP_FLOOR = 8
 _sleep = asyncio.sleep
 
 
+# The extraction layers `_read_variants` dispatches on, named once here so the
+# "unknown extraction layer" error message has a single place to read them
+# from instead of its own separately typed-out list.
+_EXTRACTION_LAYERS = ("endpoint", "jsonld", "embedded_json", "css")
+
+
 class ExtractionFailed(RuntimeError):
     """A page answered but gave up nothing, where something was expected.
 
@@ -528,7 +534,10 @@ def _check_empty_search(profile: dict[str, Any], result: FetchResult) -> None:
     """
     root = HTMLParser(result.html).root
     if root is None:
-        raise ExtractionFailed(f"{profile['id']}: {result.url} parsed to no markup")
+        raise ExtractionFailed(
+            f"{profile['id']}: {result.url} parsed to no markup "
+            f"({len(result.html.encode())} byte body)"
+        )
     selector = str(profile["search"]["result_item"])
     rows = len(root.css(selector))
     if rows:
@@ -868,7 +877,10 @@ async def _read_variants(
             extract_css_variants(page.html, profile.get("product") or {}),
             page.html,
         )
-    raise ExtractionFailed(f"{profile['id']}: unknown extraction layer {layer!r}")
+    raise ExtractionFailed(
+        f"{profile['id']}: unknown extraction layer {layer!r}, "
+        f"expected one of {_EXTRACTION_LAYERS}"
+    )
 
 
 async def _read_endpoint_variants(
@@ -933,7 +945,10 @@ async def _read_endpoint_variants_post(
     page = await _fetch_page(profile, candidate.url, role="product", fetcher=fetcher)
     root = HTMLParser(page.html).root
     if root is None:
-        raise ExtractionFailed(f"{profile['id']}: {candidate.url} parsed to no markup")
+        raise ExtractionFailed(
+            f"{profile['id']}: {candidate.url} parsed to no markup "
+            f"({len(page.html.encode())} byte body)"
+        )
     option_ids = select_all(root, str(config["option_selector"]))
     if not option_ids:
         return (), page.html

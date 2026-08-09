@@ -44,7 +44,11 @@ async def test_fetch_reports_404_without_raising(
 
 
 async def test_fetch_unknown_strategy_raises() -> None:
-    with pytest.raises(ValueError, match="unknown fetch strategy"):
+    # The message has to name the valid strategies, not just the bad value,
+    # or a typo in a site profile gives no hint what to write instead.
+    with pytest.raises(
+        ValueError, match="unknown fetch strategy.*httpx.*curl_cffi.*playwright"
+    ):
         await fetch("http://example.invalid", "bogus")  # type: ignore[arg-type]
 
 

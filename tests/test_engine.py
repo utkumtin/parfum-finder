@@ -390,7 +390,14 @@ async def test_an_unknown_extraction_layer_is_refused(server_url: str) -> None:
     with pytest.raises(ExtractionFailed) as excinfo:
         await search_site(profile, "test")
 
-    assert "unknown extraction layer" in str(excinfo.value)
+    # Naming the layers that are actually accepted is what turns this into a
+    # message someone can act on instead of just a confirmation something broke.
+    message = str(excinfo.value)
+    assert "unknown extraction layer" in message
+    assert "jsonld" in message
+    assert "endpoint" in message
+    assert "embedded_json" in message
+    assert "css" in message
 
 
 async def test_the_search_page_can_use_its_own_fetch_strategy(
@@ -1235,3 +1242,63 @@ async def test_a_missing_browser_is_reported_at_once_not_retried(
     assert "PlaywrightNotInstalled" in str(result.detail)
     assert len(sent) == 1
     assert slept == []
+
+
+class _NoRootParser:
+    """Stands in for HTMLParser when a page's markup cannot be read at all.
+
+    selectolax gives up its root node only on a real parser failure, which
+    ordinary text never triggers, so this is what forces that branch open
+    for a test.
+    """
+
+    def __init__(self, html: str) -> None:
+        self.root = None
+
+
+def test_a_search_page_with_no_root_names_its_body_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A zero-byte body and a page that came back full but unparseable are two
+    # different failures wearing the same "no markup" sentence. The byte count
+    # is what tells them apart without opening the page.
+    monkeypatch.setattr(engine, "HTMLParser", _NoRootParser)
+    html = "not really markup, just enough bytes to matter"
+    result = FetchResult(
+        url="https://x.test/search", status_code=200, html=html, strategy="httpx"
+    )
+
+    with pytest.raises(ExtractionFailed) as excinfo:
+        engine._check_empty_search({"id": "testsite"}, result)
+
+    assert f"({len(html.encode())} byte body)" in str(excinfo.value)
+
+
+async def test_a_product_page_with_no_root_names_its_body_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(engine, "HTMLParser", _NoRootParser)
+    html = ""
+
+    async def fetcher(
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        headers: Headers | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        return FetchResult(url=url, status_code=200, html=html, strategy="httpx")
+
+    candidate = engine.ProductCandidate(raw_title=None, url="https://x.test/p/1")
+    config = {"option_selector": ".size"}
+    profile = {"id": "testsite", "strategy": "httpx"}
+
+    with pytest.raises(ExtractionFailed) as excinfo:
+        await engine._read_endpoint_variants_post(profile, config, candidate, fetcher)
+
+    # An empty body is the clearest case the byte count has to catch: it says
+    # in the message itself that nothing at all came back, not just that
+    # parsing failed on something.
+    assert "(0 byte body)" in str(excinfo.value)

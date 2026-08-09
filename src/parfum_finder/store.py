@@ -161,6 +161,13 @@ class SnapshotRow:
     already holds it. `match_score` is the matcher's verdict on this site's
     wording, stored so a wrong match can be found again later instead of only
     being noticed once.
+
+    `clone_of` is empty for a real hit. It is filled when the site is selling an
+    imitation that names the searched perfume in parentheses, and such a row is
+    carried so the screen can show it and then dropped before it is written. It
+    is a different bottle at a different price, so putting it under this
+    perfume's identity would corrupt the price history it is keyed on and hand
+    the basket a cheap number for something nobody asked for.
     """
 
     site_id: str
@@ -169,6 +176,7 @@ class SnapshotRow:
     concentration: str
     match_score: int
     variant: Variant
+    clone_of: str = ""
 
 
 def snapshot_rows(result: SiteResult, query: PerfumeQuery) -> list[SnapshotRow]:
@@ -198,6 +206,7 @@ def snapshot_rows(result: SiteResult, query: PerfumeQuery) -> list[SnapshotRow]:
                 concentration=match.concentration,
                 match_score=match.score,
                 variant=variant,
+                clone_of=match.clone_of,
             )
             for variant in hit.variants
             if variant.raw_title is not None
@@ -263,6 +272,10 @@ def write_snapshots(
     The count is of price rows, not of input rows: sizes that came back without
     a price are stored as sizes and do not count as prices.
 
+    Clone rows are dropped here rather than at the caller. Every writer goes
+    through this function, so this is the one place that can guarantee an
+    imitation never lands in the searched perfume's price history.
+
     One transaction for the batch. A run that dies halfway through leaves the
     database as it was rather than a site with three of its eight sizes updated.
     """
@@ -270,6 +283,8 @@ def write_snapshots(
     written = 0
     with conn:
         for row in rows:
+            if row.clone_of:
+                continue
             snapshot_id = _record(
                 conn,
                 site_id=row.site_id,

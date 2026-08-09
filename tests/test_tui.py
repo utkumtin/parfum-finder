@@ -17,7 +17,7 @@ import pytest
 from textual.widgets import DataTable, Input, Static
 
 from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
-from parfum_finder.store import connect
+from parfum_finder.store import connect, record_snapshot
 from parfum_finder.tui.app import ParfumFinderApp
 
 QUERY_TEXT = "Dior Sauvage EDP"
@@ -664,3 +664,205 @@ async def test_disabled_site_is_synced_but_not_scanned(tmp_path: Path) -> None:
     finally:
         conn.close()
     assert site_row["enabled"] == 0
+
+
+async def test_clone_row_shows_the_klon_marker_and_what_it_imitates(
+    tmp_path: Path,
+) -> None:
+    """A clone sold instead of the searched perfume must not look like a real hit.
+
+    matcher.match_title always hands a clone back with confident=False, so the
+    percent cell already goes yellow. But without a marker on the title cell
+    itself a cheap imitation would read as the cheapest real listing, and a
+    person could buy the wrong bottle straight off the table.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+
+    clone = Variant(
+        size_ml_x10=50,
+        raw_title="Armaf Club De Nuit Untold (Dior Sauvage EDP) Dekant",
+        product_url="https://example.com/clone",
+        price_kurus=50000,
+        in_stock=True,
+    )
+    candidate = ProductCandidate(raw_title=clone.raw_title, url="https://example.com/p")
+    result = SiteResult("site-a", "ok", (SearchHit(candidate, (clone,)),), "site-a: ok")
+    runner = _static_runner({"site-a": result})
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        assert table.row_count == 1
+        title_cell = str(table.get_row_at(0)[1])
+        # The raw title survives untouched, since it is still what makes a wrong
+        # match visible, with the marker appended rather than substituted in.
+        assert clone.raw_title is not None
+        assert clone.raw_title in title_cell
+        assert "KLON ← Dior Sauvage EDP" in title_cell
+
+        row = screen._visible_rows[0]  # type: ignore[attr-defined]
+        assert row.clone_of == "Dior Sauvage EDP"
+
+
+async def test_add_basket_refuses_a_clone_row_without_opening_the_confirm_dialog(
+    tmp_path: Path,
+) -> None:
+    """A clone must never reach the basket, and never even ask.
+
+    The basket keys on the searched perfume's brand/name/concentration, so a
+    clone slipping through the low-confidence confirm dialog (it is always
+    below threshold) would attach another product's price to this perfume's
+    history. The refusal has to come before that dialog, or a hurried [y] on
+    an unrelated bottle would do exactly that.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+
+    clone = Variant(
+        size_ml_x10=50,
+        raw_title="Armaf Club De Nuit Untold (Dior Sauvage EDP) Dekant",
+        product_url="https://example.com/clone",
+        price_kurus=50000,
+        in_stock=True,
+    )
+    candidate = ProductCandidate(raw_title=clone.raw_title, url="https://example.com/p")
+    result = SiteResult("site-a", "ok", (SearchHit(candidate, (clone,)),), "site-a: ok")
+    runner = _static_runner({"site-a": result})
+
+    db_path = tmp_path / "db.sqlite3"
+    app = _app(sites_dir, db_path, runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        table.focus()
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+
+        # No confirm dialog opened: the screen stack never grew past the
+        # search screen, so a stray [y] afterwards has nothing to confirm.
+        assert len(pilot.app.screen_stack) == 2
+
+        conn = connect(db_path)
+        try:
+            assert conn.execute("SELECT * FROM basket_items").fetchall() == []
+        finally:
+            conn.close()
+
+        notices = str(screen.query_one("#notices", Static).content)
+        assert "bir klon" in notices
+        assert "Dior Sauvage EDP" in notices
+        assert "sepete eklenmedi" in notices
+
+
+async def test_history_panel_shows_deltas_the_price_range_and_the_out_of_stock_mark(
+    tmp_path: Path,
+) -> None:
+    """The panel exists so today's price can be judged against its own past.
+
+    A bare list of dates and prices makes a person do the subtraction and the
+    ranking by eye. Without a signed delta per reading, the oldest reading
+    correctly carrying none, a min/max summary, and a mark on readings taken
+    while the size was out of stock, "900.00 ₺" is just a number with nothing
+    to say whether it is a good one. The range deliberately skips readings
+    taken out of stock: a price nobody could have paid must not be what
+    today's price is judged cheap against.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    # The newest reading: out of stock, a fall from the reading before it, and
+    # the cheapest of the three, so a range that wrongly counted it would say
+    # so out loud.
+    runner = _static_runner(
+        {"site-a": _ok_result("site-a", _variant(50, 90000, in_stock=False))}
+    )
+
+    db_path = tmp_path / "db.sqlite3"
+    app = _app(sites_dir, db_path, runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        row = screen._visible_rows[0]  # type: ignore[attr-defined]
+
+        # Two older readings, dated well before any real clock could produce,
+        # so ordering against the search's own "now" snapshot is never in doubt.
+        conn = connect(db_path)
+        try:
+            oldest = Variant(
+                size_ml_x10=row.size_ml_x10,
+                raw_title="Dior Sauvage EDP Dekant",
+                product_url="https://example.com/p",
+                price_kurus=100000,
+                in_stock=True,
+            )
+            record_snapshot(
+                conn,
+                site_id=row.site_id,
+                brand=row.brand,
+                name=row.name,
+                concentration=row.concentration,
+                match_score=row.match_score,
+                variant=oldest,
+                fetched_at="2000-01-01T00:00:00Z",
+            )
+            middle = Variant(
+                size_ml_x10=row.size_ml_x10,
+                raw_title="Dior Sauvage EDP Dekant",
+                product_url="https://example.com/p",
+                price_kurus=125000,
+                in_stock=True,
+            )
+            record_snapshot(
+                conn,
+                site_id=row.site_id,
+                brand=row.brand,
+                name=row.name,
+                concentration=row.concentration,
+                match_score=row.match_score,
+                variant=middle,
+                fetched_at="2000-01-02T00:00:00Z",
+            )
+        finally:
+            conn.close()
+
+        table = screen.query_one("#results", DataTable)
+        table.focus()
+        await pilot.pause()
+        await pilot.press("h")
+        await pilot.pause()
+
+        panel = screen.query_one("#history-panel", Static)
+        text = str(panel.content)
+
+        # Rise from the oldest reading to the middle one.
+        assert "▲ +250.00" in text
+        # Fall from the middle reading to the newest (today's) one.
+        assert "▼ -350.00" in text
+        # The oldest reading has nothing before it, so its line carries no
+        # direction marker at all.
+        oldest_line = next(line for line in text.splitlines() if "2000-01-01" in line)
+        assert "▲" not in oldest_line
+        assert "▼" not in oldest_line
+        # Today's reading was taken while the size was out of stock.
+        assert "stokta yoktu" in text
+        # The 900.00 reading is the cheapest of the three but was out of
+        # stock, so the range floor stays at the cheapest price actually on
+        # offer and the line says how many readings it covers.
+        assert "min 1,000.00 ₺ · max 1,250.00 ₺ · 2/3 okuma stoktaydı" in text
+        # Headed with what the history is of, so a panel left open after the
+        # cursor moves is never mistaken for another row's history.
+        assert row.site_label in text
+        assert row.raw_title in text

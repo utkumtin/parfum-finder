@@ -33,4 +33,13 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Type check
-        run: uv run mypy src
+        run: uv run mypy .
+
+      # A broken profile means a site silently stops returning prices.
+      # Validating offline against the committed fixtures catches that
+      # without touching the network.
+      - name: Validate profiles
+        run: uv run parfum-finder validate
+
+      - name: Test
+        run: uv run pytest

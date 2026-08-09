@@ -1006,3 +1006,69 @@ def test_set_basket_qty_on_an_unknown_id_raises(conn: sqlite3.Connection) -> Non
     """
     with pytest.raises(ValueError, match="no basket item"):
         set_basket_qty(conn, basket_item_id=999, qty=2)
+
+
+def test_snapshot_rows_marks_a_clone_instead_of_filing_it_as_the_original() -> None:
+    """A shop's imitation must not be stored as the perfume it imitates.
+
+    The clone is a different bottle at a different price. Filed under the
+    searched perfume's identity it would sit in that perfume's price history
+    as a sudden drop, and the basket would price the whole order off it.
+    """
+    result = SiteResult(
+        site_id="ornek",
+        status="ok",
+        hits=(
+            SearchHit(
+                candidate=ProductCandidate(
+                    raw_title=(
+                        "Armaf – Club De Nuit Untold "
+                        "(Maison Francis Kurkdjian – Baccarat Rouge 540)"
+                    ),
+                    url="u",
+                ),
+                variants=(_variant(50, 4900, raw_title="Untold 5 ml"),),
+            ),
+        ),
+        detail="ok",
+    )
+    query = parse_query("Maison Francis Kurkdjian Baccarat Rouge 540")
+
+    rows = snapshot_rows(result, query)
+
+    assert len(rows) == 1
+    assert rows[0].clone_of == "Maison Francis Kurkdjian – Baccarat Rouge 540"
+
+
+def test_write_snapshots_never_records_a_clone(conn: sqlite3.Connection) -> None:
+    """The drop happens here so no caller can forget it.
+
+    Both the CLI and the screen write through this function, and a clone that
+    slipped past either of them would be indistinguishable from a real price
+    once it was in the table.
+    """
+    _seed_site(conn)
+    real = SnapshotRow(
+        site_id="ornek",
+        brand="maison",
+        name="francis kurkdjian baccarat rouge 540",
+        concentration="",
+        match_score=100,
+        variant=_variant(50, 62000, raw_title="Baccarat Rouge 540 5 ml"),
+    )
+    clone = SnapshotRow(
+        site_id="ornek",
+        brand="maison",
+        name="francis kurkdjian baccarat rouge 540",
+        concentration="",
+        match_score=100,
+        variant=_variant(50, 4900, raw_title="Untold 5 ml"),
+        clone_of="Maison Francis Kurkdjian – Baccarat Rouge 540",
+    )
+
+    assert write_snapshots(conn, [real, clone]) == 1
+    prices = [
+        row["price_kurus"]
+        for row in conn.execute("SELECT price_kurus FROM price_snapshots")
+    ]
+    assert prices == [62000]

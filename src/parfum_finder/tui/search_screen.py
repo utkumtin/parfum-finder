@@ -72,6 +72,7 @@ class _ResultRow:
     name: str
     concentration: str
     product_url: str | None
+    clone_of: str = ""
 
     @property
     def price_per_ml_kurus(self) -> Decimal | None:
@@ -132,7 +133,7 @@ class SearchScreen(Screen[None]):
         color: $text-muted;
     }
     SearchScreen #history-panel {
-        width: 36;
+        width: 44;
         border-left: solid $panel;
         padding: 1;
         display: none;
@@ -361,6 +362,7 @@ class SearchScreen(Screen[None]):
                 name=row.name,
                 concentration=row.concentration,
                 product_url=row.variant.product_url,
+                clone_of=row.clone_of,
             )
             for row in rows
         ]
@@ -411,9 +413,12 @@ class SearchScreen(Screen[None]):
         else:
             per_ml = format_price(Decimal(row.price_per_ml_kurus) / Decimal(100))
         stock = "✓" if row.in_stock else ("✗" if row.in_stock is False else "?")
+        title = row.raw_title
+        if row.clone_of:
+            title = f"{title}  KLON ← {row.clone_of}"
         cells: tuple[object, ...] = (
             row.site_label,
-            row.raw_title,
+            title,
             ml,
             price,
             per_ml,
@@ -469,6 +474,13 @@ class SearchScreen(Screen[None]):
         # push_screen(..., wait_for_dismiss=True) only works from inside a
         # worker, which is why the confirmation dialog and the write both
         # live in this @work method instead of directly in the action.
+        if row.clone_of:
+            self._notices = [
+                f"⚠ {row.raw_title} bir klon, aradığınız parfüm değil "
+                f"({row.clone_of}) — sepete eklenmedi."
+            ]
+            self._set_notices()
+            return
         if not row.confident:
             confirmed = await self.app.push_screen(
                 ConfirmScreen(
@@ -508,16 +520,66 @@ class SearchScreen(Screen[None]):
     async def _load_history(self, row: _ResultRow) -> None:
         rows = await asyncio.to_thread(self._read_history, row)
         panel = self.query_one("#history-panel", Static)
-        if not rows:
-            panel.update("fiyat geçmişi yok")
-        else:
-            lines = [
-                f"{r['fetched_at']}  "
-                f"{format_price(Decimal(r['price_kurus']) / Decimal(100))}"
-                for r in rows
-            ]
-            panel.update("\n".join(lines))
+        panel.update(self._history_text(row, rows))
         panel.display = True
+
+    @staticmethod
+    def _history_text(row: _ResultRow, rows: list[sqlite3.Row]) -> str:
+        # Named up front: a panel left open while the cursor moves to another
+        # row would otherwise show the old site/title's history under a new
+        # selection with nothing to say it is stale.
+        lines = [row.site_label, row.raw_title]
+        if not rows:
+            lines.append("")
+            lines.append("fiyat geçmişi yok")
+            return "\n".join(lines)
+        lines.append("")
+        prices = [
+            Decimal(r["price_kurus"]) / Decimal(100)
+            if r["price_kurus"] is not None
+            else None
+            for r in rows
+        ]
+        for i, r in enumerate(rows):
+            price = prices[i]
+            price_text = format_price(price) if price is not None else "-"
+            # rows are newest first, so the reading before this one (older) is
+            # the next entry. The last row in the list has none before it.
+            older = prices[i + 1] if i + 1 < len(prices) else None
+            if i == len(rows) - 1:
+                delta = ""
+            elif price is None or older is None:
+                delta = "?"
+            else:
+                diff = price - older
+                if diff > 0:
+                    delta = f"▲ +{format_price(diff)}"
+                elif diff < 0:
+                    delta = f"▼ {format_price(diff)}"
+                else:
+                    delta = "="
+            line = f"{r['fetched_at'][:10]}  {price_text}  {delta}"
+            # A price read while the size was out of stock is not one anyone
+            # could actually pay, so it is marked rather than shown as plain.
+            if not r["in_stock"]:
+                line += "  (stokta yoktu)"
+            lines.append(line)
+        # Out-of-stock readings are left out of the range for the same reason
+        # their own line is marked: nobody could have paid that price, and a
+        # range built on one would answer "is today cheap" against a number
+        # that was never on offer.
+        buyable = [
+            price
+            for price, r in zip(prices, rows, strict=True)
+            if price is not None and r["in_stock"]
+        ]
+        if buyable:
+            lines.append("")
+            lines.append(
+                f"min {format_price(min(buyable))} · max {format_price(max(buyable))} "
+                f"· {len(buyable)}/{len(rows)} okuma stoktaydı"
+            )
+        return "\n".join(lines)
 
     def _read_history(self, row: _ResultRow) -> list[sqlite3.Row]:
         conn = connect(self.db_path)

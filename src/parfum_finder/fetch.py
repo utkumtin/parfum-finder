@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, get_args
 
 import httpx
 from curl_cffi.requests import AsyncSession as CurlAsyncSession
@@ -138,7 +138,8 @@ async def fetch(
         )
     if strategy == "playwright":
         return await _fetch_playwright(url, headers=headers, timeout_s=timeout_s)
-    raise ValueError(f"unknown fetch strategy: {strategy!r}")
+    valid = ", ".join(get_args(Strategy))
+    raise ValueError(f"unknown fetch strategy: {strategy!r}, expected one of: {valid}")
 
 
 async def _fetch_httpx(

@@ -287,3 +287,73 @@ def test_parse_query_rejects_a_line_naming_only_a_brand() -> None:
 def test_parse_query_rejects_an_empty_search() -> None:
     with pytest.raises(ValueError):
         parse_query("   ")
+
+
+# The clone shop titles below are copied from fixtures/luxurydekant/search.html.
+# That shop sells both originals and imitations, and names the imitated perfume
+# in parentheses.
+
+_CLONE_TITLE = (
+    "Armaf – Club De Nuit Untold (Maison Francis Kurkdjian – Baccarat Rouge 540)"
+)
+_CLONE_SIBLING = "Armaf – Club De Nuit Woman (Chanel – Coco Mademoiselle)"
+_PLAIN_SIBLING = "Armaf – Club De Nuit Bling"
+
+
+def test_the_original_being_searched_never_comes_back_as_the_clone_itself() -> None:
+    # The imitation carries the original's brand and full name inside its
+    # parentheses, so before the split it passed the brand check and matched.
+    # A cheap clone landing in a list sorted by price per ml sorts straight to
+    # the top and reads as the bargain the original never was.
+    match = match_title(
+        _CLONE_TITLE, parse_query("Maison Francis Kurkdjian Baccarat Rouge 540")
+    )
+
+    assert match is not None
+    assert match.clone_of == "Maison Francis Kurkdjian – Baccarat Rouge 540"
+    assert not match.confident
+
+
+def test_a_clone_is_still_shown_because_it_may_be_worth_buying() -> None:
+    # Hiding it would answer a question nobody asked. A good imitation is a
+    # real option, so the row stays visible and says what it copies; whether it
+    # is a good one is a judgement made outside this program.
+    match = match_title(
+        _CLONE_TITLE, parse_query("Maison Francis Kurkdjian Baccarat Rouge 540")
+    )
+
+    assert match is not None
+    assert match.clone_of
+
+
+def test_a_clones_own_name_is_scored_without_what_it_imitates() -> None:
+    # Searching for the imitation itself. Before the split, the referenced
+    # perfume's words counted against the name, and the right bottle scored 59
+    # while a different Club de Nuit scored 67, so the wrong one sorted above
+    # the one asked for.
+    query = parse_query("Armaf Club de Nuit Woman")
+    wanted = match_title(_CLONE_SIBLING, query)
+    other = match_title(_PLAIN_SIBLING, query)
+
+    assert wanted is not None and other is not None
+    assert wanted.score == 100
+    assert wanted.confident
+    assert wanted.clone_of == ""
+    assert wanted.score > other.score
+
+
+def test_a_parenthesis_naming_neither_perfume_matches_nothing() -> None:
+    # The reference half is matched with the same mandatory brand check as the
+    # name half, so a parenthesis holding a size or a note cannot turn a title
+    # into a clone of whatever was searched for.
+    assert match_title("Dior Sauvage EDP (100 ml)", parse_query("Chanel Bleu")) is None
+
+
+def test_a_parenthesis_holding_only_a_note_leaves_a_normal_match_alone() -> None:
+    # Most parentheses are not clone references at all. Splitting one off must
+    # not cost an ordinary title its match.
+    match = match_title("Dior Sauvage EDP (Tester)", parse_query("Dior Sauvage EDP"))
+
+    assert match is not None
+    assert match.confident
+    assert match.clone_of == ""
