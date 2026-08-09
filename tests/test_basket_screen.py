@@ -13,11 +13,14 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
 from textual.widgets import DataTable, Static
 
+from parfum_finder.basket import SiteScenario, SplitLeg, SplitPlan
 from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
 from parfum_finder.profiles import load_site_profile, sync_to_db
 from parfum_finder.store import add_basket_item, connect, now_iso, record_snapshot
+from parfum_finder.tui import basket_screen as basket_screen_module
 from parfum_finder.tui.app import ParfumFinderApp
 from parfum_finder.tui.basket_screen import BasketScreen, format_age
 from parfum_finder.tui.search_screen import SearchScreen
@@ -149,6 +152,61 @@ def _ok(site_id: str, *variants: Variant) -> SiteResult:
         raw_title="Dior Sauvage EDP Dekant", url="https://example.com/p"
     )
     return SiteResult(site_id, "ok", (SearchHit(candidate, variants),), None)
+
+
+def _scenario(
+    site_id: str,
+    name: str,
+    subtotal_kurus: int,
+    shipping_kurus: int,
+    *,
+    covered: int,
+    total_items: int,
+) -> SiteScenario:
+    return SiteScenario(
+        site_id=site_id,
+        name=name,
+        subtotal_kurus=subtotal_kurus,
+        shipping_kurus=shipping_kurus,
+        total_kurus=subtotal_kurus + shipping_kurus,
+        covered=covered,
+        total_items=total_items,
+        missing=(),
+        free_shipping_gap_kurus=None,
+        free_shipping_met=False,
+        notes=None,
+    )
+
+
+def _leg(
+    site_id: str, name: str, subtotal_kurus: int, shipping_kurus: int, *item_ids: int
+) -> SplitLeg:
+    scenario = _scenario(
+        site_id,
+        name,
+        subtotal_kurus,
+        shipping_kurus,
+        covered=len(item_ids),
+        total_items=len(item_ids),
+    )
+    return SplitLeg(scenario=scenario, item_ids=item_ids)
+
+
+def _plan(*legs: SplitLeg, omitted_sites: tuple[str, ...] = ()) -> SplitPlan:
+    total = sum(leg.scenario.total_kurus for leg in legs)
+    return SplitPlan(legs=legs, total_kurus=total, omitted_sites=omitted_sites)
+
+
+def _stub_optimize(monkeypatch: pytest.MonkeyPatch, plan: SplitPlan | None) -> None:
+    """Fix what basket.optimize hands the screen instead of relying on the search.
+
+    Patched on the screen's own module, since that is the name the screen calls
+    -- basket_screen imported `optimize` by value, so patching basket.optimize
+    would leave the screen still holding the original.
+    """
+    monkeypatch.setattr(
+        basket_screen_module, "optimize", lambda items, prices, shipping: plan
+    )
 
 
 def _app(sites_dir: Path, db_path: Path, runner: Runner | None = None) -> Any:
@@ -739,3 +797,240 @@ async def test_s_opens_the_basket_and_escape_comes_back_to_the_results(
         await _wait_until(lambda: isinstance(pilot.app.screen, BasketScreen), pilot)
         await pilot.press("escape")
         await _wait_until(lambda: pilot.app.screen is search, pilot)
+
+
+# -- best combination --------------------------------------------------------
+
+
+async def test_the_split_block_carries_its_heuristic_label_verbatim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The block must never be mistaken for a mathematically proven answer.
+
+    optimize() enumerates a bounded subset search, not every possible split, so
+    the screen has to keep saying "found", not "best possible", every time it
+    shows this block.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 25000))
+    item_id = _basket(db, 50)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        _stub_optimize(monkeypatch, _plan(_leg("site-a", "Site A", 25000, 0, item_id)))
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert (
+            "EN İYİ BULUNAN KOMBİNASYON  (sezgisel — matematiksel optimal değildir)"
+            in text
+        )
+
+
+async def test_a_cheaper_split_is_marked_daha_ucuz_with_the_real_difference(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The whole point of the block is telling the user how much splitting saves.
+
+    A vague "cheaper" would not be actionable; the number has to be the exact
+    gap between the split and the best single site so it can be weighed against
+    the hassle of ordering from two shops.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A", shipping_cost=0)
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 15000))
+    _price(db, "site-a", _variant(100, 15000))
+    item1 = _basket(db, 50)
+    item2 = _basket(db, 100)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        plan = _plan(
+            _leg("site-b", "Site B", 10000, 0, item1),
+            _leg("site-c", "Site C", 15000, 0, item2),
+        )
+        _stub_optimize(monkeypatch, plan)
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        # site-a is the only full-coverage site: 15000 + 15000 = 300.00 ₺.
+        # The split totals 25000 = 250.00 ₺, a 50.00 ₺ saving.
+        assert "GENEL TOPLAM 250.00 ₺" in text
+        assert "ⓘ En iyi tam kapsamlı tek site (Site A) 300.00 ₺" in text
+        assert "→ bölmek 50.00 ₺ DAHA UCUZ" in text
+
+
+async def test_a_pricier_split_is_marked_daha_pahali_not_dressed_up_as_advice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A split that costs more must read as a warning, never as a suggestion.
+
+    The heuristic can lose to the best single site. Showing the block without
+    an equally visible "more expensive" label would let a worse total slip by
+    looking like the recommended combination just because it is on screen.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A", shipping_cost=0)
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 15000))
+    _price(db, "site-a", _variant(100, 15000))
+    item1 = _basket(db, 50)
+    item2 = _basket(db, 100)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        plan = _plan(
+            _leg("site-b", "Site B", 20000, 0, item1),
+            _leg("site-c", "Site C", 15000, 0, item2),
+        )
+        _stub_optimize(monkeypatch, plan)
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        # site-a totals 300.00 ₺, the split totals 35000 = 350.00 ₺.
+        assert "→ bölmek 50.00 ₺ DAHA PAHALI" in text
+        assert "DAHA UCUZ" not in text
+
+
+async def test_the_comparison_is_the_best_full_site_never_a_cheaper_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial site's total is cheap for the wrong reason: it skipped a line.
+
+    Comparing the split against it instead of the best full-coverage site would
+    make an honest split look worse than a total that never bought the whole
+    basket to begin with.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A", shipping_cost=0)
+    _write_profile(sites_dir, "site-b", "Site B", shipping_cost=0)
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 15000))
+    _price(db, "site-a", _variant(100, 15000))
+    _price(db, "site-b", _variant(50, 5000))
+    item1 = _basket(db, 50)
+    item2 = _basket(db, 100)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        plan = _plan(
+            _leg("site-b", "Site B", 5000, 0, item1),
+            _leg("site-a", "Site A", 15000, 0, item2),
+        )
+        _stub_optimize(monkeypatch, plan)
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert "ⓘ En iyi tam kapsamlı tek site (Site A) 300.00 ₺" in text
+        assert "En iyi tam kapsamlı tek site (Site B)" not in text
+
+
+async def test_no_full_coverage_site_says_comparison_is_impossible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A comparison against nothing would look like a number, not an absence.
+
+    When every single site is partial there is no honest baseline to measure
+    the split against, so the screen has to say that plainly instead of
+    silently dropping the comparison line.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A", shipping_cost=0)
+    _write_profile(sites_dir, "site-b", "Site B", shipping_cost=0)
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 15000))
+    _price(db, "site-b", _variant(100, 15000))
+    item1 = _basket(db, 50)
+    item2 = _basket(db, 100)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        plan = _plan(
+            _leg("site-a", "Site A", 15000, 0, item1),
+            _leg("site-b", "Site B", 15000, 0, item2),
+        )
+        _stub_optimize(monkeypatch, plan)
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert "ⓘ Tam kapsamlı tek site yok — karşılaştırma yapılamıyor" in text
+        assert "DAHA UCUZ" not in text
+        assert "DAHA PAHALI" not in text
+
+
+async def test_optimize_returning_none_hides_the_block_entirely(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """None means no combination of sites can fill the basket at all.
+
+    Showing an empty or partial block in that case would imply a combination
+    exists when the actual answer is that nothing does.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 25000))
+    _basket(db, 50)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        _stub_optimize(monkeypatch, None)
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert "EN İYİ BULUNAN KOMBİNASYON" not in text
+
+
+async def test_an_empty_basket_never_calls_optimize_or_shows_the_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nothing to buy means nothing to split, so the block has no reason to show."""
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _sync(sites_dir, db)
+
+    def _boom(items: Any, prices: Any, shipping: Any) -> None:
+        raise AssertionError("optimize should not be called on an empty basket")
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        monkeypatch.setattr(basket_screen_module, "optimize", _boom)
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert "EN İYİ BULUNAN KOMBİNASYON" not in text
+
+
+async def test_a_one_leg_plan_is_marked_single_site_not_a_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A one-leg plan is the best single site restated, and must read that way.
+
+    Printing it with the same phrasing as a real multi-site split would suggest
+    an order needs to be divided when it does not.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 25000))
+    item_id = _basket(db, 50)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        _stub_optimize(monkeypatch, _plan(_leg("site-a", "Site A", 25000, 0, item_id)))
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert "Site A  (tek site — bölünmüyor)" in text
+
+
+async def test_omitted_sites_are_named_in_their_own_notice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A truncated search has to say so, or a narrowed answer reads as complete.
+
+    optimize() only enumerates MAX_ENUMERATED_SITES candidates; past that it
+    silently drops the rest unless the screen names exactly which ones.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 25000))
+    item_id = _basket(db, 50)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        plan = _plan(
+            _leg("site-a", "Site A", 25000, 0, item_id),
+            omitted_sites=("site-x", "site-y"),
+        )
+        _stub_optimize(monkeypatch, plan)
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert "ⓘ 2 site kombinasyon aramasına dahil edilmedi: site-x, site-y" in text

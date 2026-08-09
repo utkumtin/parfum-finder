@@ -8,10 +8,10 @@ how many lines are covered).
 Why "cheapest site per item" isn't good enough: shipping cost isn't linear. It
 drops to zero once a site's subtotal crosses its free-shipping threshold. Paying a
 bit more for one item on a given site can lower the grand total overall by
-unlocking free shipping there. This module only scores one site against the whole
-basket (or a subset of it, via `item_ids`) -- it does not search for the best split
-across sites. That search is a later milestone and reuses `site_scenario` as its
-per-site primitive.
+unlocking free shipping there. `optimize` searches for the best split of the
+basket across several sites, and it reuses `site_scenario` as its per-site
+primitive so a leg of a split and a plain single-site scenario are priced by the
+same code.
 
 Money is INTEGER kurus throughout, never float, never Decimal. A price matrix
 built from anything else would let two prices that print the same disagree in a
@@ -23,6 +23,11 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 Prices = Mapping[tuple[int, str], int | None]
+
+# The subset enumeration is 2**M, so the site list has to be bounded somewhere.
+# Ten sites is 1024 subsets, which is instant, and it is also more shops than
+# anyone is realistically going to order the same basket from.
+MAX_ENUMERATED_SITES = 10
 
 
 @dataclass(frozen=True)
@@ -93,6 +98,39 @@ class BasketReport:
     full: tuple[SiteScenario, ...]
     partial: tuple[SiteScenario, ...]
     unavailable: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SplitLeg:
+    """One site's share of a split basket: what to buy there and what it costs.
+
+    `scenario` is a `site_scenario` scored over `item_ids` only, so its
+    `total_items` counts the lines assigned to this leg rather than the whole
+    basket, and its shipping already reflects this leg's subtotal against the
+    site's own threshold.
+    """
+
+    scenario: SiteScenario
+    item_ids: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class SplitPlan:
+    """The cheapest basket split the search found. A heuristic, not a proof.
+
+    Every line of the basket is assigned to exactly one leg, so a plan is
+    always full coverage. There is no partial plan: a split that skips a line
+    is not a cheaper way to buy the basket, it is a different basket.
+
+    `omitted_sites` names the sites that were left out of the search because
+    the list was longer than `MAX_ENUMERATED_SITES`. It is on the plan rather
+    than swallowed so the screen can say the search was narrowed instead of
+    presenting a truncated answer as the whole picture.
+    """
+
+    legs: tuple[SplitLeg, ...]
+    total_kurus: int
+    omitted_sites: tuple[str, ...]
 
 
 def site_scenario(
@@ -188,3 +226,130 @@ def single_site_scenarios(
     return BasketReport(
         full=tuple(full), partial=tuple(partial), unavailable=unavailable
     )
+
+
+def optimize(
+    items: Sequence[BasketItem],
+    prices: Prices,
+    shipping: Sequence[ShippingConfig],
+) -> SplitPlan | None:
+    """Search for the cheapest way to split the basket across several sites.
+
+    Returns None when no combination of sites covers every line, which happens
+    exactly when some line has no price anywhere. A basket nobody can fill has
+    no split worth showing.
+    """
+    site_by_id = {s.site_id: s for s in shipping}
+    full_scenarios = {s.site_id: site_scenario(items, prices, s) for s in shipping}
+    candidates = [s for s in shipping if full_scenarios[s.site_id].covered > 0]
+
+    omitted: tuple[str, ...] = ()
+    if len(candidates) > MAX_ENUMERATED_SITES:
+        ranked = sorted(
+            candidates,
+            key=lambda s: (
+                -full_scenarios[s.site_id].covered,
+                full_scenarios[s.site_id].total_kurus,
+                s.site_id,
+            ),
+        )
+        omitted = tuple(sorted(s.site_id for s in ranked[MAX_ENUMERATED_SITES:]))
+        candidates = ranked[:MAX_ENUMERATED_SITES]
+
+    candidates = sorted(candidates, key=lambda s: s.site_id)
+    site_count = len(candidates)
+
+    def plan_total(assignment: dict[int, str]) -> int:
+        by_site: dict[str, list[int]] = {}
+        for item_id, site_id in assignment.items():
+            by_site.setdefault(site_id, []).append(item_id)
+        return sum(
+            site_scenario(items, prices, site_by_id[site_id], item_ids=ids).total_kurus
+            for site_id, ids in by_site.items()
+        )
+
+    best_total: int | None = None
+    best_key: tuple[int, int, tuple[str, ...]] | None = None
+    best_assignment: dict[int, str] | None = None
+
+    for mask in range(1, 1 << site_count):
+        subset_sites = [candidates[i] for i in range(site_count) if mask & (1 << i)]
+
+        assignment: dict[int, str] = {}
+        covers_all = True
+        for item in items:
+            best_price: int | None = None
+            best_site_id: str | None = None
+            for site in subset_sites:
+                price = prices.get((item.item_id, site.site_id))
+                if price is None:
+                    continue
+                if best_price is None or price < best_price:
+                    best_price = price
+                    best_site_id = site.site_id
+            if best_site_id is None:
+                covers_all = False
+                break
+            assignment[item.item_id] = best_site_id
+        if not covers_all:
+            continue
+
+        # Hill-climb: an item bought from a pricier site can still cut the
+        # total by pushing that site's subtotal over its free-shipping
+        # threshold, so the cheapest-unit-price assignment above is only a
+        # starting point. The total is an integer that strictly decreases on
+        # every accepted move, so this always terminates on its own.
+        moved = True
+        while moved:
+            moved = False
+            for item in sorted(items, key=lambda i: i.item_id):
+                current_total = plan_total(assignment)
+                current_site = assignment[item.item_id]
+                best_move_site = current_site
+                best_move_total = current_total
+                for site in subset_sites:
+                    if site.site_id == current_site:
+                        continue
+                    if prices.get((item.item_id, site.site_id)) is None:
+                        continue
+                    trial = dict(assignment)
+                    trial[item.item_id] = site.site_id
+                    trial_total = plan_total(trial)
+                    if trial_total < best_move_total:
+                        best_move_total = trial_total
+                        best_move_site = site.site_id
+                if best_move_site != current_site:
+                    assignment[item.item_id] = best_move_site
+                    moved = True
+
+        total = plan_total(assignment)
+        sites_used = tuple(sorted(set(assignment.values())))
+        key = (total, len(sites_used), sites_used)
+
+        if best_key is None or key < best_key:
+            best_key = key
+            best_total = total
+            best_assignment = assignment
+
+    if best_assignment is None or best_total is None:
+        return None
+
+    by_site: dict[str, list[int]] = {}
+    for item_id, site_id in best_assignment.items():
+        by_site.setdefault(site_id, []).append(item_id)
+
+    legs = [
+        SplitLeg(
+            scenario=site_scenario(
+                items,
+                prices,
+                site_by_id[site_id],
+                item_ids=tuple(sorted(assigned_ids)),
+            ),
+            item_ids=tuple(sorted(assigned_ids)),
+        )
+        for site_id, assigned_ids in by_site.items()
+    ]
+    legs.sort(key=lambda leg: (leg.scenario.total_kurus, leg.scenario.site_id))
+
+    return SplitPlan(legs=tuple(legs), total_kurus=best_total, omitted_sites=omitted)

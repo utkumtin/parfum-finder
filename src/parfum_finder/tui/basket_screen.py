@@ -5,16 +5,13 @@ part of it, and listed above them. A partial site is tagged, e.g. "4/5 items", a
 never compared directly against a full-coverage total. Each scenario shows how much
 more is needed to unlock free shipping. The split-across-sites result is always
 labeled as the best combination found, not the mathematically cheapest.
-
-TODO (M9): the split-across-sites block, its honesty label, and the comparison
-line against the best full-coverage single site.
 """
 
 from __future__ import annotations
 
 import asyncio
 import sqlite3
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -32,6 +29,9 @@ from parfum_finder.basket import (
     BasketReport,
     ShippingConfig,
     SiteScenario,
+    SplitLeg,
+    SplitPlan,
+    optimize,
     single_site_scenarios,
 )
 from parfum_finder.engine import SiteResult
@@ -229,9 +229,14 @@ class BasketScreen(Screen[None]):
 
     def _render_all(self) -> None:
         self._render_table()
-        report = self._report()
+        items, prices, shipping = self._inputs()
+        report = single_site_scenarios(items, prices, shipping)
+        # optimize() is only worth asking on a basket that has rows: an empty
+        # basket has nothing to split, and this also keeps an empty screen from
+        # depending on optimize() at all.
+        plan = optimize(items, prices, shipping) if self._rows else None
         self._render_notices(report)
-        self._render_scenarios(report)
+        self._render_scenarios(report, plan, items, prices)
         self._update_status()
 
     def _render_table(self) -> None:
@@ -273,7 +278,17 @@ class BasketScreen(Screen[None]):
             cells.append(age)
         return tuple(cells)
 
-    def _report(self) -> BasketReport:
+    def _inputs(
+        self,
+    ) -> tuple[
+        list[BasketItem], dict[tuple[int, str], int | None], list[ShippingConfig]
+    ]:
+        """The three inputs basket.py's pure functions score: items, prices, shipping.
+
+        Built once here so the single-site report and the split search always
+        see the same basket instead of two independently assembled copies that
+        could drift apart.
+        """
         items = [
             BasketItem(
                 item_id=row.line.basket_item_id, label=row.label, qty=row.line.qty
@@ -295,7 +310,7 @@ class BasketScreen(Screen[None]):
             )
             for site in self._sites
         ]
-        return single_site_scenarios(items, prices, shipping)
+        return items, prices, shipping
 
     def _render_notices(self, report: BasketReport) -> None:
         notices = list(self._notices)
@@ -319,7 +334,13 @@ class BasketScreen(Screen[None]):
                 )
         self.query_one("#basket-notices", Static).update("\n".join(notices))
 
-    def _render_scenarios(self, report: BasketReport) -> None:
+    def _render_scenarios(
+        self,
+        report: BasketReport,
+        plan: SplitPlan | None,
+        items: Sequence[BasketItem],
+        prices: dict[tuple[int, str], int | None],
+    ) -> None:
         lines: list[str] = []
         if report.full:
             lines.append("TEK SİTE SENARYOLARI — tam kapsamlı")
@@ -331,6 +352,8 @@ class BasketScreen(Screen[None]):
             lines.append("")
             for scenario in report.partial:
                 lines.extend(_scenario_block(scenario, "⚠"))
+        if plan is not None:
+            lines.extend(_split_block(plan, report, items, prices))
         self.query_one("#scenarios", Static).update("\n".join(lines).rstrip())
 
     def _update_status(self) -> None:
@@ -522,5 +545,77 @@ def _scenario_block(scenario: SiteScenario, mark: str) -> list[str]:
         lines.append(f"    ücretsiz kargoya {gap} kaldı")
     if scenario.notes:
         lines.append(f"    {scenario.notes}")
+    lines.append("")
+    return lines
+
+
+def _leg_block(
+    leg: SplitLeg,
+    items: Sequence[BasketItem],
+    prices: dict[tuple[int, str], int | None],
+    *,
+    is_split: bool,
+) -> list[str]:
+    """One site's share of a split: its assigned items, then its own subtotal.
+
+    A single-leg plan is a single-site scenario restated, not a split, so it is
+    marked plainly instead of being dressed up as a recommendation to divide
+    the order across sites when there is nothing being divided.
+    """
+    tag = "" if is_split else "  (tek site — bölünmüyor)"
+    lines = [f"  {leg.scenario.name}{tag}"]
+    by_id = {item.item_id: item for item in items}
+    for item_id in leg.item_ids:
+        price = prices.get((item_id, leg.scenario.site_id))
+        price_str = (
+            _EMPTY if price is None else format_price(Decimal(price) / Decimal(100))
+        )
+        lines.append(f"    {by_id[item_id].label}   {price_str}")
+    subtotal = format_price(Decimal(leg.scenario.subtotal_kurus) / Decimal(100))
+    shipping = format_price(Decimal(leg.scenario.shipping_kurus) / Decimal(100))
+    lines.append(f"    {subtotal} + {shipping} kargo")
+    return lines
+
+
+def _split_block(
+    plan: SplitPlan,
+    report: BasketReport,
+    items: Sequence[BasketItem],
+    prices: dict[tuple[int, str], int | None],
+) -> list[str]:
+    """The best-combination block: its legs, grand total, and its honesty checks."""
+    lines = [
+        "EN İYİ BULUNAN KOMBİNASYON  (sezgisel — matematiksel optimal değildir)",
+        "",
+    ]
+    is_split = len(plan.legs) > 1
+    for leg in plan.legs:
+        lines.extend(_leg_block(leg, items, prices, is_split=is_split))
+    total = format_price(Decimal(plan.total_kurus) / Decimal(100))
+    lines.append(f"GENEL TOPLAM {total}")
+    if report.full:
+        # Only ever the best full-coverage site: a cheaper partial site left
+        # something out, and comparing a full split against it would credit
+        # the split for beating a total that never bought the whole basket.
+        best = report.full[0]
+        best_total = format_price(Decimal(best.total_kurus) / Decimal(100))
+        lines.append(f"ⓘ En iyi tam kapsamlı tek site ({best.name}) {best_total}")
+        diff = plan.total_kurus - best.total_kurus
+        if diff < 0:
+            cheaper = format_price(Decimal(-diff) / Decimal(100))
+            lines.append(f"→ bölmek {cheaper} DAHA UCUZ")
+        elif diff > 0:
+            costlier = format_price(Decimal(diff) / Decimal(100))
+            lines.append(f"→ bölmek {costlier} DAHA PAHALI")
+        else:
+            lines.append("→ bölmek bir fark yaratmıyor")
+    else:
+        lines.append("ⓘ Tam kapsamlı tek site yok — karşılaştırma yapılamıyor")
+    if plan.omitted_sites:
+        names = ", ".join(plan.omitted_sites)
+        lines.append(
+            f"ⓘ {len(plan.omitted_sites)} site kombinasyon aramasına dahil "
+            f"edilmedi: {names}"
+        )
     lines.append("")
     return lines
