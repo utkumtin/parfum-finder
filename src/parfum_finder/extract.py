@@ -39,6 +39,13 @@ from selectolax.parser import HTMLParser, Node
 
 from parfum_finder.normalize import parse_price
 
+# The ladder itself, most durable first, in the order a profile's `extraction`
+# field is allowed to name. Kept here rather than beside either caller because
+# both the engine, which dispatches on it, and validate, which walks it to say
+# what a broken profile could still fall back to, need the same four names in
+# the same order, and two copies of them would drift apart unnoticed.
+EXTRACTION_LAYERS = ("jsonld", "endpoint", "embedded_json", "css")
+
 _JSONLD_SELECTOR = 'script[type="application/ld+json"]'
 
 # A price written as plain digits with at most one dot, the way schema.org asks for

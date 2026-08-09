@@ -107,6 +107,11 @@ belirli adımı devralır. **Yeni kanca eklemek kolay olmamalı**: her yeni kanc
 Bir sayfadan ürün verisi çıkarmanın **4 katmanı**, dayanıklılık sırasıyla. `discover`
 yukarıdan aşağı dener, **çalışan en üst katmanı** profile yazar.
 
+Merdivenin isimleri ve sırası tek yerde durur: `extract.EXTRACTION_LAYERS`. `engine`
+buna göre dağıtım yapar, `validate` bozulan bir profilin hangi alt katmana düşebileceğini
+söylerken bunu yürür. Üçüncü bir kopya `schema/site.schema.json`'daki `extraction` enum'ı
+olmak zorunda; ikisinin ayrışmadığı testle bağlanmıştır.
+
 ### Katman 1 — JSON-LD
 `<script type="application/ld+json">` içindeki `Product` / `Offer` nesneleri.
 SEO için konur, tema değişse bile korunur. `name`, `offers.price`, `offers.availability`,
@@ -277,6 +282,8 @@ eşleşmemekten kötüdür — ucuz fiyat gibi görünür ve sepete yanlış ür
 ### Algoritma
 
 ```
+0. Başlığı parantez sınırından AYIR: dışarısı ürünün kendi ismi, içerisi
+   taklit ettiği orijinalin referansı (bkz. Klon/orijinal ayrımı)
 1. Başlığı normalize et (küçült, TR karakter katlama, gürültü kelimelerini at:
    "dekant", "decant", "parfüm", "ml", "orijinal", "tester")
 2. Konsantrasyonu ÇIKAR ve AYIR: EDT | EDP | EDC | Parfum | Extrait | Elixir
@@ -284,13 +291,51 @@ eşleşmemekten kötüdür — ucuz fiyat gibi görünür ve sepete yanlış ür
 4. ZORUNLU eşleşme:
       marka         == aranan marka           (exact, normalize sonrası)
       konsantrasyon == aranan konsantrasyon   (belirtilmişse)
-5. Kalan isim kısmına rapidfuzz.token_set_ratio
+5. Kalan isim kısmına rapidfuzz.token_sort_ratio
 6. Skor eşiğinin altı → aday listesine girer ama DÜŞÜK GÜVEN işaretlenir
+7. Adım 1-6 önce ürünün kendi ismiyle çalışır. Tutmazsa referans yarısıyla
+   tekrar denenir; oradan gelen eşleşme `clone_of` ile döner ve asla
+   `confident` değildir
 ```
 
 **`Elixir` neden konsantrasyon listesinde:** `Sauvage Elixir` ayrı bir üründür,
 `Sauvage`'ın bir konsantrasyonu gibi davranır. Adım 2'de ayrılması, adım 5'te
 `Sauvage` ile `Sauvage Elixir`'in yanlışlıkla eşleşmesini engeller.
+
+**Neden `token_sort_ratio`, `token_set_ratio` değil:** Set oranı alt kümeyi tam
+eşleşme sayar; `Sauvage` araması `Eau Sauvage` başlığını 100 ile döndürür ve farklı
+bir parfümü tam güvenle verir. Sıralama, fazladan kelimeye bir bedel ödetir. Başlık
+yine listede görünür, sadece onay isteyecek şekilde işaretlenir.
+
+### Klon/orijinal ayrımı
+
+Bazı dükkanlar orijinallerin yanında klon da satar ve taklit ettiği parfümü başlıkta
+parantez içinde yazar:
+
+```
+Armaf – Club De Nuit Untold (Maison Francis Kurkdjian – Baccarat Rouge 540)
+```
+
+Parantez bir referanstır, ürünün ne olduğunun parçası değil. İsim sayıldığında eşleşme
+**iki yönde birden** bozuluyordu:
+
+| Arama | Parantez isim sayılınca | Ayrıldıktan sonra |
+|---|---|---|
+| `MFK Baccarat Rouge 540` | Armaf klonu 73 skorla eşleşiyor — marka kontrolü parantez sayesinde geçiyor, klon ucuz olduğu için ₺/ml sıralamasında en üste çıkıyor | Kendi ismiyle reddediliyor, referanstan `clone_of` ile geliyor |
+| `Armaf Club de Nuit Woman` | Doğru ürün 59, yanlış `Club De Nuit Bling` 67 — referanstaki kelimeler doğru ürünün skorunu aşağı çekiyor | Doğru ürün 100, en üstte |
+
+**Klon satırı neden gizlenmiyor:** İyi bir klon orijinal yerine alınabilir. Karar
+kullanıcınındır; program sadece o satırın ne olduğunu söyler (`KLON ← <orijinal>`).
+
+**Klon satırı neden yazılmıyor:** Farklı bir şişe, farklı bir fiyat. Aranan parfümün
+kimliği altına yazılırsa fiyat geçmişinde ani bir düşüş gibi görünür ve sepet tüm
+siparişi o rakama göre hesaplar. Baraj `store.write_snapshots` içindedir; hem CLI hem
+TUI oradan geçtiği için tek nokta yeter. Aynı nedenle sepete de eklenemez.
+
+**Kuralın bilinen kenarı:** Parantezin *her* kullanımı ayrılır, sadece klon referansı
+olanlar değil. `(Tester)` / `(100 ml)` zararsızdır (içerik zaten gürültü ya da ölçü),
+ama `Dior Sauvage (Elixir)` gibi bir başlıkta konsantrasyon referans yarısına düşerdi.
+Toplanan fixture'larda örneği yok.
 
 ### Görünürlük — zorunlu
 
@@ -298,6 +343,8 @@ eşleşmemekten kötüdür — ucuz fiyat gibi görünür ve sepete yanlış ür
 - İkisi de saklanır: `match_score` → `products`, `raw_title` → `product_variants`
   (varyant deseni A'da her ml'nin başlığı farklıdır)
 - **Düşük skorlu eşleşme sepete sessizce eklenemez** — TUI onay ister
+- **Klon satırı `KLON ← <orijinal>` ile işaretlenir**, sepete hiç eklenemez — onay
+  diyaloğuna bile düşmez, gerekçesiyle reddedilir
 
 ---
 

@@ -43,6 +43,7 @@ from selectolax.parser import HTMLParser
 
 from parfum_finder.engine import ExtractionFailed, apply_variant_rules, search_site
 from parfum_finder.extract import (
+    EXTRACTION_LAYERS,
     RawVariant,
     extract_css_variants,
     extract_embedded_variants,
@@ -411,10 +412,6 @@ def _age_of(path: Path) -> int | None:
         return None
 
 
-# The extraction ladder, most durable first. Live mode walks it when a profile
-# breaks, to say whether another layer can still read the page.
-_LAYERS = ("jsonld", "endpoint", "embedded_json", "css")
-
 # A search page that came back this small answered with something other than a
 # result list -- a challenge page, an error page, a redirect stub. Zero results
 # on a page like that says nothing about the profile's selectors, which is the
@@ -705,7 +702,7 @@ async def _probe_other_layers(
 
     return tuple(
         _probe_layer(profile, layer, html)
-        for layer in _LAYERS
+        for layer in EXTRACTION_LAYERS
         if layer != profile["extraction"]
     )
 

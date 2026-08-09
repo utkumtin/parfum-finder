@@ -14,6 +14,8 @@ from typing import Any
 import jsonschema
 import pytest
 
+from parfum_finder.extract import EXTRACTION_LAYERS
+
 SCHEMA_DIR = Path(__file__).parent.parent / "schema"
 
 # A minimal valid site profile: shopify platform, httpx strategy, jsonld extraction.
@@ -156,3 +158,18 @@ def test_site_schema_rejects_wrong_timestamp_format() -> None:
     broken = {**VALID_SITE_PROFILE, "discovered_at": "2026-08-07T11:22:00+03:00"}
     with pytest.raises(jsonschema.ValidationError):
         _site_validator().validate(broken)
+
+
+def test_the_schema_and_the_code_allow_the_same_extraction_layers() -> None:
+    """The third copy of the ladder is here, and nothing else would catch it drifting.
+
+    The schema decides which layer a profile may name; EXTRACTION_LAYERS decides
+    which ones the engine dispatches on and which ones validate offers as a
+    fallback. A layer added to one and not the other either passes validation and
+    then dies at runtime with "unknown extraction layer", or works fine and can
+    never be written into a profile.
+    """
+    schema = json.loads((SCHEMA_DIR / "site.schema.json").read_text())
+    allowed = schema["properties"]["extraction"]["enum"]
+
+    assert tuple(allowed) == EXTRACTION_LAYERS

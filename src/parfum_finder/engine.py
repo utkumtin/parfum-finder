@@ -50,6 +50,7 @@ from urllib.parse import quote, urljoin
 from selectolax.parser import HTMLParser
 
 from parfum_finder.extract import (
+    EXTRACTION_LAYERS,
     RawVariant,
     extract_css_variants,
     extract_embedded_variants,
@@ -106,12 +107,6 @@ PRODUCT_MARKUP_FLOOR = 8
 # asked for. Sleeping for real would make the suite pay the pacing it is checking,
 # and asserting on elapsed wall clock instead measures how busy the machine is.
 _sleep = asyncio.sleep
-
-
-# The extraction layers `_read_variants` dispatches on, named once here so the
-# "unknown extraction layer" error message has a single place to read them
-# from instead of its own separately typed-out list.
-_EXTRACTION_LAYERS = ("endpoint", "jsonld", "embedded_json", "css")
 
 
 class ExtractionFailed(RuntimeError):
@@ -879,7 +874,7 @@ async def _read_variants(
         )
     raise ExtractionFailed(
         f"{profile['id']}: unknown extraction layer {layer!r}, "
-        f"expected one of {_EXTRACTION_LAYERS}"
+        f"expected one of {EXTRACTION_LAYERS}"
     )
 
 
