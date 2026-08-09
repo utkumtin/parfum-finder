@@ -104,6 +104,13 @@ _NOISE = frozenset(
     }
 )
 
+# Words that only describe the packaging a decant comes in. Kept out of _NOISE
+# on purpose: dropping them from _tokenize would change every match score in the
+# app, and all they are needed for is grouping rows under one product name.
+# "2,7 ml - metal sprey" and "3 ml - plastik sprey" are one shop's suffix for
+# the same bottle, so without this every one of its sizes becomes its own group.
+_PACKAGING = frozenset({"metal", "plastik", "sprey"})
+
 # Below this a match is shown but flagged, never acted on by itself. Chosen so
 # that a missing or extra word in a long name still passes while a different
 # perfume does not.
@@ -233,6 +240,46 @@ def parse_query(text: str) -> PerfumeQuery:
     return PerfumeQuery(
         brand=brand, name=" ".join(name_tokens), concentration=concentration
     )
+
+
+def product_label(raw_title: str) -> str:
+    """Reduce a site's own title to the product it is about, spelled one way.
+
+    What this is for is grouping: six shops write the same bottle six ways
+    ("Parfums De Marly Layton 2,7 ml - metal sprey", "Parfums de Marly – Layton",
+    "Parfums de Marly Layton 15 ml") and the results table has to put those rows
+    in one block under one heading. The query cannot supply that heading, because
+    one query legitimately produces more than one product: a search for "Parfums
+    de Marly Layton" also finds "Layton Exclusif", a different bottle at a
+    different price, and those two must not share a block.
+
+    Nothing new is invented here. `_tokenize` already folds the text, cuts the
+    size out and drops the words every decant shop pads a title with, and
+    `_split_concentration` already knows that EDP is part of what a bottle is
+    rather than part of its name. This adds the packaging words and puts the
+    concentration back on the end, since a name is rebuilt from the words that
+    survive: "Le Male Le Parfum" without it reads "Le Male Le".
+
+    The words come back capitalized rather than as the shop wrote them, because
+    two titles that differ only in casing ("Black Iris" and "Black iris") have to
+    produce the same string to land in the same block.
+
+    Two titles for one bottle can still fail to meet, when a shop misspells the
+    name itself ("Bottled Absolute" for "Bottled Absolu") or adds a year
+    ("Absolu EDP 2024"). Those come out as two blocks. The alternative is
+    matching titles against each other fuzzily, which is how two genuinely
+    different perfumes end up priced as one, and that is the worse mistake.
+
+    An empty string comes back for a title with nothing left in it. The caller
+    decides what to show instead; there is no product name to be had here.
+    """
+    own_title, _ = _split_clone_reference(raw_title)
+    tokens = tuple(token for token in _tokenize(own_title) if token not in _PACKAGING)
+    concentration, rest = _split_concentration(tokens)
+    words = [word.capitalize() for word in rest]
+    if concentration:
+        words.append(concentration)
+    return " ".join(words)
 
 
 def match_title(

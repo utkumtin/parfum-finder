@@ -1,14 +1,25 @@
-"""The search screen: a results table that fills in as each site finishes.
+"""The search screen: a progress bar while scanning, one grouped table after.
 
-Columns: site, raw product title, size (ml), price, price per ml, stock, match
-score. Results from a site land as soon as that site is done -- one task per
-site, started together, none of them waiting on another. The screen never
-waits for every site to finish before showing anything.
+Columns: matched product, site, the site's own title, size (ml), price, price
+per ml, stock, match score. Nothing lands in the table mid-scan. Sites finish
+in whatever order they finish, and a table growing under a reader's eyes cannot
+be read: the cheapest row so far keeps changing, and the row someone is looking
+at keeps moving. So the scan shows a progress bar in the table's place and the
+table fills in one go at the end, already grouped and ordered.
+
+The error count next to the bar stays live. With the table empty and the
+details in the log file, it is the only sign that a scan is going wrong while
+it is still going.
 
 One line may ask for several perfumes, separated by " - ". They are scanned in
 one pass, still one task per site, with that site's perfumes going one after
 the other inside it: a site's requests are paced from one place, so starting a
 shop's whole list at once would hand it the burst the pacing exists to prevent.
+
+The finished table is ordered in four layers: the order the perfumes were typed
+in, then the product each row is actually about, then the site, then the size.
+The first layer never appears on screen -- what was typed is what the person
+already knows -- it only keeps the blocks in the order they asked for them.
 
 Matching and row-building are not redone here: both this screen's table and
 the database go through store.snapshot_rows, so the two can never disagree
@@ -31,7 +42,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, DataTable, Footer, Input, Static
+from textual.widgets import Button, DataTable, Footer, Input, ProgressBar, Static
 
 from parfum_finder.engine import CacheKey, CandidateFilter, SiteResult, VariantsRead
 from parfum_finder.fetch import Fetcher, browser_session
@@ -41,6 +52,7 @@ from parfum_finder.matcher import (
     MAX_QUERIES,
     PerfumeQuery,
     parse_query,
+    product_label,
     split_queries,
     title_could_match,
 )
@@ -87,11 +99,19 @@ class SiteRunner(Protocol):
 
 # Clicking one of these headers sorts by it, the same three sorts the number
 # keys offer. The other columns have no ordering worth offering. Counted from
-# the size column, since a multi-perfume search puts one more column in front
-# of it.
+# the size column.
 _SORT_BY_COLUMN = {0: "ml", 1: "price", 2: "per_ml"}
 
-_BASE_COLUMNS = ("Site", "Ürün", "ml", "Fiyat", "₺/ml", "Stok", "%")
+# "Eşleşen Ürün" is the product the row is really about, derived from the site's
+# own title; "Site Başlığı" is that title as the shop wrote it. Two columns of
+# product text side by side, so neither can be called just "Ürün" -- one says
+# which bottle this is, the other says how to recognise it in the shop.
+#
+# The matched-product column is always here. It is not an echo of the search
+# box: one query can legitimately produce more than one product block, so there
+# is no case where a person can tell from the search line alone which bottle a
+# row is about.
+_COLUMNS = ("Eşleşen Ürün", "Site", "Site Başlığı", "ml", "Fiyat", "₺/ml", "Stok", "%")
 
 # One colour per site, so a long table reads as blocks instead of one wall of
 # rows. Keyed by site_id and not by the label, because a stale profile gets a
@@ -118,8 +138,23 @@ _SITE_STYLES = {
 # painting them made a whole row look untrustworthy over one weak title.
 _LOW_CONFIDENCE_STYLE = "#cf9145"
 
-# Where the sortable columns start, with and without the perfume column.
-_FIRST_SORTABLE = _BASE_COLUMNS.index("ml")
+# Where the sortable columns start.
+_FIRST_SORTABLE = _COLUMNS.index("ml")
+
+# The sizes a decant buyer actually chooses between. Site blocks are ordered by
+# the cheapest ₺/ml a site offers inside this band, so a shop whose smallest
+# bottle is 10 ml cannot take the top of the list on the structural ₺/ml
+# advantage a bigger bottle always has.
+_BAND_MAX_ML_X10 = 30
+
+# Where a site with nothing in the band goes: after every site that has one,
+# ordered among themselves by their own cheapest ₺/ml. Comparing a 10 ml-only
+# shop against the band would be comparing two different purchases.
+_OUT_OF_BAND = 1
+
+# And where a site whose every price failed to read goes: last, since there is
+# no number to place it by at all.
+_UNPRICED: tuple[int, Decimal] = (2, Decimal(0))
 
 
 def _listing_filter(query: PerfumeQuery) -> CandidateFilter:
@@ -135,9 +170,11 @@ def _listing_filter(query: PerfumeQuery) -> CandidateFilter:
 class _Search:
     """One perfume of a search, as typed and as parsed.
 
-    The index is what groups the results table: three perfumes sorted into one
-    ₺/ml list interleave into something nobody can read, so the typed order is
-    the outer sort and the chosen column only orders each group.
+    The index is the outermost sort key of the results table and the only part
+    of the typed line that survives into it. Three perfumes sorted into one ₺/ml
+    list interleave into something nobody can read, so the order they were asked
+    for is what the blocks come out in. The blocks themselves are headed by the
+    product each row is about, not by this.
     """
 
     index: int
@@ -147,7 +184,13 @@ class _Search:
 
 @dataclass(frozen=True)
 class _ResultRow:
-    """One priced size, exactly as the table shows it and as a keypress needs it."""
+    """One priced size, exactly as the table shows it and as a keypress needs it.
+
+    `product` is what the site's own title reduces to, and it is both the block
+    heading and the second sort layer. It is not the search text: a search for
+    "Parfums de Marly Layton" also finds "Layton Exclusif", and those two are
+    different bottles that must not share a block.
+    """
 
     site_id: str
     site_label: str
@@ -162,7 +205,7 @@ class _ResultRow:
     concentration: str
     product_url: str | None
     query_index: int = 0
-    query_label: str = ""
+    product: str = ""
     clone_of: str = ""
 
     @property
@@ -256,6 +299,10 @@ class SearchScreen(Screen[None]):
         padding: 0 1;
         color: $text-muted;
     }
+    SearchScreen #progress {
+        padding: 0 1;
+        display: none;
+    }
     SearchScreen #history-panel {
         width: 44;
         border-left: solid $panel;
@@ -303,7 +350,12 @@ class SearchScreen(Screen[None]):
         # prices to a lock error.
         self._write_lock = asyncio.Lock()
         self._notices: list[str] = []
-        self._sort_key = "per_ml"
+        # None is the grouped default: product blocks, sites inside them ordered
+        # by what they charge in the small-bottle band, sizes ascending. The
+        # number keys replace the site and size layers with one column of their
+        # own; the product blocks survive either way, since a table alternating
+        # between two different bottles compares nothing.
+        self._sort_key: str | None = None
         # Hidden from the start. A size that cannot be bought is not an offer,
         # and leaving them in put the cheapest unbuyable price at the top of a
         # table sorted by ₺/ml, which is the one number people read first. They
@@ -315,12 +367,18 @@ class SearchScreen(Screen[None]):
         self._total = 0
         self._errors = 0
         self._generation = 0
+        self._scanning = False
 
     def compose(self) -> ComposeResult:
         yield Input(placeholder="örn. Dior Sauvage EDP", id="query")
         with Horizontal(id="body"):
             with Vertical(id="main-col"):
                 yield DataTable(id="results", cursor_type="row")
+                # Sits where the rows will be, and only while there are none.
+                # The status line stays next to it rather than being replaced by
+                # it: the bar says how far along the scan is, the status line
+                # says whether it is going well.
+                yield ProgressBar(id="progress", show_eta=False)
                 yield Static("", id="notices")
                 yield Static("", id="status")
             yield Static("", id="history-panel")
@@ -340,10 +398,7 @@ class SearchScreen(Screen[None]):
 
     def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
         event.stop()
-        # Counted from the first sortable column, which a multi-perfume search
-        # pushes one to the right.
-        offset = _FIRST_SORTABLE + (1 if self._multi else 0)
-        key = _SORT_BY_COLUMN.get(event.column_index - offset)
+        key = _SORT_BY_COLUMN.get(event.column_index - _FIRST_SORTABLE)
         if key is not None:
             self.action_sort(key)
 
@@ -428,6 +483,7 @@ class SearchScreen(Screen[None]):
         self._errors = 0
         profiles = [p for p in self._profiles if p.get("enabled", True)]
         self._total = len(searches) * len(profiles)
+        self._scanning = True
         self._reset_table()
         self._set_notices()
         self._update_status()
@@ -445,6 +501,14 @@ class SearchScreen(Screen[None]):
                         self._scan_site(profile, searches, generation, fetcher, cache),
                         name=f"scan:{profile['id']}",
                     )
+        # The one place the table is filled. A newer search may have started
+        # while this one was finishing, and painting these rows over its empty
+        # table would put the answer to the old question under the new one.
+        if generation != self._generation:
+            return
+        self._scanning = False
+        self._refresh_table()
+        self._update_status()
 
     async def _scan_site(
         self,
@@ -541,7 +605,8 @@ class SearchScreen(Screen[None]):
         else:  # error
             self._errors += 1
             logger.error("%s — bağlantı hatası: %s", about, self._detail(result))
-        self._refresh_table()
+        # No table refresh here on purpose. Rows are collected all through the
+        # scan and painted once at the end, so nothing moves under a reader.
         self._set_notices()
         self._update_status()
 
@@ -577,7 +642,12 @@ class SearchScreen(Screen[None]):
                 site_id=row.site_id,
                 site_label=site_label,
                 query_index=search.index,
-                query_label=search.text,
+                # The raw title stands in when there is nothing left to derive a
+                # product name from. An empty block heading would be worse than
+                # a messy one: it names nothing and merges every such row into
+                # one block.
+                product=product_label(row.variant.raw_title or "")
+                or (row.variant.raw_title or ""),
                 raw_title=row.variant.raw_title or "",
                 size_ml_x10=row.variant.size_ml_x10,
                 price_kurus=row.variant.price_kurus,
@@ -596,23 +666,18 @@ class SearchScreen(Screen[None]):
     # -- table: rebuilt on every change, small enough not to matter ----------
 
     def _reset_table(self) -> None:
-        """Empty the table and give it the columns this search needs.
+        """Empty the table for a new scan.
 
-        The perfume column only exists when there is more than one perfume to
-        tell apart. On the ordinary single search it would repeat the same words
-        down the screen and take the width from the product titles, which are
-        what a person actually reads.
+        The columns are the same every time now, so they are added once at mount
+        and only the rows are cleared here.
         """
         table = self.query_one("#results", DataTable)
-        table.clear(columns=True)
-        table.add_columns(*self._columns())
+        table.clear()
         self._visible_rows = []
         self._hidden_count = 0
 
     def _columns(self) -> tuple[str, ...]:
-        if self._multi:
-            return ("Parfüm", *_BASE_COLUMNS)
-        return _BASE_COLUMNS
+        return _COLUMNS
 
     @property
     def _multi(self) -> bool:
@@ -634,7 +699,14 @@ class SearchScreen(Screen[None]):
         # rows behind. Without it a search where everything is out of stock
         # looks identical to one where nothing matched.
         self._hidden_count = len(self._rows) - len(visible)
-        visible.sort(key=self._sort_value)
+        if self._sort_key is None:
+            # Built from every row, not the visible ones, so that hiding and
+            # showing the out-of-stock sizes with [f] cannot reshuffle the site
+            # blocks under someone who was reading them.
+            ranks = self._site_ranks()
+            visible.sort(key=lambda row: self._grouped_value(row, ranks))
+        else:
+            visible.sort(key=self._sorted_value)
         self._visible_rows = visible
         table.clear()
         for row in visible:
@@ -642,11 +714,65 @@ class SearchScreen(Screen[None]):
         if selected is not None and selected in visible:
             table.move_cursor(row=visible.index(selected))
 
-    def _sort_value(self, row: _ResultRow) -> tuple[int, bool, Decimal]:
-        # The perfume comes first, always. Sorting three perfumes into one ₺/ml
-        # list interleaves them, and a table where consecutive rows are different
-        # bottles cannot be read as a comparison of anything.
-        return (row.query_index, *self._within_query(row))
+    def _site_ranks(self) -> dict[tuple[int, str, str], tuple[int, Decimal]]:
+        """What each site charges for the product a block is about.
+
+        One entry per site per product block, not per site: a shop that is
+        cheapest on one bottle is not automatically cheapest on the next, and
+        ranking it once for the whole scan would let its bargain on one perfume
+        carry it to the top of a block where it is the dearest.
+
+        Only rows whose price could be read count. A size with no price says
+        nothing about what a shop charges, and letting it in would make the
+        block order depend on which rows happen to be on screen.
+        """
+        band: dict[tuple[int, str, str], Decimal] = {}
+        overall: dict[tuple[int, str, str], Decimal] = {}
+        for row in self._rows:
+            per_ml = row.price_per_ml_kurus
+            if per_ml is None:
+                continue
+            key = (row.query_index, row.product, row.site_id)
+            overall[key] = min(overall.get(key, per_ml), per_ml)
+            if row.size_ml_x10 <= _BAND_MAX_ML_X10:
+                band[key] = min(band.get(key, per_ml), per_ml)
+        return {
+            key: (0, band[key]) if key in band else (_OUT_OF_BAND, cheapest)
+            for key, cheapest in overall.items()
+        }
+
+    def _grouped_value(
+        self, row: _ResultRow, ranks: dict[tuple[int, str, str], tuple[int, Decimal]]
+    ) -> tuple[int, str, int, Decimal, str, Decimal]:
+        """The default order: typed order, product, site, size.
+
+        The typed order comes first and is never shown. Sorting several perfumes
+        into one ₺/ml list interleaves them, and a table where consecutive rows
+        are different bottles cannot be read as a comparison of anything.
+
+        Sizes go up inside a site's block, every block the same way, so the eye
+        can move down a column instead of re-reading each one.
+        """
+        band, cheapest = ranks.get(
+            (row.query_index, row.product, row.site_id), _UNPRICED
+        )
+        return (
+            row.query_index,
+            row.product,
+            band,
+            cheapest,
+            row.site_label,
+            Decimal(row.size_ml_x10),
+        )
+
+    def _sorted_value(self, row: _ResultRow) -> tuple[int, str, bool, Decimal]:
+        """The order once a column has been picked: the site layer drops out.
+
+        Asking for the cheapest ₺/ml and getting an answer still cut into site
+        blocks is not an answer. The product blocks stay, for the same reason
+        they always do.
+        """
+        return (row.query_index, row.product, *self._within_query(row))
 
     def _within_query(self, row: _ResultRow) -> tuple[bool, Decimal]:
         if self._sort_key == "ml":
@@ -682,9 +808,10 @@ class SearchScreen(Screen[None]):
         )
         score = str(row.match_score)
         return (
-            # The perfume column is left plain even on a weak match: it repeats
-            # what was typed, and the doubt is about the site's title, not it.
-            *((row.query_label,) if self._multi else ()),
+            # The block heading is left plain even on a weak match. The doubt is
+            # about whether the site's title is this perfume at all, and that is
+            # already said twice, on the title and on the score.
+            row.product,
             site,
             title if row.confident else Text(title, style=_LOW_CONFIDENCE_STYLE),
             ml,
@@ -711,6 +838,13 @@ class SearchScreen(Screen[None]):
         if self._hidden_count:
             text += rf" · {self._hidden_count} stoksuz sonuç gizlendi (\[f] göster)"
         self.query_one("#status", Static).update(text)
+        # Driven from here rather than from its own call sites: every place the
+        # counters move already calls this, and a bar updated from only some of
+        # them would stall partway through a scan that is still running.
+        bar = self.query_one("#progress", ProgressBar)
+        bar.display = self._scanning
+        if self._scanning:
+            bar.update(total=self._total, progress=self._done)
 
     def _selected_row(self) -> _ResultRow | None:
         table = self.query_one("#results", DataTable)

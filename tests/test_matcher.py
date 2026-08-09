@@ -15,6 +15,7 @@ from parfum_finder.matcher import (
     PerfumeQuery,
     match_title,
     parse_query,
+    product_label,
     split_queries,
     title_could_match,
 )
@@ -485,3 +486,104 @@ def test_a_doubtful_listing_is_still_opened_because_the_page_decides() -> None:
     assert match is not None
     assert not match.confident
     assert title_could_match(title, query)
+
+
+# Every one of these is a title a real shop actually served, pulled out of the
+# database this app filled on a live scan. Invented titles would only prove the
+# function agrees with whoever wrote them; the whole risk here is what six shops
+# do to one bottle's name, and that is not something to guess at.
+REAL_TITLES = [
+    # One bottle, six shops. A hyphen glued to the brand, an en dash in the
+    # middle, a size in seven different places, and one shop's packaging suffix.
+    ("Jean Paul Gaultier Le Male Le Parfum", "Jean Paul Gaultier Le Male Le Parfum"),
+    (
+        "Jean Paul Gaultier Le Male Le Parfum 2,7 ml - metal sprey",
+        "Jean Paul Gaultier Le Male Le Parfum",
+    ),
+    (
+        "Jean Paul Gaultier Le Male Le Parfum 3 ml - plastik sprey",
+        "Jean Paul Gaultier Le Male Le Parfum",
+    ),
+    (
+        "Jean Paul Gaultier Le Male Le Parfum 15 ml",
+        "Jean Paul Gaultier Le Male Le Parfum",
+    ),
+    ("Jean Paul Gaultier- Le Male Le Parfum", "Jean Paul Gaultier Le Male Le Parfum"),
+    ("Parfums de Marly Layton", "Parfums De Marly Layton"),
+    ("Parfums de Marly Layton 3 ml", "Parfums De Marly Layton"),
+    ("Parfums De Marly Layton 2,7 ml - metal sprey", "Parfums De Marly Layton"),
+    ("Parfums de Marly – Layton", "Parfums De Marly Layton"),
+    # The split that has to happen. Same query, same shop, different bottle.
+    ("Parfums de Marly Layton Exclusif", "Parfums De Marly Layton Exclusif"),
+    ("Amouage Interlude Black Iris", "Amouage Interlude Black Iris"),
+    ("Amouage Interlude Black Iris 20 ml", "Amouage Interlude Black Iris"),
+    # One shop lower-cases a word mid-title, which is why the label is rebuilt
+    # instead of being taken as written.
+    ("Amouage Interlude Black iris", "Amouage Interlude Black Iris"),
+    # The concentration is part of what the bottle is, so the EDP listing is its
+    # own block rather than joining the three lines above.
+    (
+        "Amouage Interlude Black Iris EDP 2,7 ml - metal sprey",
+        "Amouage Interlude Black Iris EDP",
+    ),
+    ("Amouage Interlude Black Iris EDP 12 ml", "Amouage Interlude Black Iris EDP"),
+    ("Louis Vuitton Afternoon Swim", "Louis Vuitton Afternoon Swim"),
+    (
+        "Louis Vuitton Afternoon Swim 3 ml - plastik sprey",
+        "Louis Vuitton Afternoon Swim",
+    ),
+    ("Louis Vuitton Afternoon Swim 15 ml", "Louis Vuitton Afternoon Swim"),
+    ("Hugo Boss Bottled Absolute", "Hugo Boss Bottled Absolute"),
+    ("Hugo Boss Bottled Absolute 5 ml", "Hugo Boss Bottled Absolute"),
+    ("Hugo – Boss Bottled Absolu", "Hugo Boss Bottled Absolu"),
+    ("Hugo Boss Bottled Absolu Edp 3 ml", "Hugo Boss Bottled Absolu EDP"),
+    ("Hugo Boss Bottled Absolu EDP 2024 8 ml", "Hugo Boss Bottled Absolu 2024 EDP"),
+]
+
+
+@pytest.mark.parametrize(("raw_title", "expected"), REAL_TITLES)
+def test_real_shop_titles_reduce_to_the_product_they_are_about(
+    raw_title: str, expected: str
+) -> None:
+    assert product_label(raw_title) == expected
+
+
+def test_every_shops_spelling_of_one_bottle_lands_in_one_block() -> None:
+    # The reason the function exists. Five shops, five spellings, five sizes,
+    # one heading -- a table that split these into five blocks of one row each
+    # would be unreadable and would compare nothing.
+    labels = {
+        product_label(title)
+        for title, _ in REAL_TITLES
+        if title.startswith("Parfums") and "Exclusif" not in title
+    }
+    assert labels == {"Parfums De Marly Layton"}
+
+
+def test_a_longer_named_bottle_does_not_join_the_shorter_ones_block() -> None:
+    # "Layton Exclusif" comes back on a search for "Layton" at 77%, and it is a
+    # different perfume at a different price. Sharing a block with Layton is the
+    # failure this whole layer is meant to prevent.
+    assert product_label("Parfums de Marly Layton Exclusif") != product_label(
+        "Parfums de Marly Layton"
+    )
+
+
+def test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates() -> None:
+    # The parenthesis names the original, so reading it as part of the name
+    # would file the clone under the original's heading, right next to real
+    # bottles at a fraction of the price.
+    assert (
+        product_label(
+            "Armaf - Club De Nuit Untold "
+            "(Maison Francis Kurkdjian - Baccarat Rouge 540)"
+        )
+        == "Armaf Club De Nuit Untold"
+    )
+
+
+def test_a_title_with_no_product_words_left_has_no_label() -> None:
+    # Nothing to head a block with. The caller has to fall back to the raw
+    # title rather than open a block named "".
+    assert product_label("5 ml dekant") == ""
+    assert product_label("") == ""

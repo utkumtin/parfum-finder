@@ -1,9 +1,9 @@
-"""Tests for the search screen: streaming, persistence, and the key bindings.
+"""Tests for the search screen: grouping, persistence, and the key bindings.
 
 A fake runner stands in for engine.run_site everywhere -- these tests never
 touch the network. Some fake runners are gated on an asyncio.Event so a test
-can force sites to finish out of order, which is the one thing a test that
-only checks the final table can never catch.
+can hold one site open while the others finish, which is the only way to check
+what the screen shows while a scan is still running.
 """
 
 import asyncio
@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 from textual.content import Content
-from textual.widgets import Button, DataTable, Input, Static
+from textual.widgets import Button, DataTable, Input, ProgressBar, Static
 
 from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
 from parfum_finder.store import connect, record_snapshot
@@ -135,9 +135,30 @@ async def _wait_until(
     await asyncio.wait_for(poll(), timeout_s)
 
 
-async def test_streaming_lands_out_of_order_rows_before_pending_site_resolves(
-    tmp_path: Path,
-) -> None:
+async def _wait_for_table(pilot: Any, timeout_s: float = 3.0) -> Any:
+    """Wait for the scan to end, which is the only time the table is filled.
+
+    Counting finished scans is not enough anymore: the last site can be done
+    while the rows are still being sorted into blocks, and a test that read the
+    table there would see an empty one at random.
+    """
+    screen = pilot.app.screen
+    # _total is what says a scan started at all, so this cannot fall through on
+    # the moment before the worker has begun.
+    await _wait_until(
+        lambda: screen._total > 0 and not screen._scanning, pilot, timeout_s
+    )
+    return screen.query_one("#results", DataTable)
+
+
+async def test_no_rows_land_until_every_site_is_done(tmp_path: Path) -> None:
+    """The table stays empty for the whole scan, and the bar carries the news.
+
+    Rows arriving one site at a time made the table move under whoever was
+    reading it: the cheapest row kept changing and the row under the cursor kept
+    sliding. So a site finishing early is deliberately not shown, and the
+    progress bar plus the live counter are what say the scan is going anywhere.
+    """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
     _write_profile(sites_dir, "site-b", "Site B")
@@ -159,21 +180,23 @@ async def test_streaming_lands_out_of_order_rows_before_pending_site_resolves(
 
         # site-b and site-c can finish; site-a is still parked on the gate.
         await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
-        assert screen._done == 2  # type: ignore[attr-defined]
-
-        status = screen.query_one("#status", Static)
-        assert "2/3" in str(status.content)
 
         table = screen.query_one("#results", DataTable)
-        assert table.row_count == 2
-        # Ürün is the site's raw title, untouched -- it is what makes a wrong
-        # match visible, so nothing here may tidy it up.
-        assert table.get_row_at(0)[1] == "Dior Sauvage EDP Dekant 5 ml"
+        assert table.row_count == 0
+        bar = screen.query_one("#progress", ProgressBar)
+        assert bar.display
+        assert (bar.progress, bar.total) == (2.0, 3.0)
+        assert "2/3" in str(screen.query_one("#status", Static).content)
 
         gate.set()
-        await _wait_until(lambda: screen._done == 3, pilot)  # type: ignore[attr-defined]
+        table = await _wait_for_table(pilot)
         assert table.row_count == 3
+        # Site Başlığı is the site's raw title, untouched -- it is what makes a
+        # wrong match visible, so nothing here may tidy it up.
+        assert table.get_row_at(0)[2] == "Dior Sauvage EDP Dekant 5 ml"
         assert "3/3" in str(screen.query_one("#status", Static).content)
+        # The bar has nothing left to say once the rows are there.
+        assert not screen.query_one("#progress", ProgressBar).display
 
 
 async def test_one_site_erroring_does_not_block_the_others(
@@ -280,11 +303,9 @@ async def test_stale_profile_gets_the_age_badge_on_its_site_name(
     async with app.run_test() as pilot:
         await pilot.pause()
         await _submit_query(pilot)
-        screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
 
-        table = screen.query_one("#results", DataTable)
-        site_cell = str(table.get_row_at(0)[0])
+        table = await _wait_for_table(pilot)
+        site_cell = str(table.get_row_at(0)[1])
         assert "⏳" in site_cell
         assert "gün önce keşfedildi" in site_cell
 
@@ -314,23 +335,25 @@ async def test_low_score_row_flags_the_match_percent_cell(tmp_path: Path) -> Non
     async with app.run_test() as pilot:
         await pilot.pause()
         await _submit_query(pilot)
-        screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+        table = await _wait_for_table(pilot)
 
         from rich.text import Text
 
         from parfum_finder.tui.search_screen import _LOW_CONFIDENCE_STYLE
 
-        cells = screen.query_one("#results", DataTable).get_row_at(0)
-        percent_cell = cells[6]
+        cells = table.get_row_at(0)
+        percent_cell = cells[7]
         assert isinstance(percent_cell, Text)
         assert percent_cell.style == _LOW_CONFIDENCE_STYLE
         assert str(percent_cell) == "31"
         # The title is the other half of the doubt: it is what did not match.
-        assert isinstance(cells[1], Text)
-        assert cells[1].style == _LOW_CONFIDENCE_STYLE
+        assert isinstance(cells[2], Text)
+        assert cells[2].style == _LOW_CONFIDENCE_STYLE
+        # The block heading stays plain: the doubt is already said twice, and a
+        # third marking would make a whole row look wrong over one weak title.
+        assert isinstance(cells[0], str)
         # ml, fiyat, ₺/ml and stok stay plain text, unmarked.
-        assert all(isinstance(cell, str) for cell in cells[2:6])
+        assert all(isinstance(cell, str) for cell in cells[3:7])
 
 
 async def test_site_colour_lands_on_the_site_cell_and_nowhere_else(
@@ -356,18 +379,17 @@ async def test_site_colour_lands_on_the_site_cell_and_nowhere_else(
     async with app.run_test() as pilot:
         await pilot.pause()
         await _submit_query(pilot)
-        screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+        table = await _wait_for_table(pilot)
 
         from rich.text import Text
 
         from parfum_finder.tui.search_screen import _SITE_STYLES
 
-        cells = screen.query_one("#results", DataTable).get_row_at(0)
-        assert isinstance(cells[0], Text)
-        assert cells[0].style == _SITE_STYLES["decantall"]
-        assert "gün önce keşfedildi" in str(cells[0])
-        assert all(isinstance(cell, str) for cell in cells[1:])
+        cells = table.get_row_at(0)
+        assert isinstance(cells[1], Text)
+        assert cells[1].style == _SITE_STYLES["decantall"]
+        assert "gün önce keşfedildi" in str(cells[1])
+        assert all(isinstance(cell, str) for cell in (cells[0], *cells[2:]))
 
 
 def test_every_shipped_site_has_a_colour_that_survives_256_colours() -> None:
@@ -398,9 +420,16 @@ def test_every_shipped_site_has_a_colour_that_survives_256_colours() -> None:
     assert len(set(downgraded)) == len(_SITE_STYLES)
 
 
-async def test_default_sort_is_price_per_ml_ascending_and_keys_reorder(
+async def test_sizes_go_up_inside_a_block_and_the_keys_still_reorder(
     tmp_path: Path,
 ) -> None:
+    """The default is a readable block, not the cheapest ₺/ml at the top.
+
+    Sizes ascending, every block the same way, so the eye can run down one
+    column instead of re-reading each block's direction. The number keys are
+    what turns the table back into a ranking, and they answer across sites, so
+    they drop the site layer entirely.
+    """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
 
@@ -414,25 +443,23 @@ async def test_default_sort_is_price_per_ml_ascending_and_keys_reorder(
     async with app.run_test() as pilot:
         await pilot.pause()
         await _submit_query(pilot)
-        screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+        table = await _wait_for_table(pilot)
 
-        table = screen.query_one("#results", DataTable)
-        assert table.get_row_at(0)[2] == "10 ml"  # cheaper per ml first, default sort
+        assert table.get_row_at(0)[3] == "5 ml"  # size ascending, default
 
         table.focus()
         await pilot.pause()
-        await pilot.press("1")
+        await pilot.press("3")
         await pilot.pause()
-        assert table.get_row_at(0)[2] == "5 ml"  # ml ascending
+        assert table.get_row_at(0)[3] == "10 ml"  # ₺/ml ascending
 
         await pilot.press("2")
         await pilot.pause()
-        assert table.get_row_at(0)[2] == "5 ml"  # price ascending (1500 < 2000)
+        assert table.get_row_at(0)[3] == "5 ml"  # price ascending (1500 < 2000)
 
-        await pilot.press("3")
+        await pilot.press("1")
         await pilot.pause()
-        assert table.get_row_at(0)[2] == "10 ml"  # back to ₺/ml ascending
+        assert table.get_row_at(0)[3] == "5 ml"  # ml ascending
 
 
 async def test_out_of_stock_rows_start_hidden_and_f_brings_them_back(
@@ -654,9 +681,7 @@ async def test_the_screen_keys_work_right_after_a_search_without_refocusing(
         await pilot.pause()
         await _submit_query(pilot)
         screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
-
-        table = screen.query_one("#results", DataTable)
+        table = await _wait_for_table(pilot)
         assert table.row_count == 1
 
         await pilot.press("f")
@@ -665,7 +690,7 @@ async def test_the_screen_keys_work_right_after_a_search_without_refocusing(
 
         await pilot.press("1")
         await pilot.pause()
-        assert table.get_row_at(0)[2] == "5 ml"
+        assert table.get_row_at(0)[3] == "5 ml"
 
         # Escape is the way back to the search box for the next query.
         await pilot.press("escape")
@@ -673,48 +698,52 @@ async def test_the_screen_keys_work_right_after_a_search_without_refocusing(
         assert screen.query_one("#query", Input).has_focus
 
 
-async def test_a_late_site_landing_does_not_move_the_cursor_off_the_picked_row(
+async def test_showing_the_hidden_rows_does_not_move_the_cursor_off_the_picked_row(
     tmp_path: Path,
 ) -> None:
-    """The row under the cursor has to survive a slower site arriving.
+    """The row under the cursor has to survive the table being rebuilt.
 
-    Rebuilding the table sends the cursor back to the top, so without
-    re-seeking, a person who picked a row mid-scan would press [a] and add a
-    different perfume than the one they were looking at. That is the exact
+    Nothing rebuilds it mid-scan anymore, but [f] and the sort keys still do,
+    and rebuilding sends the cursor back to the top. Without re-seeking, someone
+    who pressed [f] to check what was hidden would then press [a] and add a
+    different bottle than the one they were looking at. That is the exact
     mistake the raw-title column exists to prevent, so it cannot be allowed in
     through the back door.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
-    _write_profile(sites_dir, "site-b", "Site B")
 
-    gate = asyncio.Event()
-
-    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
-        if profile["id"] == "site-b":
-            await gate.wait()
-            return _ok_result("site-b", _variant(30, 60000, url="https://b.example/p"))
-        return _ok_result(
-            "site-a",
-            _variant(50, 150000, url="https://a.example/five"),
-            _variant(100, 200000, url="https://a.example/ten"),
-        )
-
-    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    app = _app(
+        sites_dir,
+        tmp_path / "db.sqlite3",
+        _static_runner(
+            {
+                "site-a": _ok_result(
+                    "site-a",
+                    # The out-of-stock 3 ml is hidden at first and sorts above
+                    # both others, so bringing it back shifts every row down.
+                    _variant(30, 60000, in_stock=False, url="https://a.example/three"),
+                    _variant(50, 150000, url="https://a.example/five"),
+                    _variant(100, 200000, url="https://a.example/ten"),
+                )
+            }
+        ),
+    )
     async with app.run_test() as pilot:
         await pilot.pause()
         await _submit_query(pilot)
         screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+        table = await _wait_for_table(pilot)
+        assert table.row_count == 2
 
-        table = screen.query_one("#results", DataTable)
         table.move_cursor(row=1)
         await pilot.pause()
         picked = screen._selected_row()  # type: ignore[attr-defined]
         assert picked is not None
 
-        gate.set()
-        await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
+        table.focus()
+        await pilot.press("f")
+        await pilot.pause()
         assert table.row_count == 3
 
         assert screen._selected_row() == picked  # type: ignore[attr-defined]
@@ -856,11 +885,9 @@ async def test_clone_row_shows_the_klon_marker_and_what_it_imitates(
         await pilot.pause()
         await _submit_query(pilot)
         screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
-
-        table = screen.query_one("#results", DataTable)
+        table = await _wait_for_table(pilot)
         assert table.row_count == 1
-        title_cell = str(table.get_row_at(0)[1])
+        title_cell = str(table.get_row_at(0)[2])
         # The raw title survives untouched, since it is still what makes a wrong
         # match visible, with the marker appended rather than substituted in.
         assert clone.raw_title is not None
@@ -1197,15 +1224,23 @@ async def test_one_line_of_two_perfumes_scans_every_site_for_both(
         ]
         table = screen.query_one("#results", DataTable)
         assert table.row_count == 4
-        # Which perfume a row is about, in a column that only exists when there
-        # is more than one of them to tell apart.
+        # Which bottle a row is about, read off the site's own title rather than
+        # copied back out of the search box.
         assert str(screen.query_one("#status", Static).content).startswith("4/4")
         assert table.get_row_at(0)[0] == "Dior Sauvage EDP"
 
 
-async def test_a_single_perfume_gets_no_perfume_column(tmp_path: Path) -> None:
-    # The ordinary search. A column repeating the same words down the screen
-    # would take its width from the product titles, which are what gets read.
+async def test_a_single_perfume_still_gets_the_matched_product_column(
+    tmp_path: Path,
+) -> None:
+    """One query is not one product, so the column cannot be hidden for it.
+
+    It used to appear only on multi-perfume searches, on the grounds that it
+    would otherwise repeat the search text down the screen. It no longer holds
+    the search text: a search for "Parfums de Marly Layton" comes back with
+    Layton and Layton Exclusif, two bottles at two prices, and this column is
+    what says which is which.
+    """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
     runner, _ = _per_query_runner()
@@ -1214,11 +1249,10 @@ async def test_a_single_perfume_gets_no_perfume_column(tmp_path: Path) -> None:
     async with app.run_test() as pilot:
         await pilot.pause()
         await _submit_query(pilot)
-        screen = app.screen
-        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+        table = await _wait_for_table(pilot)
 
-        table = screen.query_one("#results", DataTable)
-        assert table.get_row_at(0)[0] == "Site A"
+        assert table.get_row_at(0)[0] == "Dior Sauvage EDP"
+        assert table.get_row_at(0)[1] == "Site A"
 
 
 async def test_one_shop_is_asked_for_its_perfumes_one_at_a_time(
@@ -1349,7 +1383,7 @@ async def test_add_basket_adds_the_perfume_the_cursor_is_actually_on(
         await pilot.pause()
         await pilot.press("down")
         await pilot.pause()
-        assert screen._selected_row().query_label == "Chanel Bleu EDP"  # type: ignore[attr-defined]
+        assert screen._selected_row().product == "Chanel Bleu EDP"  # type: ignore[attr-defined]
         await pilot.press("a")
         await pilot.pause()
 
@@ -1395,3 +1429,210 @@ async def test_command_palette_offers_no_theme_switch(tmp_path: Path) -> None:
     # The rest of the palette has to survive the filter.
     assert "Quit" in titles
     assert "Screenshot" in titles
+
+
+def _two_products(site_id: str) -> SiteResult:
+    """One site answering with two different bottles for one query.
+
+    Real behaviour, not a contrivance: a search for Layton comes back with
+    Layton Exclusif alongside it, at 77%, and the two are different perfumes at
+    very different prices.
+    """
+    hits = []
+    for title, price in (
+        ("Parfums de Marly Layton", 30000),
+        ("Parfums de Marly Layton Exclusif", 90000),
+    ):
+        candidate = ProductCandidate(
+            raw_title=title, url=f"https://example.com/{price}"
+        )
+        hits.append(SearchHit(candidate, (_variant(30, price, title=title),)))
+    return SiteResult(site_id, "ok", tuple(hits), f"{site_id}: ok")
+
+
+async def test_site_blocks_are_ordered_by_what_the_small_bottles_cost(
+    tmp_path: Path,
+) -> None:
+    """A shop that only sells big bottles cannot win on ₺/ml alone.
+
+    ₺/ml always falls as the bottle grows, so ranking sites on their best ₺/ml
+    would hand the top of every block to whoever sells the largest decant. The
+    band is what a decant buyer is actually choosing between, and a site with
+    nothing in it is not cheaper, it is answering a different question.
+    """
+    sites_dir = tmp_path / "sites"
+    for site_id, name in (
+        ("site-a", "Site A"),
+        ("site-b", "Site B"),
+        ("site-c", "Site C"),
+    ):
+        _write_profile(sites_dir, site_id, name)
+
+    title = "Dior Sauvage EDP Dekant"
+    runner = _static_runner(
+        {
+            # 3 ml at 200 ₺/ml.
+            "site-a": _named_result("site-a", title, _variant(30, 60000, title=title)),
+            # 3 ml at 100 ₺/ml: the cheapest small bottle in the scan.
+            "site-b": _named_result("site-b", title, _variant(30, 30000, title=title)),
+            # Nothing under 10 ml, at 50 ₺/ml: the cheapest ₺/ml in the scan, and
+            # still last, because nobody comparing 3 ml decants can buy it.
+            "site-c": _named_result("site-c", title, _variant(100, 50000, title=title)),
+        }
+    )
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        table = await _wait_for_table(pilot)
+
+        assert [str(table.get_row_at(i)[1]) for i in range(3)] == [
+            "Site B",
+            "Site A",
+            "Site C",
+        ]
+
+
+async def test_showing_the_hidden_rows_does_not_reshuffle_the_site_blocks(
+    tmp_path: Path,
+) -> None:
+    """Block order is a property of the scan, not of what is on screen.
+
+    Computed from the visible rows, [f] would reorder the whole table under
+    someone who pressed it to check one thing, and pressing it again would give
+    a third order. So the ranking reads every row whose price was readable,
+    including the ones [f] is hiding.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+
+    title = "Dior Sauvage EDP Dekant"
+    runner = _static_runner(
+        {
+            # Its cheapest small bottle is out of stock, so with [f] off the only
+            # site-a row on screen is a 5 ml -- outside the band entirely.
+            "site-a": _named_result(
+                "site-a",
+                title,
+                _variant(30, 30000, in_stock=False, title=title),
+                _variant(50, 100000, title=title),
+            ),
+            "site-b": _named_result("site-b", title, _variant(30, 45000, title=title)),
+        }
+    )
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        table = await _wait_for_table(pilot)
+
+        hidden = [str(table.get_row_at(i)[1]) for i in range(table.row_count)]
+        assert hidden == ["Site A", "Site B"]
+
+        table.focus()
+        await pilot.press("f")
+        await pilot.pause()
+        shown = [str(table.get_row_at(i)[1]) for i in range(table.row_count)]
+        assert shown == ["Site A", "Site A", "Site B"]
+
+
+async def test_one_query_finding_two_bottles_gets_two_blocks(tmp_path: Path) -> None:
+    """Layton and Layton Exclusif are two perfumes, whatever was typed.
+
+    Grouping on the search text would drop both into one block, where the
+    Exclusif's higher price would read as this shop being expensive for Layton.
+    The heading comes off each site's own title for exactly that reason.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner = _static_runner({"site-a": _two_products("site-a")})
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot, "Parfums de Marly Layton")
+        table = await _wait_for_table(pilot)
+
+        assert [str(table.get_row_at(i)[0]) for i in range(2)] == [
+            "Parfums De Marly Layton",
+            "Parfums De Marly Layton Exclusif",
+        ]
+        # The Exclusif really is the 77% row the split exists for.
+        assert str(table.get_row_at(1)[7]) == "77"
+
+
+async def test_picking_a_column_keeps_the_product_blocks(tmp_path: Path) -> None:
+    """Sorting drops the site layer, never the product layer.
+
+    Sorted across products the cheapest Layton and the cheapest Exclusif would
+    alternate down the screen, and a column of ₺/ml where consecutive rows are
+    different bottles ranks nothing.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner = _static_runner({"site-a": _two_products("site-a")})
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot, "Parfums de Marly Layton")
+        table = await _wait_for_table(pilot)
+
+        table.focus()
+        await pilot.press("3")
+        await pilot.pause()
+        # The Exclusif is three times the price, so a table sorted by ₺/ml with
+        # no product layer would put the Layton row first and leave it there.
+        assert [str(table.get_row_at(i)[0]) for i in range(2)] == [
+            "Parfums De Marly Layton",
+            "Parfums De Marly Layton Exclusif",
+        ]
+
+
+async def test_a_second_search_replaces_the_first_and_not_its_columns(
+    tmp_path: Path,
+) -> None:
+    """Searching again has to leave one table, with one set of headings.
+
+    The columns are added once, at mount, now that they no longer depend on how
+    many perfumes were typed. A second search that added them again would leave
+    sixteen headings and shift every cell the keys read by eight.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+
+    title = "Dior Sauvage EDP Dekant"
+    other = "Chanel Bleu EDP Dekant"
+
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
+        if "chanel" in query.casefold():
+            return _named_result("site-a", other, _variant(30, 20000, title=other))
+        return _named_result("site-a", title, _variant(30, 60000, title=title))
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        table = await _wait_for_table(pilot)
+        assert table.row_count == 1
+        assert len(table.columns) == 8
+
+        await _submit_query(pilot, "Chanel Bleu EDP")
+        # Waited on by content, not by the scanning flag: one fake site finishes
+        # inside a single frame, so the flag can go up and down between polls.
+        screen: Any = app.screen
+        await _wait_until(
+            lambda: (
+                bool(screen._visible_rows)
+                and screen._visible_rows[0].product == "Chanel Bleu EDP"
+            ),
+            pilot,
+        )
+
+        # The first search's row is gone, not sitting above the second's.
+        assert table.row_count == 1
+        assert table.get_row_at(0)[0] == "Chanel Bleu EDP"
+        assert len(table.columns) == 8
