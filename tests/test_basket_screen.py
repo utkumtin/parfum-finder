@@ -23,7 +23,11 @@ from parfum_finder.profiles import load_site_profile, sync_to_db
 from parfum_finder.store import add_basket_item, connect, now_iso, record_snapshot
 from parfum_finder.tui import basket_screen as basket_screen_module
 from parfum_finder.tui.app import ParfumFinderApp
-from parfum_finder.tui.basket_screen import BasketScreen, format_age
+from parfum_finder.tui.basket_screen import (
+    STALE_PRICE_STYLE,
+    BasketScreen,
+    format_age,
+)
 from parfum_finder.tui.search_screen import SearchScreen
 
 # Keyword-tolerant: the search screen hands its runner a browser session and a
@@ -423,7 +427,7 @@ async def test_a_rows_age_is_its_stalest_cell(tmp_path: Path) -> None:
         # Coloured as well as counted. With a dozen lines the warning only says
         # that something is old; the red cell is what says which line.
         table = screen.query_one("#basket", DataTable)
-        assert str(table.get_row_at(0)[-1].style) == "bold red"
+        assert str(table.get_row_at(0)[-1].style) == STALE_PRICE_STYLE
 
 
 async def test_fresh_prices_raise_no_staleness_warning(tmp_path: Path) -> None:

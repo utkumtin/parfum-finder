@@ -1233,3 +1233,36 @@ async def test_add_basket_adds_the_perfume_the_cursor_is_actually_on(
         finally:
             conn.close()
         assert [tuple(row) for row in basket] == [("chanel", "bleu")]
+
+
+async def test_theme_is_pinned_regardless_of_the_environment(tmp_path: Path) -> None:
+    """The whole UI is tuned for one palette, so nothing outside may pick another.
+
+    $TEXTUAL_THEME feeds the reactive's default, which is what the pre-mount
+    assignment here stands in for. If someone ever moves the theme back to a
+    class attribute it silently stops overriding, and this is what catches it.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    app = _app(sites_dir, tmp_path / "db.sqlite3", _static_runner({}))
+    app.theme = "textual-light"
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.theme == "textual-dark"
+
+
+async def test_command_palette_offers_no_theme_switch(tmp_path: Path) -> None:
+    """Closing the palette door is the other half of pinning the theme."""
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    app = _app(sites_dir, tmp_path / "db.sqlite3", _static_runner({}))
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        titles = [command.title for command in app.get_system_commands(app.screen)]
+
+    assert "Theme" not in titles
+    # The rest of the palette has to survive the filter.
+    assert "Quit" in titles
+    assert "Screenshot" in titles

@@ -67,6 +67,12 @@ _Change = Callable[[sqlite3.Connection], None]
 # price the shop has had plenty of time to change.
 STALE_PRICE_DAYS = 14
 
+# Soft dusty red for the stale age cell. Plain "red" shouts louder than an old
+# price deserves, and it is an alarm colour the rest of the screen does not use.
+# This hex is xterm colour 174 exactly, so a terminal without truecolor gets the
+# same tone instead of a nearest guess.
+STALE_PRICE_STYLE = "bold #d78787"
+
 _TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 _EMPTY = "—"
@@ -273,7 +279,7 @@ class BasketScreen(Screen[None]):
         # table. With a dozen lines the warning says some price is old, and this
         # is what says which one.
         if row.age_days is not None and row.age_days >= STALE_PRICE_DAYS:
-            cells.append(Text(age, style="bold red"))
+            cells.append(Text(age, style=STALE_PRICE_STYLE))
         else:
             cells.append(age)
         return tuple(cells)
