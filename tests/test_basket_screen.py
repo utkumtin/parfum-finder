@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from textual.content import Content
 from textual.widgets import DataTable, Static
 
 from parfum_finder.basket import SiteScenario, SplitLeg, SplitPlan
@@ -243,7 +244,12 @@ async def _wait_until(
 
 
 def _text(screen: BasketScreen, widget_id: str) -> str:
-    return str(screen.query_one(f"#{widget_id}", Static).content)
+    # .visual, not .content: content is the raw string handed to update(),
+    # so asserting on it cannot see markup eating part of the line before it
+    # is painted. .visual is what the widget actually shows.
+    visual = screen.query_one(f"#{widget_id}", Static).visual
+    assert isinstance(visual, Content)
+    return visual.plain
 
 
 def _cells(screen: BasketScreen) -> list[list[str]]:
@@ -410,7 +416,10 @@ async def test_a_rows_age_is_its_stalest_cell(tmp_path: Path) -> None:
     async with _app(sites_dir, db).run_test() as pilot:
         screen = await _open_basket(pilot)
         assert _cells(screen)[0][-1] == "2 hafta önce"
-        assert "günden eski" in _text(screen, "basket-notices")
+        notices = _text(screen, "basket-notices")
+        assert "günden eski" in notices
+        # And says which key fixes it. Content markup eats an unescaped [r].
+        assert "[r]" in notices
         # Coloured as well as counted. With a dozen lines the warning only says
         # that something is old; the red cell is what says which line.
         table = screen.query_one("#basket", DataTable)
@@ -523,7 +532,11 @@ async def test_an_empty_basket_says_how_to_fill_it(tmp_path: Path) -> None:
 
     async with _app(sites_dir, db).run_test() as pilot:
         screen = await _open_basket(pilot)
-        assert "Sepet boş" in _text(screen, "basket-notices")
+        notices = _text(screen, "basket-notices")
+        assert "Sepet boş" in notices
+        # The key is the how. Content markup eats an unescaped [a], which
+        # turns the one useful sentence on an empty screen into a shrug.
+        assert "[a]" in notices
 
 
 async def test_an_item_no_site_sells_is_called_out_by_name(tmp_path: Path) -> None:

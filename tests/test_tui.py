@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from textual.widgets import DataTable, Input, Static
+from textual.content import Content
+from textual.widgets import Button, DataTable, Input, Static
 
 from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
 from parfum_finder.store import connect, record_snapshot
@@ -109,6 +110,18 @@ async def _submit_query(pilot: Any, text: str = QUERY_TEXT) -> None:
     query.focus()
     await pilot.pause()
     await pilot.press("enter")
+
+
+def _rendered(widget: Static) -> str:
+    """What the widget actually paints, with markup applied.
+
+    `.content` is the raw string handed to update(), so an assertion on it
+    cannot tell a key hint that reaches the screen from one that markup
+    swallowed as a style tag on the way.
+    """
+    visual = widget.visual
+    assert isinstance(visual, Content)
+    return visual.plain
 
 
 async def _wait_until(
@@ -358,7 +371,12 @@ async def test_out_of_stock_rows_start_hidden_and_f_brings_them_back(
 
         table = screen.query_one("#results", DataTable)
         assert table.row_count == 1
-        assert "1 stoksuz" in str(screen.query_one("#status", Static).content)
+        status = _rendered(screen.query_one("#status", Static))
+        assert "1 stoksuz" in status
+        # Naming the key is the whole point of the counter: it says a row was
+        # hidden and how to see it. Asserted on the rendered text because
+        # content markup eats an unescaped [f] and leaves only the count.
+        assert "[f]" in status
 
         table.focus()
         await pilot.pause()
@@ -941,6 +959,52 @@ async def test_the_low_confidence_dialog_can_be_answered_with_the_keyboard_alone
         await pilot.press("enter")
         await _wait_until(lambda: not isinstance(app.screen, ConfirmScreen), pilot)
         await _wait_until(lambda: _basket_count(db_path) == 1, pilot)
+
+
+async def test_the_low_confidence_dialog_shows_the_keys_it_answers_to(
+    tmp_path: Path,
+) -> None:
+    """The key hints have to survive to the screen, not just exist in source.
+
+    The labels were written with the keys in them from the start, but Textual
+    reads square brackets as content markup, so "Evet [y]" rendered as "Evet "
+    and the only clue the dialog answers to y and n was gone. Nothing else on
+    the dialog names those keys, so a user who does not tab has no way to learn
+    them. This asserts on what the button actually renders, so the same markup
+    swallow gets caught if it happens to any other label here.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+
+    title = "Dior Eau Sauvage EDP"
+    candidate = ProductCandidate(raw_title=title, url="https://example.com/p")
+    result = SiteResult(
+        "site-a",
+        "ok",
+        (SearchHit(candidate, (_variant(50, 100000, title=title),)),),
+        "ok",
+    )
+    runner = _static_runner({"site-a": result})
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        screen.query_one("#results", DataTable).focus()
+        await pilot.pause()
+        await pilot.press("a")
+        await _wait_until(lambda: isinstance(app.screen, ConfirmScreen), pilot)
+
+        # Button parses its label into Content, so .plain is the text that
+        # actually reaches the screen, markup already applied.
+        labels = {
+            button.id: Content.from_text(button.label).plain
+            for button in app.screen.query(Button)
+        }
+        assert labels == {"yes": "Evet [y]", "no": "Hayır [n]"}
 
 
 def _basket_count(db_path: Path) -> int:

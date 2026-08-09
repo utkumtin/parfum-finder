@@ -315,7 +315,7 @@ class BasketScreen(Screen[None]):
     def _render_notices(self, report: BasketReport) -> None:
         notices = list(self._notices)
         if not self._rows:
-            notices.append("Sepet boş. Arama ekranından [a] ile ürün ekleyin.")
+            notices.append(r"Sepet boş. Arama ekranından \[a] ile ürün ekleyin.")
         else:
             for label in report.unavailable:
                 notices.append(f'⚠ "{label}" hiçbir sitede bulunamadı')
@@ -330,7 +330,7 @@ class BasketScreen(Screen[None]):
             ):
                 notices.append(
                     f"⚠ Bazı fiyatlar {STALE_PRICE_DAYS} günden eski — "
-                    "[r] ile tazeleyin"
+                    r"\[r] ile tazeleyin"
                 )
         self.query_one("#basket-notices", Static).update("\n".join(notices))
 

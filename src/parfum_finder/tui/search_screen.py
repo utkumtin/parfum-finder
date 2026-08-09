@@ -201,8 +201,11 @@ class ConfirmScreen(ModalScreen[bool]):
         with Vertical():
             yield Static(self._message)
             with Horizontal(id="buttons"):
-                yield Button("Evet [y]", variant="warning", id="yes")
-                yield Button("Hayır [n]", variant="primary", id="no")
+                # Brackets are escaped because Textual reads them as content
+                # markup, so an unescaped [y] is stripped out as a style tag
+                # and the key hint never reaches the screen.
+                yield Button(r"Evet \[y]", variant="warning", id="yes")
+                yield Button(r"Hayır \[n]", variant="primary", id="no")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()
@@ -670,7 +673,7 @@ class SearchScreen(Screen[None]):
         if self._errors:
             text += f" · {self._errors} hata"
         if self._hidden_count:
-            text += f" · {self._hidden_count} stoksuz sonuç gizlendi ([f] göster)"
+            text += rf" · {self._hidden_count} stoksuz sonuç gizlendi (\[f] göster)"
         self.query_one("#status", Static).update(text)
 
     def _selected_row(self) -> _ResultRow | None:
