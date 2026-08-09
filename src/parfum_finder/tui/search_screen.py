@@ -1,9 +1,14 @@
 """The search screen: a results table that fills in as each site finishes.
 
 Columns: site, raw product title, size (ml), price, price per ml, stock, match
-score. Results from a site land as soon as that site is done -- one worker per
+score. Results from a site land as soon as that site is done -- one task per
 site, started together, none of them waiting on another. The screen never
 waits for every site to finish before showing anything.
+
+One line may ask for several perfumes, separated by " - ". They are scanned in
+one pass, still one task per site, with that site's perfumes going one after
+the other inside it: a site's requests are paced from one place, so starting a
+shop's whole list at once would hand it the burst the pacing exists to prevent.
 
 Matching and row-building are not redone here: both this screen's table and
 the database go through store.snapshot_rows, so the two can never disagree
@@ -15,11 +20,11 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 import webbrowser
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, MutableMapping
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from rich.text import Text
 from textual import work
@@ -28,8 +33,16 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, DataTable, Footer, Input, Static
 
-from parfum_finder.engine import SiteResult
-from parfum_finder.matcher import DEFAULT_THRESHOLD, PerfumeQuery, parse_query
+from parfum_finder.engine import CacheKey, CandidateFilter, SiteResult, VariantsRead
+from parfum_finder.fetch import Fetcher, browser_session
+from parfum_finder.matcher import (
+    DEFAULT_THRESHOLD,
+    MAX_QUERIES,
+    PerfumeQuery,
+    parse_query,
+    split_queries,
+    title_could_match,
+)
 from parfum_finder.normalize import format_ml, format_price
 from parfum_finder.profiles import load_site_profile, sync_to_db
 from parfum_finder.store import (
@@ -49,11 +62,61 @@ from parfum_finder.validate import (
     profile_age_days,
 )
 
-SiteRunner = Callable[[dict[str, Any], str], Awaitable[SiteResult]]
+
+class SiteRunner(Protocol):
+    """What this screen needs of engine.run_site.
+
+    A protocol rather than a plain callable alias because the scan hands the
+    runner more than a query now: the browser session it owns, the filter that
+    keeps a listing from being opened for nothing, and the product cache the
+    perfumes of one scan share. A stand-in that cannot take them is a type
+    error here instead of a surprise mid-scan.
+    """
+
+    def __call__(
+        self,
+        profile: dict[str, Any],
+        query: str,
+        *,
+        fetcher: Fetcher = ...,
+        keep_candidate: CandidateFilter | None = ...,
+        variants_cache: MutableMapping[CacheKey, VariantsRead] | None = ...,
+    ) -> Awaitable[SiteResult]: ...
+
 
 # Clicking one of these headers sorts by it, the same three sorts the number
-# keys offer. The other columns have no ordering worth offering.
-_SORT_BY_COLUMN = {2: "ml", 3: "price", 4: "per_ml"}
+# keys offer. The other columns have no ordering worth offering. Counted from
+# the size column, since a multi-perfume search puts one more column in front
+# of it.
+_SORT_BY_COLUMN = {0: "ml", 1: "price", 2: "per_ml"}
+
+_BASE_COLUMNS = ("Site", "Ürün", "ml", "Fiyat", "₺/ml", "Stok", "%")
+
+# Where the sortable columns start, with and without the perfume column.
+_FIRST_SORTABLE = _BASE_COLUMNS.index("ml")
+
+
+def _listing_filter(query: PerfumeQuery) -> CandidateFilter:
+    """Decide, from a search result's own title, whether to open its page."""
+
+    def keep(raw_title: str | None) -> bool:
+        return title_could_match(raw_title, query)
+
+    return keep
+
+
+@dataclass(frozen=True)
+class _Search:
+    """One perfume of a search, as typed and as parsed.
+
+    The index is what groups the results table: three perfumes sorted into one
+    ₺/ml list interleave into something nobody can read, so the typed order is
+    the outer sort and the chosen column only orders each group.
+    """
+
+    index: int
+    text: str
+    query: PerfumeQuery
 
 
 @dataclass(frozen=True)
@@ -72,6 +135,8 @@ class _ResultRow:
     name: str
     concentration: str
     product_url: str | None
+    query_index: int = 0
+    query_label: str = ""
     clone_of: str = ""
 
     @property
@@ -196,6 +261,10 @@ class SearchScreen(Screen[None]):
         self.runner = runner
         self._profiles: list[dict[str, Any]] = []
         self._bootstrapped = asyncio.Event()
+        # What the current results are about. Empty until the first search, and
+        # what decides whether the table needs a perfume column at all.
+        self._searches: list[_Search] = []
+        self._limit_notice = ""
         self._rows: list[_ResultRow] = []
         self._visible_rows: list[_ResultRow] = []
         # One writer at a time. Every site worker opens its own connection and
@@ -229,8 +298,7 @@ class SearchScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
-        table = self.query_one("#results", DataTable)
-        table.add_columns("Site", "Ürün", "ml", "Fiyat", "₺/ml", "Stok", "%")
+        self.query_one("#results", DataTable).add_columns(*self._columns())
         self._bootstrap()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
@@ -243,7 +311,10 @@ class SearchScreen(Screen[None]):
 
     def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
         event.stop()
-        key = _SORT_BY_COLUMN.get(event.column_index)
+        # Counted from the first sortable column, which a multi-perfume search
+        # pushes one to the right.
+        offset = _FIRST_SORTABLE + (1 if self._multi else 0)
+        key = _SORT_BY_COLUMN.get(event.column_index - offset)
         if key is not None:
             self.action_sort(key)
 
@@ -274,8 +345,25 @@ class SearchScreen(Screen[None]):
 
     # -- search: one worker per site, none waiting on another ----------------
 
+    def on_input_changed(self, event: Input.Changed) -> None:
+        # Counted while it is being typed, not on submit. A pasted list is the
+        # way this limit gets hit, and finding out only after pressing enter is
+        # finding out after the wait.
+        count = len(split_queries(event.value))
+        self._limit_notice = (
+            f"en fazla {MAX_QUERIES} parfüm aranabilir, bu satırda {count} var"
+            if count > MAX_QUERIES
+            else ""
+        )
+        self._set_notices()
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         event.stop()
+        if self._limit_notice:
+            # Refused rather than trimmed to the first ten. Which ones were
+            # dropped is not something a status line makes obvious, and a scan
+            # that quietly answered a shorter question is worse than no scan.
+            return
         # Focus moves to the table as the search starts. A focused Input eats
         # every printable key, so leaving it focused would make 1/2/3, f, h and
         # a do nothing while the footer still offers them, and there would be
@@ -285,56 +373,111 @@ class SearchScreen(Screen[None]):
 
     @work(exclusive=True, group="scan-setup")
     async def _start_search(self, text: str) -> None:
-        try:
-            query = parse_query(text)
-        except ValueError as e:
-            self._notices = [str(e)]
+        searches: list[_Search] = []
+        rejected: list[str] = []
+        for part in split_queries(text):
+            try:
+                query = parse_query(part)
+            except ValueError as e:
+                # One unparseable piece does not cancel the others. Someone who
+                # typed three perfumes and mistyped one wants the two that were
+                # right, and the line below says which one was not.
+                rejected.append(str(e))
+                continue
+            searches.append(_Search(index=len(searches), text=part, query=query))
+        if not searches:
+            self._notices = rejected or ["a search needs a perfume to look for"]
             self._set_notices()
             return
         await self._bootstrapped.wait()
         self._generation += 1
         generation = self._generation
+        self._searches = searches
         self._rows = []
-        self._notices = []
+        self._notices = rejected
         self._done = 0
         self._errors = 0
-        self._total = sum(1 for p in self._profiles if p.get("enabled", True))
-        self._refresh_table()
+        profiles = [p for p in self._profiles if p.get("enabled", True)]
+        self._total = len(searches) * len(profiles)
+        self._reset_table()
         self._set_notices()
         self._update_status()
-        for profile in self._profiles:
-            if not profile.get("enabled", True):
-                continue
-            self._scan_site(profile, text, query, generation)
+        # One product read per URL for the whole scan. Two perfumes searched at
+        # one shop routinely list the same product, and the second read costs a
+        # request and a rate-limit wait to learn what is already known.
+        cache: dict[CacheKey, VariantsRead] = {}
+        # The browser, if any site needs one, is started once and kept for the
+        # whole scan instead of per page. Nothing is launched when no profile
+        # asks for playwright.
+        async with browser_session() as fetcher:
+            async with asyncio.TaskGroup() as group:
+                for profile in profiles:
+                    group.create_task(
+                        self._scan_site(profile, searches, generation, fetcher, cache),
+                        name=f"scan:{profile['id']}",
+                    )
 
-    @work(exclusive=False, group="scan-site")
     async def _scan_site(
-        self, profile: dict[str, Any], text: str, query: PerfumeQuery, generation: int
+        self,
+        profile: dict[str, Any],
+        searches: list[_Search],
+        generation: int,
+        fetcher: Fetcher,
+        cache: dict[CacheKey, VariantsRead],
     ) -> None:
-        try:
-            result = await self.runner(profile, text)
-        except Exception as e:
-            result = SiteResult(
-                str(profile["id"]), "error", (), f"{type(e).__name__}: {e}"
-            )
-        if generation != self._generation:
-            return
-        rows = snapshot_rows(result, query)
-        # The screen is updated before the database is touched. The table needs
-        # nothing from sqlite, so a write that fails must not be able to hide a
-        # site that answered, or leave the footer counter stuck below the total
-        # with no sign of why.
-        self._apply_result(profile, result, rows)
-        try:
-            async with self._write_lock:
-                await asyncio.to_thread(self._write_snapshots, rows)
-        except Exception as e:
+        """Scan one site for every perfume of this search, one at a time.
+
+        Serial inside the site, and one of these per site. A site's requests are
+        paced from one place per call, so running its perfumes side by side would
+        put every gap in parallel and hand a small shop the burst the pacing
+        exists to prevent.
+
+        Nothing raises out of here. These run in a TaskGroup, where one escaping
+        exception cancels every other site, which is the opposite of what a
+        results table filling in site by site is for.
+        """
+        for search in searches:
+            # Checked before each perfume, not once at the top. A search that has
+            # been replaced would otherwise go on spending requests on every
+            # remaining perfume before noticing.
             if generation != self._generation:
                 return
-            self._notices.append(
-                f"⚠ {result.site_id} — fiyatlar kaydedilemedi ({type(e).__name__}: {e})"
-            )
-            self._set_notices()
+            try:
+                result = await self.runner(
+                    profile,
+                    search.text,
+                    fetcher=fetcher,
+                    keep_candidate=_listing_filter(search.query),
+                    variants_cache=cache,
+                )
+            except Exception as e:
+                result = SiteResult(
+                    str(profile["id"]), "error", (), f"{type(e).__name__}: {e}"
+                )
+            if generation != self._generation:
+                return
+            try:
+                rows = snapshot_rows(result, search.query)
+            except Exception as e:
+                self._note(f"⚠ {profile['id']} — sonuç okunamadı ({e})")
+                self._done += 1
+                self._update_status()
+                continue
+            # The screen is updated before the database is touched. The table
+            # needs nothing from sqlite, so a write that fails must not be able
+            # to hide a site that answered, or leave the footer counter stuck
+            # below the total with no sign of why.
+            self._apply_result(profile, search, result, rows)
+            try:
+                async with self._write_lock:
+                    await asyncio.to_thread(self._write_snapshots, rows)
+            except Exception as e:
+                if generation != self._generation:
+                    return
+                self._note(
+                    f"⚠ {result.site_id} — fiyatlar kaydedilemedi "
+                    f"({type(e).__name__}: {e})"
+                )
 
     def _write_snapshots(self, rows: list[SnapshotRow]) -> None:
         conn = connect(self.db_path)
@@ -344,28 +487,40 @@ class SearchScreen(Screen[None]):
             conn.close()
 
     def _apply_result(
-        self, profile: dict[str, Any], result: SiteResult, rows: list[SnapshotRow]
+        self,
+        profile: dict[str, Any],
+        search: _Search,
+        result: SiteResult,
+        rows: list[SnapshotRow],
     ) -> None:
         self._done += 1
         site_label = self._site_label(profile)
+        # Which perfume a line is about, when there is more than one in flight.
+        # "site-a — eşleşme bulunamadı" three times over says nothing about which
+        # of the three searches it failed.
+        about = f"{result.site_id} · {search.text}" if self._multi else result.site_id
         if result.status in ("ok", "empty"):
             if rows:
-                self._rows.extend(self._to_result_rows(site_label, rows))
+                self._rows.extend(self._to_result_rows(site_label, search, rows))
             else:
-                self._notices.append(f"{result.site_id} — eşleşme bulunamadı")
+                self._note(f"{about} — eşleşme bulunamadı")
         elif result.status == "suspect":
             self._errors += 1
-            self._notices.append(
-                f"⚠ {result.site_id} — profil bozulmuş olabilir: {self._detail(result)}"
-            )
+            self._note(f"⚠ {about} — profil bozulmuş olabilir: {self._detail(result)}")
         else:  # error
             self._errors += 1
-            self._notices.append(
-                f"⚠ {result.site_id} — bağlantı hatası ({self._detail(result)})"
-            )
+            self._note(f"⚠ {about} — bağlantı hatası ({self._detail(result)})")
         self._refresh_table()
         self._set_notices()
         self._update_status()
+
+    def _note(self, message: str) -> None:
+        # A site that fails on every perfume of a search would otherwise print
+        # the same line once per perfume, and ten of those bury the sites that
+        # did answer.
+        if message not in self._notices:
+            self._notices.append(message)
+        self._set_notices()
 
     @staticmethod
     def _detail(result: SiteResult) -> str:
@@ -383,11 +538,15 @@ class SearchScreen(Screen[None]):
         return name
 
     @staticmethod
-    def _to_result_rows(site_label: str, rows: list[SnapshotRow]) -> list[_ResultRow]:
+    def _to_result_rows(
+        site_label: str, search: _Search, rows: list[SnapshotRow]
+    ) -> list[_ResultRow]:
         return [
             _ResultRow(
                 site_id=row.site_id,
                 site_label=site_label,
+                query_index=search.index,
+                query_label=search.text,
                 raw_title=row.variant.raw_title or "",
                 size_ml_x10=row.variant.size_ml_x10,
                 price_kurus=row.variant.price_kurus,
@@ -404,6 +563,29 @@ class SearchScreen(Screen[None]):
         ]
 
     # -- table: rebuilt on every change, small enough not to matter ----------
+
+    def _reset_table(self) -> None:
+        """Empty the table and give it the columns this search needs.
+
+        The perfume column only exists when there is more than one perfume to
+        tell apart. On the ordinary single search it would repeat the same words
+        down the screen and take the width from the product titles, which are
+        what a person actually reads.
+        """
+        table = self.query_one("#results", DataTable)
+        table.clear(columns=True)
+        table.add_columns(*self._columns())
+        self._visible_rows = []
+        self._hidden_count = 0
+
+    def _columns(self) -> tuple[str, ...]:
+        if self._multi:
+            return ("Parfüm", *_BASE_COLUMNS)
+        return _BASE_COLUMNS
+
+    @property
+    def _multi(self) -> bool:
+        return len(self._searches) > 1
 
     def _refresh_table(self) -> None:
         table = self.query_one("#results", DataTable)
@@ -429,7 +611,13 @@ class SearchScreen(Screen[None]):
         if selected is not None and selected in visible:
             table.move_cursor(row=visible.index(selected))
 
-    def _sort_value(self, row: _ResultRow) -> tuple[bool, Decimal]:
+    def _sort_value(self, row: _ResultRow) -> tuple[int, bool, Decimal]:
+        # The perfume comes first, always. Sorting three perfumes into one ₺/ml
+        # list interleaves them, and a table where consecutive rows are different
+        # bottles cannot be read as a comparison of anything.
+        return (row.query_index, *self._within_query(row))
+
+    def _within_query(self, row: _ResultRow) -> tuple[bool, Decimal]:
         if self._sort_key == "ml":
             return (False, Decimal(row.size_ml_x10))
         if self._sort_key == "price":
@@ -441,8 +629,7 @@ class SearchScreen(Screen[None]):
             else Decimal(0),
         )
 
-    @staticmethod
-    def _cells(row: _ResultRow) -> tuple[object, ...]:
+    def _cells(self, row: _ResultRow) -> tuple[object, ...]:
         ml = format_ml(Decimal(row.size_ml_x10) / Decimal(10))
         if row.price_kurus is None:
             price = "-"
@@ -457,6 +644,7 @@ class SearchScreen(Screen[None]):
         if row.clone_of:
             title = f"{title}  KLON ← {row.clone_of}"
         cells: tuple[object, ...] = (
+            *((row.query_label,) if self._multi else ()),
             row.site_label,
             title,
             ml,
@@ -470,10 +658,15 @@ class SearchScreen(Screen[None]):
         return cells
 
     def _set_notices(self) -> None:
-        self.query_one("#notices", Static).update("\n".join(self._notices))
+        lines = [self._limit_notice] if self._limit_notice else []
+        lines += self._notices
+        self.query_one("#notices", Static).update("\n".join(lines))
 
     def _update_status(self) -> None:
-        text = f"{self._done}/{self._total} site tamam"
+        # "tarama", not "site": with several perfumes the total is one scan per
+        # site per perfume, and calling that a site count says a scan of six
+        # shops did eighteen of them.
+        text = f"{self._done}/{self._total} tarama tamam"
         if self._errors:
             text += f" · {self._errors} hata"
         if self._hidden_count:

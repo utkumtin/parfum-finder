@@ -36,6 +36,7 @@ from parfum_finder.fetch import (
     Strategy,
     fetch,
 )
+from parfum_finder.matcher import parse_query, title_could_match
 
 
 def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:
@@ -1302,3 +1303,144 @@ async def test_a_product_page_with_no_root_names_its_body_size(
     # in the message itself that nothing at all came back, not just that
     # parsing failed on something.
     assert "(0 byte body)" in str(excinfo.value)
+
+
+def _watching_fetcher() -> tuple[Fetcher, list[str]]:
+    """The real fetcher, with a list of every URL it was asked for."""
+    sent: list[str] = []
+
+    async def watched(
+        url: str,
+        strategy: Strategy,
+        *,
+        method: Method = "GET",
+        data: FormData | None = None,
+        headers: Headers | None = None,
+        timeout_s: int = 20,
+    ) -> FetchResult:
+        sent.append(url)
+        return await fetch(
+            url,
+            strategy,
+            method=method,
+            data=data,
+            headers=headers,
+            timeout_s=timeout_s,
+        )
+
+    return watched, sent
+
+
+def _named_profile(server_url: str) -> dict[str, Any]:
+    """A profile whose search page lists two houses' bottles, as shops do."""
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-search-named?q={query}"
+    return profile
+
+
+async def test_a_listing_from_another_house_costs_no_product_request(
+    server_url: str,
+) -> None:
+    # Where a scan spends its time: one request per search result, spaced by the
+    # rate limit, over a catalog that is mostly other perfumes. The Chanel row is
+    # not this search, and its page was never going to contribute a row.
+    query = parse_query("Dior Sauvage EDP")
+    fetcher, sent = _watching_fetcher()
+
+    hits = await search_site(
+        _named_profile(server_url),
+        "dior sauvage edp",
+        fetcher=fetcher,
+        keep_candidate=lambda title: title_could_match(title, query),
+    )
+
+    assert [hit.candidate.raw_title for hit in hits] == ["Dior Sauvage EDP Dekant"]
+    assert sum("engine-product" in url for url in sent) == 1
+
+
+async def test_without_a_filter_every_listing_is_still_opened(
+    server_url: str,
+) -> None:
+    # The default has to stay what it was. A caller that passes no filter is
+    # asking for every result, and the two rows here share one product page, so
+    # the count is what proves the filter is the thing making the difference.
+    fetcher, sent = _watching_fetcher()
+
+    hits = await search_site(
+        _named_profile(server_url), "dior sauvage edp", fetcher=fetcher
+    )
+
+    assert len(hits) == 2
+    assert sum("engine-product" in url for url in sent) == 2
+
+
+async def test_a_broken_profile_is_still_suspect_when_no_title_looked_right(
+    server_url: str,
+) -> None:
+    # The reason one page is opened even when the filter keeps nothing. Without
+    # it this shop answers "we don't sell that" for every search whose listings
+    # look unpromising, while the real answer is that its product pages stopped
+    # being readable.
+    profile = _named_profile(server_url)
+    profile["embedded_json"]["selector"] = "[data-product_variations_v2]"
+
+    result = await run_site(
+        profile, "louis vuitton ombre nomade", keep_candidate=lambda title: False
+    )
+
+    assert result.status == "suspect"
+    assert "embedded_json" in str(result.detail)
+
+
+async def test_a_scan_says_how_many_listings_it_skipped(server_url: str) -> None:
+    # A filter that narrows the scan silently is the same failure as a dead
+    # selector: the table looks complete either way.
+    query = parse_query("Dior Sauvage EDP")
+
+    result = await run_site(
+        _named_profile(server_url),
+        "dior sauvage edp",
+        keep_candidate=lambda title: title_could_match(title, query),
+    )
+
+    assert result.status == "ok"
+    assert "1 listing(s) skipped by title" in str(result.detail)
+
+
+async def test_one_product_listed_under_two_searches_is_read_once(
+    server_url: str,
+) -> None:
+    # What a multi-perfume search buys back. Both rows on this page are the same
+    # product page, and so is the second search's, so three of the four possible
+    # product reads are answers already in hand.
+    fetcher, sent = _watching_fetcher()
+    cache: dict[Any, Any] = {}
+    profile = _named_profile(server_url)
+
+    await search_site(
+        profile, "dior sauvage edp", fetcher=fetcher, variants_cache=cache
+    )
+    await search_site(profile, "chanel bleu edp", fetcher=fetcher, variants_cache=cache)
+
+    assert sum("engine-product" in url for url in sent) == 1
+    # Both searches still went out. It is the product pages that are shared, not
+    # the results page, which is different text for a different perfume.
+    assert sum("engine-search-named" in url for url in sent) == 2
+
+
+async def test_two_shops_sharing_a_url_do_not_read_each_others_pages(
+    server_url: str,
+) -> None:
+    # One cache is handed to a whole scan, and shops really do share paths. A
+    # key without the site in it would read one shop's page through another
+    # shop's rules.
+    fetcher, sent = _watching_fetcher()
+    cache: dict[Any, Any] = {}
+    first = _named_profile(server_url)
+    second = _named_profile(server_url)
+    second["id"] = "othersite"
+
+    await search_site(first, "dior sauvage edp", fetcher=fetcher, variants_cache=cache)
+    await search_site(second, "dior sauvage edp", fetcher=fetcher, variants_cache=cache)
+
+    assert sum("engine-product" in url for url in sent) == 2

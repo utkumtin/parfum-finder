@@ -5,6 +5,7 @@ Subcommands will be added incrementally as the project grows:
     discover <url> [--id]     - generate a site profile
     validate [<id>...] [--live] - check that a profile still works
     search <perfume> [--site] [--db] - scan every site and store the prices
+                              several perfumes at once: "a - b - c"
     tui [--db]                 - launch the interactive app
     (default, no subcommand)   - same as tui
 
@@ -18,13 +19,25 @@ import asyncio
 import sqlite3
 import sys
 from pathlib import Path
-from typing import get_args
+from typing import Any, get_args
 
 from parfum_finder.discover import discover
 from parfum_finder.discover import format_report as format_discovery_report
-from parfum_finder.engine import SiteResult, run_sites
-from parfum_finder.fetch import Strategy
-from parfum_finder.matcher import PerfumeQuery, parse_query
+from parfum_finder.engine import (
+    CacheKey,
+    CandidateFilter,
+    SiteResult,
+    VariantsRead,
+    run_sites,
+)
+from parfum_finder.fetch import Strategy, browser_session
+from parfum_finder.matcher import (
+    MAX_QUERIES,
+    PerfumeQuery,
+    parse_query,
+    split_queries,
+    title_could_match,
+)
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.probe import probe
 from parfum_finder.profiles import load_site_profile, sync_to_db
@@ -87,7 +100,13 @@ def run_search(
     sites_dir: Path = SITES_DIR,
     db_path: Path = DEFAULT_DB_PATH,
 ) -> int:
-    """Scan every site for one perfume, store what came back, and print it.
+    """Scan every site for the perfumes named, store what came back, print it.
+
+    One line may name several perfumes, separated by " - ", the same syntax the
+    search bar takes. They are scanned one after the other rather than together:
+    a site's requests are paced per scan, so running the whole list at once would
+    put every gap in parallel and hand a small shop the burst the pacing exists
+    to prevent.
 
     Returns the number of prices written, so the caller can tell a scan that
     found nothing from one that never ran.
@@ -101,7 +120,17 @@ def run_search(
     Disabled profiles are synced and not scanned. That is what the flag is for,
     and dropping their row instead would take their price history with it.
     """
-    query = parse_query(query_text)
+    texts = split_queries(query_text)
+    if len(texts) > MAX_QUERIES:
+        raise ValueError(
+            f"at most {MAX_QUERIES} perfumes in one search, this line has "
+            f"{len(texts)}. Split it and run it twice."
+        )
+    # Parsed before anything is fetched, all of them. A mistyped perfume in the
+    # middle of a list is worth hearing about now rather than after five minutes
+    # of scanning, which is what makes this stricter than the search bar: there
+    # is no screen here to put half a scan's notices on.
+    queries = [(text, parse_query(text)) for text in texts]
     profiles = [load_site_profile(path) for path in sorted(sites_dir.glob("*.json"))]
     if site_ids:
         known = {profile["id"] for profile in profiles}
@@ -120,14 +149,51 @@ def run_search(
             if profile.get("enabled", True)
             and (not site_ids or profile["id"] in site_ids)
         ]
-        results = asyncio.run(run_sites(wanted, query_text))
-        written = 0
-        for result in results:
-            written += _store_site_result(conn, result, query)
-            print(_report_line(result))
-        return written
+        return asyncio.run(_scan_all(conn, wanted, queries))
     finally:
         conn.close()
+
+
+async def _scan_all(
+    conn: sqlite3.Connection,
+    profiles: list[dict[str, Any]],
+    queries: list[tuple[str, PerfumeQuery]],
+) -> int:
+    """Scan every perfume against every site and print each site as it lands.
+
+    One event loop for the whole list, not one per perfume, so the browser
+    session and the product cache both live as long as the scan does. Which
+    perfume a block of lines is about is printed above it, since one report of
+    six sites reads exactly like the next one.
+    """
+    # Product pages read once for the whole run, keyed by site and URL. Two
+    # perfumes at one shop routinely list the same product.
+    cache: dict[CacheKey, VariantsRead] = {}
+    written = 0
+    async with browser_session() as fetcher:
+        for text, query in queries:
+            if len(queries) > 1:
+                print(f"\n{text}")
+            results = await run_sites(
+                profiles,
+                text,
+                fetcher=fetcher,
+                keep_candidate=_listing_filter(query),
+                variants_cache=cache,
+            )
+            for result in results:
+                written += _store_site_result(conn, result, query)
+                print(_report_line(result))
+    return written
+
+
+def _listing_filter(query: PerfumeQuery) -> CandidateFilter:
+    """Decide, from a search result's own title, whether to open its page."""
+
+    def keep(raw_title: str | None) -> bool:
+        return title_could_match(raw_title, query)
+
+    return keep
 
 
 def _store_site_result(
@@ -251,10 +317,16 @@ def main() -> None:
     )
 
     search_parser = subparsers.add_parser(
-        "search", help="search every site for one perfume and store the prices"
+        "search", help="search every site for a perfume and store the prices"
     )
     search_parser.add_argument(
-        "query", metavar="PERFUME", help='what to look for, e.g. "Dior Sauvage EDP"'
+        "query",
+        metavar="PERFUME",
+        help=(
+            'what to look for, e.g. "Dior Sauvage EDP". Several perfumes in one '
+            'run are separated by " - ", spaces included: "Dior Sauvage - Creed '
+            f'Aventus". At most {MAX_QUERIES} of them.'
+        ),
     )
     search_parser.add_argument(
         "--site",

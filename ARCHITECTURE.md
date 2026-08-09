@@ -239,6 +239,33 @@ IP banı ile sonuçlanır — ve `curl_cffi` bir rate-limit banını **kurtarmaz
 En pahalı iki işlem: `discover` ve sepet **Tazele** (N parfüm × M site). Rate limiting'e
 en çok orada dikkat edilir; Tazele ilerleme göstergesiyle çalışır.
 
+### Çoklu parfüm aramasi
+
+Arama satırı ` - ` ile ayrılmış birden fazla parfüm alır (`matcher.split_queries`,
+en fazla `MAX_QUERIES`). Boşluk şartı var, yoksa `Jean-Paul Gaultier` bölünürdü.
+
+Tarama şekli Tazele ile aynı: **site başına bir task, site içinde parfümler seri.**
+`run_site` pacer'ını her çağrıda kendisi kurar, dolayısıyla bir sitenin parfümlerini
+paralel başlatmak bütün `rate_limit_ms` gecikmelerini paralele alır ve dükkana tam
+olarak engellemeye çalıştığımız isteği patlamasını gönderir.
+
+### Tarama süresi — nereye gidiyor
+
+Bir taramanın maliyeti arama sayfası değil, **her arama sonucu için açılan ürün
+sayfası**: site içinde seri ve aralarda `rate_limit_ms` var. Bir dükkanın kataloğunun
+büyük kısmı tam şişe, yani o isteklerin çoğu baştan boşa gider. Üç önlem:
+
+| Önlem | Nerede | Ne kazandırır |
+|---|---|---|
+| Aday ön filtresi (`keep_candidate`) | `engine.search_site` + `matcher.title_could_match` | Listeleme başlığı sorguyla uyuşmayan ürünün sayfası hiç açılmaz |
+| Ürün sayfası memo'su (`variants_cache`) | `engine._read_variants` | Aynı ürün iki parfümün sonuç sayfasında çıkarsa bir kez okunur |
+| Tek tarayıcı (`fetch.browser_session`) | `fetch` | Playwright gereken sitede sayfa başına chromium açmak yerine tarama boyunca bir tane |
+
+Ön filtre `empty`/`suspect` ayrımını bozmamak için **kanarya** kullanır: hiçbir aday
+geçmezse ilk aday yine açılır, böylece "fiyat okuyamadı" kontrolü gerçek bir sayfa
+üzerinde çalışmaya devam eder. Ödünü, `variant_control` kontrolünün yalnızca açılan
+sayfalar için işlemesi.
+
 ### Hata izolasyonu
 
 Bir site patlarsa diğerleri devam eder. Her sitenin sonucu üç durumdan biridir:

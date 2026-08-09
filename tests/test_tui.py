@@ -86,11 +86,14 @@ def _ok_result(site_id: str, *variants: Variant) -> SiteResult:
     return SiteResult(site_id, "ok", (hit,), f"{site_id}: ok")
 
 
-Runner = Callable[[dict[str, Any], str], Awaitable[SiteResult]]
+# The screen hands its runner a browser session, a listing filter and a shared
+# product cache as well. A fake that ignores them still has to accept them, and
+# **_ is how these say they are not what is under test.
+Runner = Callable[..., Awaitable[SiteResult]]
 
 
 def _static_runner(results: dict[str, SiteResult]) -> Runner:
-    async def runner(profile: dict[str, Any], query: str) -> SiteResult:
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         return results[profile["id"]]
 
     return runner
@@ -128,7 +131,7 @@ async def test_streaming_lands_out_of_order_rows_before_pending_site_resolves(
 
     gate = asyncio.Event()
 
-    async def runner(profile: dict[str, Any], query: str) -> SiteResult:
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         site_id = profile["id"]
         if site_id == "site-a":
             await gate.wait()
@@ -164,7 +167,7 @@ async def test_one_site_erroring_does_not_block_the_others(tmp_path: Path) -> No
     _write_profile(sites_dir, "site-a", "Site A")
     _write_profile(sites_dir, "site-b", "Site B")
 
-    async def runner(profile: dict[str, Any], query: str) -> SiteResult:
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         if profile["id"] == "site-a":
             raise RuntimeError("boom")
         return _ok_result("site-b", _variant(50, 25000))
@@ -579,7 +582,7 @@ async def test_a_late_site_landing_does_not_move_the_cursor_off_the_picked_row(
 
     gate = asyncio.Event()
 
-    async def runner(profile: dict[str, Any], query: str) -> SiteResult:
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         if profile["id"] == "site-b":
             await gate.wait()
             return _ok_result("site-b", _variant(30, 60000, url="https://b.example/p"))
@@ -652,7 +655,7 @@ async def test_disabled_site_is_synced_but_not_scanned(tmp_path: Path) -> None:
 
     calls: list[str] = []
 
-    async def runner(profile: dict[str, Any], query: str) -> SiteResult:
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         calls.append(profile["id"])
         return _ok_result(profile["id"], _variant(50, 100000))
 
@@ -946,3 +949,223 @@ def _basket_count(db_path: Path) -> int:
         return int(conn.execute("SELECT count(*) FROM basket_items").fetchone()[0])
     finally:
         conn.close()
+
+
+TWO_PERFUMES = "Dior Sauvage EDP - Chanel Bleu EDP"
+
+
+def _named_result(site_id: str, title: str, *variants: Variant) -> SiteResult:
+    candidate = ProductCandidate(raw_title=title, url="https://example.com/p")
+    return SiteResult(
+        site_id, "ok", (SearchHit(candidate, variants),), f"{site_id}: ok"
+    )
+
+
+def _per_query_runner() -> tuple[Runner, list[tuple[str, str]]]:
+    """Answer each perfume with a row of its own, and record every scan asked for."""
+    asked: list[tuple[str, str]] = []
+
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
+        site_id = str(profile["id"])
+        asked.append((site_id, query))
+        # The candidate title is what the matcher judges, so a fake answering a
+        # second perfume has to name it there too, not only on the variant.
+        if "chanel" in query.casefold():
+            title = "Chanel Bleu EDP Dekant"
+            return _named_result(site_id, title, _variant(50, 20000, title=title))
+        title = "Dior Sauvage EDP Dekant"
+        return _named_result(site_id, title, _variant(50, 25000, title=title))
+
+    return runner, asked
+
+
+async def test_one_line_of_two_perfumes_scans_every_site_for_both(
+    tmp_path: Path,
+) -> None:
+    # The point of the separator. Two perfumes and two shops is four scans, and
+    # the results of all four belong on one screen where they can be compared.
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    runner, asked = _per_query_runner()
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot, TWO_PERFUMES)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 4, pilot)  # type: ignore[attr-defined]
+
+        assert sorted(asked) == [
+            ("site-a", "Chanel Bleu EDP"),
+            ("site-a", "Dior Sauvage EDP"),
+            ("site-b", "Chanel Bleu EDP"),
+            ("site-b", "Dior Sauvage EDP"),
+        ]
+        table = screen.query_one("#results", DataTable)
+        assert table.row_count == 4
+        # Which perfume a row is about, in a column that only exists when there
+        # is more than one of them to tell apart.
+        assert str(screen.query_one("#status", Static).content).startswith("4/4")
+        assert table.get_row_at(0)[0] == "Dior Sauvage EDP"
+
+
+async def test_a_single_perfume_gets_no_perfume_column(tmp_path: Path) -> None:
+    # The ordinary search. A column repeating the same words down the screen
+    # would take its width from the product titles, which are what gets read.
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner, _ = _per_query_runner()
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        assert table.get_row_at(0)[0] == "Site A"
+
+
+async def test_one_shop_is_asked_for_its_perfumes_one_at_a_time(
+    tmp_path: Path,
+) -> None:
+    # The constraint the whole scan shape exists for: a site's requests are paced
+    # from one place per scan, so two of a shop's perfumes running side by side
+    # would put both rate-limit gaps in parallel and hand it the burst the pacing
+    # is there to prevent. Shops still run against each other in parallel.
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    inflight: dict[str, int] = {}
+    overlapped: list[str] = []
+    both_started = asyncio.Event()
+
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
+        site_id = str(profile["id"])
+        inflight[site_id] = inflight.get(site_id, 0) + 1
+        if inflight[site_id] > 1:
+            overlapped.append(site_id)
+        if len(inflight) == 2:
+            both_started.set()
+        # Held until both shops are in flight, so a scan that ran the sites one
+        # after the other would fail here instead of passing quietly.
+        await asyncio.wait_for(both_started.wait(), 3.0)
+        inflight[site_id] -= 1
+        return _ok_result(site_id, _variant(50, 25000))
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot, TWO_PERFUMES)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 4, pilot)  # type: ignore[attr-defined]
+
+    assert overlapped == []
+
+
+async def test_a_mistyped_perfume_does_not_cancel_the_ones_that_parsed(
+    tmp_path: Path,
+) -> None:
+    # Three typed, one of them naming only a brand. Someone who mistyped one
+    # wants the two that were right, and a line saying which one was not.
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner, asked = _per_query_runner()
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot, "Dior Sauvage EDP - Chanel - Chanel Bleu EDP")
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
+
+        assert [query for _, query in asked] == ["Dior Sauvage EDP", "Chanel Bleu EDP"]
+        assert "names only a brand" in str(screen.query_one("#notices", Static).content)
+
+
+async def test_more_perfumes_than_the_limit_sends_no_requests_at_all(
+    tmp_path: Path,
+) -> None:
+    # Refused, not trimmed. Eleven perfumes across six shops is a long scan
+    # against small businesses, and a search that quietly answered the first ten
+    # would not say which one it dropped.
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner, asked = _per_query_runner()
+    line = " - ".join(f"Marka{n} Parfum{n}" for n in range(11))
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot, line)
+        await pilot.pause()
+
+        assert asked == []
+        notices = str(app.screen.query_one("#notices", Static).content)
+        assert "en fazla 10 parfüm" in notices
+        assert "11 var" in notices
+
+
+async def test_the_table_stays_grouped_by_perfume_whatever_the_sort_is(
+    tmp_path: Path,
+) -> None:
+    # Sorted by ₺/ml across both perfumes, the cheaper Chanel row would come
+    # first and the table would alternate between two different bottles, which
+    # is not a comparison of anything.
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner, _ = _per_query_runner()
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot, TWO_PERFUMES)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        assert [table.get_row_at(i)[0] for i in range(2)] == [
+            "Dior Sauvage EDP",
+            "Chanel Bleu EDP",
+        ]
+
+
+async def test_add_basket_adds_the_perfume_the_cursor_is_actually_on(
+    tmp_path: Path,
+) -> None:
+    # The keys read the row under the cursor out of the visible list, and a
+    # multi-perfume search both groups that list and shifts every column one to
+    # the right. Landing on the second group and adding the first group's bottle
+    # is the mistake worth a test.
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner, _ = _per_query_runner()
+
+    db_path = tmp_path / "db.sqlite3"
+    app = _app(sites_dir, db_path, runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot, TWO_PERFUMES)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        table.focus()
+        await pilot.pause()
+        await pilot.press("down")
+        await pilot.pause()
+        assert screen._selected_row().query_label == "Chanel Bleu EDP"  # type: ignore[attr-defined]
+        await pilot.press("a")
+        await pilot.pause()
+
+        conn = connect(db_path)
+        try:
+            basket = conn.execute(
+                "SELECT p.brand, p.name FROM basket_items b "
+                "JOIN perfumes p ON p.perfume_id = b.perfume_id"
+            ).fetchall()
+        finally:
+            conn.close()
+        assert [tuple(row) for row in basket] == [("chanel", "bleu")]

@@ -63,6 +63,10 @@ _SIZE_SPAN = re.compile(r"\d+(?:[.,]\d+)?\s*(?:ml|cc)")
 # between two unrelated parentheses on the same line.
 _PARENTHESIS = re.compile(r"\(([^()]*)\)")
 
+# What separates one perfume from the next in a typed line. Whitespace on both
+# sides is required, so a hyphenated word stays one word.
+_QUERY_SEPARATOR = re.compile(r"\s+-\s+")
+
 # The concentration a title names, in the spellings sites actually use. Longer
 # forms come first so "eau de parfum" is read as EDP instead of leaving "eau de"
 # behind and matching the bare "parfum" entry.
@@ -105,6 +109,19 @@ _NOISE = frozenset(
 # perfume does not.
 DEFAULT_THRESHOLD = 85
 
+# Below this a search result is not worth opening its product page for. Well
+# under DEFAULT_THRESHOLD on purpose: everything between the two scores still
+# gets fetched and still reaches the table flagged, so the only rows this loses
+# are the ones nobody was going to act on. It buys back most of a scan, since
+# every candidate kept costs one more request with a rate-limit gap in front
+# of it.
+PREFILTER_THRESHOLD = 60
+
+# How many perfumes one search may ask for at once. Six shops times ten
+# perfumes is already sixty site scans, and the number exists to keep a
+# mispasted list from turning into half an hour of traffic against small shops.
+MAX_QUERIES = 10
+
 
 @dataclass(frozen=True)
 class PerfumeQuery:
@@ -143,6 +160,46 @@ class Match:
     concentration: str
     confident: bool
     clone_of: str = ""
+
+
+def split_queries(text: str) -> list[str]:
+    """Split one typed line into the perfumes it asks for, on " - ".
+
+    The separator has to have whitespace on both sides. A hyphen inside a word
+    is part of the word, "Jean-Paul Gaultier Le Male" is one perfume, and a shop
+    that writes "Armaf - Club De Nuit" is why the spaced form is the one that
+    means "and also".
+
+    Nothing that works today changes meaning. The tokenizer never emits a
+    hyphen, so a spaced one is already thrown away: "Dior Sauvage - Chanel Bleu"
+    currently parses to the single query brand "dior", name "sauvage chanel
+    bleu", which is nobody's search. This gives that line the reading a person
+    typing it meant.
+
+    Empty pieces are dropped, so a trailing separator or a double one is not an
+    error worth stopping for. Repeats are dropped too, by the words they
+    tokenize to rather than by their text, because scanning the same perfume
+    twice costs a full second round of requests and adds nothing.
+
+    A piece that tokenizes to nothing is kept, not dropped: parse_query is what
+    explains why "dekant" is not a perfume, and swallowing it here would leave
+    someone with a search that quietly ignored part of what they typed.
+    """
+    # Separators left over at either edge of a piece go too: a doubled "-  -"
+    # leaves one behind, and it would travel into the URL the site is searched
+    # with.
+    parts = [part.strip(" \t-") for part in _QUERY_SEPARATOR.split(text)]
+    queries: list[str] = []
+    seen: set[tuple[str, ...] | str] = set()
+    for part in parts:
+        if not part:
+            continue
+        key = _tokenize(part) or part
+        if key in seen:
+            continue
+        seen.add(key)
+        queries.append(part)
+    return queries
 
 
 def parse_query(text: str) -> PerfumeQuery:
@@ -219,6 +276,32 @@ def match_title(
     # as a copy of it". Leaving it confident would let the row be acted on as if
     # it were the real bottle.
     return replace(match, confident=False, clone_of=reference)
+
+
+def title_could_match(
+    raw_title: str | None, query: PerfumeQuery, *, threshold: int = PREFILTER_THRESHOLD
+) -> bool:
+    """Whether a search result's own listing text is worth opening the page for.
+
+    Judged with match_title, at a much lower bar, so there is no second notion
+    of similarity that can drift away from the real one. What this decides is
+    only whether to spend a request; whether the product is the searched perfume
+    is still decided later, on the product page, by match_title at its own
+    threshold.
+
+    A title with no text at all passes. There is nothing to judge it on, and a
+    listing whose title selector reads nothing is exactly the case where
+    guessing would hide a working product behind a profile gap.
+
+    The cost of the low bar is deliberate and one-directional: a same-brand
+    title scoring under `threshold` no longer reaches the results table, where
+    today it appears flagged. Those are the rows nobody acts on, and every one
+    of them is a request with a rate-limit gap in front of it.
+    """
+    if not raw_title:
+        return True
+    match = match_title(raw_title, query, threshold=threshold)
+    return match is not None and match.score >= threshold
 
 
 def _split_clone_reference(raw_title: str) -> tuple[str, str]:

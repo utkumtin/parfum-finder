@@ -8,11 +8,19 @@ behavior is tested separately via import injection.
 """
 
 import sys
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from conftest import requires_playwright, requires_playwright_package
 
-from parfum_finder.fetch import PlaywrightNoResponse, PlaywrightNotInstalled, fetch
+from parfum_finder import fetch as fetch_module
+from parfum_finder.fetch import (
+    PlaywrightNoResponse,
+    PlaywrightNotInstalled,
+    browser_session,
+    fetch,
+)
 
 
 @pytest.mark.parametrize("strategy", ["httpx", "curl_cffi"])
@@ -164,3 +172,131 @@ async def test_no_headers_asked_for_means_none_sent(
     result = await fetch(f"{server_url}/header-echo", strategy)  # type: ignore[arg-type]
 
     assert "absent" in result.html
+
+
+class _FakePage:
+    def __init__(self, html: str) -> None:
+        self._html = html
+        self.closed = False
+
+    # Playwright's own signature, and what the session passes it. Named
+    # differently here only because the linter reads a "timeout" argument on an
+    # async def as a missed asyncio.timeout.
+    async def goto(self, url: str, **_: Any) -> Any:
+        self.url = url
+        return SimpleNamespace(url=url, status=200)
+
+    async def content(self) -> str:
+        return self._html
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class _FakeBrowser:
+    def __init__(self) -> None:
+        self.pages: list[_FakePage] = []
+        self.closed = False
+
+    async def new_page(self, **_: Any) -> _FakePage:
+        page = _FakePage("<html><body>rendered</body></html>")
+        self.pages.append(page)
+        return page
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def _fake_launch(monkeypatch: pytest.MonkeyPatch) -> list[_FakeBrowser]:
+    """Stand in for the browser process, and count how many were started."""
+    started: list[_FakeBrowser] = []
+
+    async def launch() -> tuple[Any, Any]:
+        browser = _FakeBrowser()
+        started.append(browser)
+        return SimpleNamespace(stop=_noop), browser
+
+    async def _noop() -> None:
+        return None
+
+    monkeypatch.setattr(fetch_module, "_launch_browser", launch)
+    return started
+
+
+async def test_a_session_never_starts_a_browser_it_does_not_need(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # One shop of six needs a browser. A session that launched one up front would
+    # make every other scan pay for it, and would stop working entirely on a
+    # machine with no browser installed.
+    started = _fake_launch(monkeypatch)
+
+    async with browser_session() as fetcher:
+        result = await fetcher(f"{server_url}/page", "httpx")
+
+    assert result.strategy == "httpx"
+    assert started == []
+
+
+async def test_every_page_of_a_session_shares_one_browser(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The whole point: launching a chromium takes seconds and reading a page
+    # takes a fraction of one, so ten perfumes must not cost ten launches.
+    started = _fake_launch(monkeypatch)
+
+    async with browser_session() as fetcher:
+        first = await fetcher(f"{server_url}/page", "playwright")
+        second = await fetcher(f"{server_url}/page", "playwright")
+
+    assert first.html == second.html == "<html><body>rendered</body></html>"
+    assert len(started) == 1
+    # A page each, all closed: a page holds one request's cookies and headers,
+    # and that is the part of a per-fetch browser worth keeping.
+    assert len(started[0].pages) == 2
+    assert all(page.closed for page in started[0].pages)
+
+
+async def test_a_session_closes_the_browser_it_started(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A browser left running outlives the scan that wanted it, and nothing else
+    # in the app would ever close it.
+    started = _fake_launch(monkeypatch)
+
+    async with browser_session() as fetcher:
+        await fetcher(f"{server_url}/page", "playwright")
+
+    assert started[0].closed
+
+
+async def test_a_session_closes_the_browser_when_the_scan_blows_up(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    started = _fake_launch(monkeypatch)
+
+    with pytest.raises(RuntimeError, match="scan died"):
+        async with browser_session() as fetcher:
+            await fetcher(f"{server_url}/page", "playwright")
+            raise RuntimeError("scan died")
+
+    assert started[0].closed
+
+
+async def test_a_session_refuses_a_browser_driven_post_like_fetch_does() -> None:
+    # Same answer through both entry points. A session that quietly did
+    # something else here would be a second set of rules for one strategy.
+    async with browser_session() as fetcher:
+        with pytest.raises(NotImplementedError, match="does not support method 'POST'"):
+            await fetcher("http://example.invalid", "playwright", method="POST")
+
+
+@requires_playwright
+async def test_a_real_session_reads_two_pages_in_one_browser(server_url: str) -> None:
+    async with browser_session() as fetcher:
+        first = await fetcher(f"{server_url}/page", "playwright")
+        second = await fetcher(f"{server_url}/page", "playwright")
+
+    assert first.status_code == second.status_code == 200
+    assert "ok" in first.html
+    assert "ok" in second.html

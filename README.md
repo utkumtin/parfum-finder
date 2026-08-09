@@ -35,6 +35,10 @@ uv run parfum-finder validate --live
 uv run parfum-finder search "Dior Sauvage EDP" --site venco --db data/prices.db
 # her siteyi tarar, bulunan fiyatları veritabanına yazar ve satır satır raporlar
 
+uv run parfum-finder search "Dior Sauvage EDP - Creed Aventus - Xerjoff Naxos"
+# " - " ile ayırarak tek çalıştırmada en fazla 10 parfüm; aynı sözdizimi arama
+# çubuğunda da geçerli
+
 uv run parfum-finder tui --db data/prices.db
 # interaktif uygulamayı açar
 ```

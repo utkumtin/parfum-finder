@@ -15,6 +15,8 @@ from parfum_finder.matcher import (
     PerfumeQuery,
     match_title,
     parse_query,
+    split_queries,
+    title_could_match,
 )
 
 
@@ -407,3 +409,79 @@ def test_words_after_the_searched_name_still_count_against_it() -> None:
 
     assert match is not None
     assert match.score < 100
+
+
+def test_a_line_naming_three_perfumes_is_read_as_three_searches() -> None:
+    # The whole point of the separator: one line, three scans, in the order
+    # they were typed.
+    assert split_queries(
+        "Xerjoff Naxos - Dior Sauvage - Louis Vuitton Ombre Nomade"
+    ) == ["Xerjoff Naxos", "Dior Sauvage", "Louis Vuitton Ombre Nomade"]
+
+
+def test_a_hyphen_inside_a_brand_name_does_not_split_the_search() -> None:
+    # The reason the separator demands whitespace on both sides. Split here and
+    # the first half is a brand with no perfume, which cannot be searched at all.
+    assert split_queries("Jean-Paul Gaultier Le Male") == ["Jean-Paul Gaultier Le Male"]
+
+
+def test_one_perfume_is_still_one_search() -> None:
+    assert split_queries("Dior Sauvage EDP") == ["Dior Sauvage EDP"]
+
+
+def test_a_stray_separator_is_not_worth_failing_over() -> None:
+    # Someone mid-typing, or one paste too many. Both readings of the line name
+    # the same two perfumes, so there is nothing here to stop for.
+    assert split_queries("Creed Aventus -  - Dior Sauvage - ") == [
+        "Creed Aventus",
+        "Dior Sauvage",
+    ]
+
+
+def test_the_same_perfume_typed_twice_is_scanned_once() -> None:
+    # Matched on the words, not the text, because the second round of requests
+    # costs a full scan and returns rows that are already on the screen.
+    assert split_queries("Dior Sauvage EDP - dior   sauvage edp") == [
+        "Dior Sauvage EDP"
+    ]
+
+
+def test_a_piece_that_names_no_perfume_survives_to_be_complained_about() -> None:
+    # "dekant" tokenizes to nothing. Dropping it here would leave someone with a
+    # search that silently ignored a third of what they typed; parse_query is
+    # what says why it is not a perfume.
+    assert split_queries("Dior Sauvage - dekant") == ["Dior Sauvage", "dekant"]
+
+
+def test_a_listing_worth_opening_is_the_one_naming_the_searched_perfume() -> None:
+    assert title_could_match(
+        "Christian Dior Sauvage EDP 5 ml Dekant", parse_query("Dior Sauvage EDP")
+    )
+
+
+def test_another_perfume_from_the_same_house_is_not_opened() -> None:
+    # The request this saves. The brand check alone passes here, so without a
+    # score floor every bottle Dior makes would cost one product page fetch
+    # with a rate-limit gap in front of it.
+    assert not title_could_match(
+        "Dior Homme Intense EDP 5 ml Dekant", parse_query("Dior Sauvage EDP")
+    )
+
+
+def test_a_listing_with_no_readable_title_is_opened_anyway() -> None:
+    # Nothing to judge it on. A profile whose listing-title selector reads
+    # nothing must not become a profile that silently stops seeing products.
+    assert title_could_match(None, parse_query("Dior Sauvage EDP"))
+    assert title_could_match("", parse_query("Dior Sauvage EDP"))
+
+
+def test_a_doubtful_listing_is_still_opened_because_the_page_decides() -> None:
+    # Between the two thresholds: not good enough to act on, good enough to
+    # spend a request on. The product page's own title is what gets scored.
+    title = "Dior Eau Sauvage EDP 5 ml"
+    query = parse_query("Dior Sauvage EDP")
+    match = match_title(title, query)
+
+    assert match is not None
+    assert not match.confident
+    assert title_could_match(title, query)

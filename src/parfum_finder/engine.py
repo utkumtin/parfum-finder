@@ -40,7 +40,7 @@ import asyncio
 import json
 import re
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
@@ -77,6 +77,20 @@ from parfum_finder.profiles import DEFAULT_HOOKS_DIR, SiteHooks, load_site_hooks
 # Three is two recoveries: enough for a dropped connection or a shop catching its
 # breath, few enough that a site which is properly down costs seconds, not minutes.
 MAX_ATTEMPTS = 3
+
+# What decides whether a search result is worth a request of its own, judged on
+# the title the results page already gave. The caller supplies it, so the matcher
+# stays outside the engine and one notion of "is this that perfume" keeps living
+# in one place.
+CandidateFilter = Callable[[str | None], bool]
+
+# One product read: the raw size rows, and the product page's markup when a page
+# was opened at all.
+VariantsRead = tuple[tuple[RawVariant, ...], str | None]
+
+# Site id and product URL. The site id is in the key so one cache can be shared
+# by a whole scan without two shops reading each other's pages.
+CacheKey = tuple[str, str]
 
 # The wait before the first retry, doubled for the next one. Deliberately not
 # rate_limit_ms: normal spacing is politeness between requests that worked, this
@@ -308,6 +322,8 @@ async def run_site(
     *,
     hooks_dir: Path = DEFAULT_HOOKS_DIR,
     fetcher: Fetcher = fetch,
+    keep_candidate: CandidateFilter | None = None,
+    variants_cache: MutableMapping[CacheKey, VariantsRead] | None = None,
 ) -> SiteResult:
     """Run one site and classify what came back instead of raising.
 
@@ -330,6 +346,16 @@ async def run_site(
     field that does not exist, a hook that returned the wrong type. They differ
     in cause but not in what can be done with them, which is nothing but tell
     the user this site is out of this comparison and why.
+
+    `keep_candidate` is passed down to `search_site` and counted on the way, so
+    the `ok` detail can say how many listings were skipped. A filter that
+    narrows the scan silently is the same failure as a broken selector: the
+    table looks complete either way.
+
+    `variants_cache` is shared across calls by whoever runs several perfumes
+    against one site, so a product listed under two of them is read once. It is
+    keyed by site as well as URL, so one dict can be handed to every site of a
+    scan without two shops ever reading each other's pages.
     """
     # Only the id is read outside the boundary, because it is what a report row
     # is addressed by: a profile without one is not a site this can speak about,
@@ -338,9 +364,26 @@ async def run_site(
     # rate_limit_ms is not a number would otherwise raise on the way in, before
     # the try, and take every other site in the TaskGroup down with it.
     site_id = str(profile["id"])
+    skipped = 0
+
+    def counted(raw_title: str | None) -> bool:
+        nonlocal skipped
+        assert keep_candidate is not None
+        keep = keep_candidate(raw_title)
+        if not keep:
+            skipped += 1
+        return keep
+
     try:
         paced = _paced_fetcher(profile, fetcher)
-        hits = await search_site(profile, query, hooks_dir=hooks_dir, fetcher=paced)
+        hits = await search_site(
+            profile,
+            query,
+            hooks_dir=hooks_dir,
+            fetcher=paced,
+            keep_candidate=counted if keep_candidate is not None else None,
+            variants_cache=variants_cache,
+        )
     except ExtractionFailed as e:
         return SiteResult(site_id, "suspect", (), str(e))
     except Exception as e:
@@ -350,16 +393,17 @@ async def run_site(
         # message and a bare KeyError read the same and mean opposite things.
         # No site id in front of it, the result already carries one.
         return SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
+    filtered = f", {skipped} listing(s) skipped by title" if skipped else ""
     if not hits:
         return SiteResult(
-            site_id, "empty", (), f"{site_id}: no decant matched {query!r}"
+            site_id, "empty", (), f"{site_id}: no decant matched {query!r}{filtered}"
         )
     sizes = sum(len(hit.variants) for hit in hits)
     return SiteResult(
         site_id,
         "ok",
         hits,
-        f"{site_id}: {len(hits)} product(s), {sizes} decant size(s)",
+        f"{site_id}: {len(hits)} product(s), {sizes} decant size(s){filtered}",
     )
 
 
@@ -369,6 +413,8 @@ async def run_sites(
     *,
     hooks_dir: Path = DEFAULT_HOOKS_DIR,
     fetcher: Fetcher = fetch,
+    keep_candidate: CandidateFilter | None = None,
+    variants_cache: MutableMapping[CacheKey, VariantsRead] | None = None,
 ) -> tuple[SiteResult, ...]:
     """Run every site against one query, all at once, and report each separately.
 
@@ -390,11 +436,23 @@ async def run_sites(
     sites always reads the same way regardless of which shop happened to be
     slow. The TUI's streaming table wants the opposite and will need its own
     channel; ordering here is for callers that want the whole comparison.
+
+    `keep_candidate` and `variants_cache` are handed to every site untouched. The
+    cache is one dict for the whole call and safe to pass again on the next one,
+    which is what lets a caller scanning several perfumes read a shared product
+    page once.
     """
     async with asyncio.TaskGroup() as group:
         tasks = [
             group.create_task(
-                run_site(profile, query, hooks_dir=hooks_dir, fetcher=fetcher),
+                run_site(
+                    profile,
+                    query,
+                    hooks_dir=hooks_dir,
+                    fetcher=fetcher,
+                    keep_candidate=keep_candidate,
+                    variants_cache=variants_cache,
+                ),
                 name=f"site:{profile['id']}",
             )
             for profile in profiles
@@ -408,6 +466,8 @@ async def search_site(
     *,
     hooks_dir: Path = DEFAULT_HOOKS_DIR,
     fetcher: Fetcher = fetch,
+    keep_candidate: CandidateFilter | None = None,
+    variants_cache: MutableMapping[CacheKey, VariantsRead] | None = None,
 ) -> tuple[SearchHit, ...]:
     """Run one query against one site and read every hit's sizes.
 
@@ -454,6 +514,28 @@ async def search_site(
     picker offers more options than the layer produced rows. That is the same
     failure one notch quieter: the site still answers, the table still fills,
     and a few sizes are simply missing from the comparison.
+
+    `keep_candidate` judges a listing on the title the results page already gave
+    and decides whether its product page is worth opening. That is where a scan
+    spends its time: one request per candidate, `rate_limit_ms` apart, over a
+    catalog that is mostly full bottles. Whether a product really is the searched
+    perfume is still decided afterwards, on the product page, by the matcher the
+    caller runs. This only decides where the requests go.
+
+    One candidate is opened even when the filter keeps none of them. Without it a
+    shop whose product pages stopped parsing would come back `empty` on every
+    search where no title looked promising, which is exactly the
+    `empty`-versus-`suspect` collapse the checks below exist to prevent. That one
+    request is what still separates "not sold here" from "we stopped being able
+    to read it".
+
+    The trade left standing: `variant_control` is only checked on pages that were
+    opened, so a size picker growing behind a skipped listing goes unnoticed
+    until that perfume is the one being searched for.
+
+    `variants_cache` memoizes product reads by site and URL. It belongs to the
+    caller so it can span several perfumes against the same shop; passing none
+    reads every page fresh.
     """
     hooks = load_site_hooks(str(profile["id"]), hooks_dir)
     if hooks.before_search is not None:
@@ -476,18 +558,21 @@ async def search_site(
     if not candidates:
         _check_empty_search(profile, result)
 
+    opened = _candidates_to_open(candidates, keep_candidate)
     rules = profile["variant_rules"]
     hits: list[SearchHit] = []
     extracted_a_price = False
-    for candidate in candidates:
-        rows, page_html = await _read_variants(profile, candidate, hooks, fetcher)
+    for candidate in opened:
+        rows, page_html = await _read_variants(
+            profile, candidate, hooks, fetcher, variants_cache
+        )
         _check_variant_control(profile, candidate, rows, page_html)
         rows = tuple(_with_candidate_identity(row, candidate) for row in rows)
         extracted_a_price |= any(row.price is not None for row in rows)
         variants = apply_variant_rules(rows, rules)
         if variants:
             hits.append(SearchHit(candidate=candidate, variants=variants))
-    if candidates and not extracted_a_price:
+    if opened and not extracted_a_price:
         # Name what actually read the pages. A hook that took the job over is the
         # thing to open, and blaming the profile's layer for it sends whoever
         # reads this to the wrong file.
@@ -498,9 +583,30 @@ async def search_site(
         )
         raise ExtractionFailed(
             f"{profile['id']}: {source} read no priced size from any of the "
-            f"{len(candidates)} search results, starting with {candidates[0].url}"
+            f"{len(opened)} search result(s) it opened, starting with "
+            f"{opened[0].url}"
         )
     return tuple(hits)
+
+
+def _candidates_to_open(
+    candidates: tuple[ProductCandidate, ...], keep_candidate: CandidateFilter | None
+) -> tuple[ProductCandidate, ...]:
+    """Narrow the search results down to the pages worth a request.
+
+    The first one survives a filter that keeps nothing, and it is not a
+    consolation prize: it is what keeps the price-extraction check above running
+    on a real page. Kept out, a shop whose product pages went unreadable would
+    report `empty` for every search whose listings looked unpromising, and
+    "nobody here sells this" is the one thing a broken profile must never be able
+    to say.
+    """
+    if keep_candidate is None or not candidates:
+        return candidates
+    kept = tuple(
+        candidate for candidate in candidates if keep_candidate(candidate.raw_title)
+    )
+    return kept or candidates[:1]
 
 
 def _check_empty_search(profile: dict[str, Any], result: FetchResult) -> None:
@@ -825,8 +931,15 @@ async def _read_variants(
     candidate: ProductCandidate,
     hooks: SiteHooks,
     fetcher: Fetcher,
-) -> tuple[tuple[RawVariant, ...], str | None]:
+    cache: MutableMapping[CacheKey, VariantsRead] | None = None,
+) -> VariantsRead:
     """Open one product page and read its sizes on the profile's layer.
+
+    A `cache` remembers what a URL read for the rest of the scan. Two perfumes
+    searched at the same shop routinely list the same product, and reading it
+    twice costs a request and a rate-limit wait to learn what is already known.
+    It lives no longer than the scan that owns it, so a price is never served
+    from an earlier run.
 
     A site's `parse_variants` hook is offered the page first and may take the
     whole job. It hands back the same raw rows the four extraction layers do,
@@ -844,6 +957,24 @@ async def _read_variants(
     check by naming a `variant_control`. That is a second request per product
     on those sites, which is why it is opt-in rather than always on.
     """
+    if cache is None:
+        return await _read_product(profile, candidate, hooks, fetcher)
+    # Keyed by site as well as URL so one dict can be shared by every site of a
+    # scan. Two shops can carry the same path, and one profile's rows read
+    # through another profile's rules would be nonsense.
+    key = (str(profile["id"]), candidate.url)
+    if key not in cache:
+        cache[key] = await _read_product(profile, candidate, hooks, fetcher)
+    return cache[key]
+
+
+async def _read_product(
+    profile: dict[str, Any],
+    candidate: ProductCandidate,
+    hooks: SiteHooks,
+    fetcher: Fetcher,
+) -> VariantsRead:
+    """Do the reading _read_variants may serve from its cache instead."""
     layer = profile["extraction"]
     page: FetchResult | None = None
     if hooks.parse_variants is not None:

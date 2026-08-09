@@ -522,3 +522,68 @@ def test_search_rejects_an_unknown_site_id_instead_of_scanning_the_rest(
 
     assert exit_info.value.code == 2
     assert "yok-boyle" in capsys.readouterr().out
+
+
+def test_search_scans_every_perfume_a_line_names(
+    server_url: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The same " - " the search bar takes, so someone comparing a basket from the
+    # terminal does not have to run the command once per bottle. Both perfumes
+    # are on this shop's one results page.
+    sites_dir = _write_sites(tmp_path, _search_profile("saglam", server_url))
+    db_path = tmp_path / "prices.db"
+
+    written = cli.run_search(
+        "Dior Sauvage EDP - Chanel Bleu EDP", sites_dir=sites_dir, db_path=db_path
+    )
+
+    assert written > 0
+    conn = connect(db_path)
+    perfumes = conn.execute(
+        "SELECT brand, name FROM perfumes ORDER BY brand"
+    ).fetchall()
+    assert [tuple(row) for row in perfumes] == [
+        ("chanel", "bleu"),
+        ("dior", "sauvage"),
+    ]
+    # Which perfume a block of site lines is about. Two reports of the same six
+    # shops read identically otherwise.
+    out = capsys.readouterr().out
+    assert "Dior Sauvage EDP" in out
+    assert "Chanel Bleu EDP" in out
+
+
+def test_search_refuses_more_perfumes_than_it_will_scan(
+    server_url: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Ten perfumes across six shops is already sixty site scans. A mispasted list
+    # has to be refused before the first request, not trimmed to a length nobody
+    # asked for.
+    sites_dir = _write_sites(tmp_path, _search_profile("saglam", server_url))
+    monkeypatch.setattr(cli, "SITES_DIR", sites_dir)
+    line = " - ".join(f"Marka{n} Parfum{n}" for n in range(11))
+    monkeypatch.setattr("sys.argv", ["parfum-finder", "search", line])
+
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+
+    assert "at most 10 perfumes" in capsys.readouterr().out
+    assert exit_info.value.code == 2
+
+
+def test_search_names_the_mistyped_perfume_before_scanning_anything(
+    server_url: str, tmp_path: Path
+) -> None:
+    # Nothing is fetched until every piece has parsed. Finding out about a
+    # brand-only piece after five minutes of scanning is finding out too late,
+    # and there is no screen here to collect half a scan's notices on.
+    sites_dir = _write_sites(tmp_path, _search_profile("saglam", server_url))
+    db_path = tmp_path / "prices.db"
+
+    with pytest.raises(ValueError, match="names only a brand"):
+        cli.run_search(
+            "Dior Sauvage EDP - Chanel", sites_dir=sites_dir, db_path=db_path
+        )

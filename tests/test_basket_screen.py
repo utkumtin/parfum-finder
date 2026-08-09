@@ -25,7 +25,9 @@ from parfum_finder.tui.app import ParfumFinderApp
 from parfum_finder.tui.basket_screen import BasketScreen, format_age
 from parfum_finder.tui.search_screen import SearchScreen
 
-Runner = Callable[[dict[str, Any], str], Awaitable[SiteResult]]
+# Keyword-tolerant: the search screen hands its runner a browser session and a
+# listing filter too, and one runner is injected for both screens.
+Runner = Callable[..., Awaitable[SiteResult]]
 
 BRAND = "dior"
 NAME = "sauvage"
@@ -141,7 +143,7 @@ def _days_ago(days: int) -> str:
 
 
 def _static_runner(results: dict[str, SiteResult]) -> Runner:
-    async def runner(profile: dict[str, Any], query: str) -> SiteResult:
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         return results[profile["id"]]
 
     return runner
@@ -715,7 +717,7 @@ async def test_an_empty_answer_for_one_line_leaves_the_other_lines_alone(
 
     scanned = 0
 
-    async def runner(profile: dict[str, Any], query: str) -> SiteResult:
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         # Both lines are the same perfume, so they come in as the same query.
         # The 5 ml line is scanned first and only the 10 ml one comes back empty.
         nonlocal scanned
@@ -752,7 +754,7 @@ async def test_one_site_is_scanned_one_perfume_at_a_time(tmp_path: Path) -> None
     peak_per_site = 0
     peak_overall = 0
 
-    async def runner(profile: dict[str, Any], query: str) -> SiteResult:
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         nonlocal peak_per_site, peak_overall
         site_id = str(profile["id"])
         in_flight[site_id] = in_flight.get(site_id, 0) + 1
