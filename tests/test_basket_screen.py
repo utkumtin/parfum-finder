@@ -293,7 +293,7 @@ async def test_a_site_that_prices_nothing_still_gets_a_column_of_dashes(
             str(c.label)
             for c in screen.query_one("#basket", DataTable).columns.values()
         ]
-        assert headers == ["Parfüm", "ml", "Ad", "Site A", "Site B", "Yaş"]
+        assert headers == ["Parfüm", "ml", "Adet", "Site A", "Site B", "Güncellik"]
         assert _cells(screen)[0][3:5] == ["250.00 ₺", "—"]
 
 

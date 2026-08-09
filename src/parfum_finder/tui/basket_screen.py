@@ -244,7 +244,7 @@ class BasketScreen(Screen[None]):
         selected = self._selected_row()
         table.clear(columns=True)
         table.add_columns(
-            "Parfüm", "ml", "Ad", *(site.name for site in self._sites), "Yaş"
+            "Parfüm", "ml", "Adet", *(site.name for site in self._sites), "Güncellik"
         )
         for row in self._rows:
             table.add_row(*self._cells(row))
