@@ -220,6 +220,31 @@ _ENGINE_SEARCH_EMPTY_HTML = b"""<html><body>
 <footer><a href="/urun-kategori/niche">Niche</a></footer>
 </body></html>"""
 
+# The other no-results page, and the one that made the count above unusable on
+# its own: a shop that runs its whole catalog through the header. The mega-menu
+# alone is more product-shaped markup than a page of results carries, and every
+# node of it is chrome. What separates it from a redesign is the body class the
+# platform writes when a search matched nothing, which is the page answering the
+# question directly.
+_ENGINE_SEARCH_SAYS_EMPTY_HTML = b"""<html>
+<body class="archive search search-no-results post-type-archive-product">
+<nav class="urun-menu">
+  <a class="product-cat-link" href="/urun-kategori/erkek">Erkek Parfum</a>
+  <a class="product-cat-link" href="/urun-kategori/kadin">Kadin Parfum</a>
+  <a class="product-cat-link" href="/urun-kategori/unisex">Unisex Parfum</a>
+  <a class="product-cat-link" href="/urun-kategori/niche">Niche Parfum</a>
+  <a class="product-cat-link" href="/urun-kategori/arabian">Arabian Parfum</a>
+</nav>
+<p class="woocommerce-info woocommerce-no-products-found">
+  Aramanizla eslesen urun bulunamadi.
+</p>
+<aside class="product_list_widget">
+  <div class="product-tile"><a class="product-link" href="/engine-product">Bir</a></div>
+  <div class="product-tile"><a class="product-link" href="/engine-product">Iki</a></div>
+  <div class="product-tile"><a class="product-link" href="/engine-product">Uc</a></div>
+</aside>
+</body></html>"""
+
 # The same shop after a redesign renamed its result rows. Plenty of perfumes on
 # the page, and the profile's ".card" matches none of them.
 _ENGINE_SEARCH_RENAMED_HTML = b"""<html><body>
@@ -311,6 +336,14 @@ _ENGINE_PRODUCT_JSON = (
     b' "name": "Test Parfum 10 ml", "url": "/urun/test-parfum-10-ml"}]}'
 )
 
+# A results page whose only hit is that full bottle. The mixed listing above
+# proves a sizeless page next to a decant is harmless; this is the case where it
+# is the only thing the search found, which is what a shop that sells this
+# perfume in one piece answers.
+_ENGINE_SEARCH_BOTTLE_ONLY_HTML = b"""<html><body>
+<div class="card"><a href="/engine-product-bare">Test Parfum 100 ml Tam Sise</a></div>
+</body></html>"""
+
 # A listing pointing at the POST-endpoint product page below.
 _ENGINE_SEARCH_POST_ENDPOINT_HTML = b"""<html><body>
 <div class="card"><a href="/engine-product-post-endpoint">Test Parfum Dekant</a></div>
@@ -335,6 +368,25 @@ _ENGINE_PRODUCT_POST_ENDPOINT_HTML = b"""<html><body>
 <div class="variant-list-group" data-group-id="1">
   <span class="variant-text" data-option-id="10">5 ml</span>
   <span class="variant-text" data-option-id="20">10 ml</span>
+</div>
+</body></html>"""
+
+# The same product page after the shop ran out of it: every size still listed,
+# the add-to-cart button gone and a "notify me" button in its place. The product
+# id the POST body needs lived on that button, so the page now names its sizes
+# and nothing that can be asked about them.
+_ENGINE_PRODUCT_POST_ENDPOINT_SOLD_OUT_HTML = b"""<html><body>
+<h1>Test Parfum Dekant</h1>
+<a class="remind-me-button" data-selector="stock-warning">Gelince Haber Ver</a>
+<div class="variant-list-group" data-group-id="1">
+  <span class="variant-text variant-no-stock" data-option-id="10">5 ml</span>
+  <span class="variant-text variant-no-stock" data-option-id="20">10 ml</span>
+</div>
+</body></html>"""
+
+_ENGINE_SEARCH_POST_ENDPOINT_SOLD_OUT_HTML = b"""<html><body>
+<div class="card">
+  <a href="/engine-product-post-endpoint-sold-out">Test Parfum Dekant</a>
 </div>
 </body></html>"""
 
@@ -386,11 +438,20 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path.startswith("/engine-search-empty"):
             self._send(200, _ENGINE_SEARCH_EMPTY_HTML)
             return
+        if self.path.startswith("/engine-search-says-empty"):
+            self._send(200, _ENGINE_SEARCH_SAYS_EMPTY_HTML)
+            return
+        if self.path.startswith("/engine-search-bottle-only"):
+            self._send(200, _ENGINE_SEARCH_BOTTLE_ONLY_HTML)
+            return
         if self.path.startswith("/engine-search-renamed"):
             self._send(200, _ENGINE_SEARCH_RENAMED_HTML)
             return
         if self.path.startswith("/engine-search-no-links"):
             self._send(200, _ENGINE_SEARCH_NO_LINKS_HTML)
+            return
+        if self.path.startswith("/engine-search-post-endpoint-sold-out"):
+            self._send(200, _ENGINE_SEARCH_POST_ENDPOINT_SOLD_OUT_HTML)
             return
         if self.path.startswith("/engine-search-post-endpoint-mixed"):
             self._send(200, _ENGINE_SEARCH_POST_ENDPOINT_MIXED_HTML)
@@ -420,6 +481,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/engine-product-bare":
             self._send(200, _ENGINE_PRODUCT_BARE_HTML)
+            return
+        if self.path == "/engine-product-post-endpoint-sold-out":
+            self._send(200, _ENGINE_PRODUCT_POST_ENDPOINT_SOLD_OUT_HTML)
             return
         if self.path == "/engine-product-post-endpoint":
             self._send(200, _ENGINE_PRODUCT_POST_ENDPOINT_HTML)

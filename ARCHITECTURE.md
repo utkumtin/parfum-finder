@@ -298,6 +298,22 @@ olabilir"** hatası + hangi katmanın başarısız olduğu gösterilir:
 `status="suspect"` bir sitenin sonuçları **sepet hesabına girmez** — eksik sayılır, çünkü
 "pahalı" değil "bilinmiyor" durumundadır.
 
+Bunun karşı kuralı da aynı derecede önemli: her seferinde kurt masalı anlatan bir rozeti
+kimse okumaz. Aşağıdaki üç kanıt, yukarıdaki satırlardan birini geçersiz kılar ve sonucu
+`empty` yapar — üçü de dükkanın kendi markup'ından okunur, profilin selector'larından
+değil, çünkü profilden alınan kanıt "burada satılmıyor" ile "artık göremiyoruz"u
+ayıramaz:
+
+| Kanıt | Nerede | Neden şüpheli değil |
+|---|---|---|
+| Sayfa "sonuç bulunamadı" diyor (`_NO_RESULTS_SELECTOR`) | `engine._check_empty_search` | Altı sitenin ikisi bütün kataloğunu mega-menüden geçiriyor: sonuçsuz arama sayfası 138–426 ürün-şekilli node taşıyor, hiçbiri sonuç değil. Sayfanın kendi cevabı, node saymaktan üstündür |
+| Açılan sayfada ölçü listesi hiç yok (`engine._page_offers_sizes`) | `engine.search_site` | Düz tam şişe. Bir dükkanın kataloğunun yaklaşık beşte dördü bu, ve o parfümü yalnızca tam şişe satan dükkan her aramada işaretlenirdi |
+| Sayfa "stokta yok" diyor (`out_of_stock`) | `engine._page_says_sold_out` | Tükenen üründe bazı temalar sepet butonunu ("Gelince Haber Ver" ile) kaldırıyor; POST varyant endpoint'inin gövde alanı o butonun üzerinde yaşıyor. Bu, profil hakkında değil tek bir parfümün stoğu hakkında bir olgudur |
+
+Satırsız sayfa kuralının sınırı: katman satır ürettiyse (fiyatsız bile olsa) ölçü listesi
+kanıtlanmış demektir ve şüphe geri gelir. `out_of_stock` tanımlamayan bir profil eski,
+daha katı davranışı korur.
+
 ---
 
 ## 7. `matcher` — parfüm eşleştirme

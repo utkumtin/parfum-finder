@@ -6,6 +6,7 @@
   },
   "defaults": {
     "extraction": "endpoint",
+    "out_of_stock": "[data-selector=\"stock-warning\"]",
     "request_headers": {
       "X-Requested-With": "XMLHttpRequest"
     },

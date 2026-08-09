@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote, urljoin
 
-from selectolax.parser import HTMLParser
+from selectolax.parser import HTMLParser, Node
 
 from parfum_finder.extract import (
     EXTRACTION_LAYERS,
@@ -70,7 +70,7 @@ from parfum_finder.fetch import (
     fetch,
 )
 from parfum_finder.normalize import casefold_tr, parse_size_ml
-from parfum_finder.probe import _PRODUCT_MARKUP_SELECTOR
+from parfum_finder.probe import _PRODUCT_MARKUP_SELECTOR, _VARIANT_CONTROL_SELECTOR
 from parfum_finder.profiles import DEFAULT_HOOKS_DIR, SiteHooks, load_site_hooks
 
 # How many times one request may be sent before the failure is the caller's.
@@ -116,6 +116,30 @@ RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 # badge. Getting that wrong is worse than missing a break, because a badge that
 # cries wolf on every unstocked perfume is one nobody reads.
 PRODUCT_MARKUP_FLOOR = 8
+
+# The shop saying, in its own markup, that this search found nothing. That is a
+# direct answer and it outranks the count above, which is only a guess.
+#
+# It has to, because the guess was measured on shop pages that turned out not to
+# be representative. Two of the six sites run their catalog through the header:
+# a mega-menu listing every category, a sidebar widget of recent products, a grid
+# of category tiles. None of it is a search result, all of it is product-shaped,
+# and it lands at 138 and 426 nodes on a page whose own body class says
+# search-no-results. Both shops therefore wore the broken-profile badge on every
+# perfume they simply do not stock, which is exactly the cry-wolf failure the
+# floor was picked to avoid.
+#
+# WordPress writes the body class on any search that matched nothing, and
+# WooCommerce adds its own notice, so one entry covers both spellings a
+# WooCommerce shop may use. Other platforms say it their own way and are not
+# covered here: they keep falling through to the count, which is where they were
+# before. A missing entry costs a false badge, never a missed break.
+_NO_RESULTS_SELECTOR = ", ".join(
+    (
+        "body.search-no-results",
+        ".woocommerce-no-products-found",
+    )
+)
 
 # Bound at module level so tests can replace it and assert on the delays that were
 # asked for. Sleeping for real would make the suite pay the pacing it is checking,
@@ -497,15 +521,25 @@ async def search_site(
     reading, and letting one of those end the site would throw away the decants
     listed next to it.
 
-    Raises ExtractionFailed only when the search returned hits and the extraction
-    layer read not one price from any of them, measured before the decant filter
-    runs. An empty result list off a page with nothing product-shaped on it is
-    not an error, because a shop may genuinely not stock the perfume, and
-    neither is a page of nothing but full bottles. But a
-    page full of results where every product page reads as empty is a broken
-    profile until proven otherwise: that is the difference between "not sold
-    here" and "we stopped being able to see it", which is what a silent empty
-    result destroys.
+    Raises ExtractionFailed only when the search returned hits, at least one of
+    the pages opened had a size list to read at all, and the extraction layer
+    read not one price from any of them, measured before the decant filter runs.
+    A page that gave up sizeless rows counts as having had one, since the layer
+    demonstrably found the list and lost only the prices off it. An
+    empty result list off a page with nothing product-shaped on it is not an
+    error, because a shop may genuinely not stock the perfume, and neither is a
+    page of nothing but full bottles. But a page full of results where every
+    product page reads as empty is a broken profile until proven otherwise: that
+    is the difference between "not sold here" and "we stopped being able to see
+    it", which is what a silent empty result destroys.
+
+    The size-list clause is what keeps that reading honest, and it is not
+    hypothetical: one shop's catalog is roughly four fifths full bottles, so a
+    perfume it sells only as one puts a single sizeless product page in front of
+    this check and nothing else. Reading that as a break blames the profile for a
+    page that never had sizes on it. `_page_offers_sizes` is what draws the line,
+    on the shop's markup rather than the profile's selectors, because evidence
+    taken from the profile cannot tell a full bottle from a profile gone blind.
 
     Raises for the same reason one step earlier when the search page itself came
     back with no rows while plainly listing products, per `_check_empty_search`.
@@ -562,17 +596,22 @@ async def search_site(
     rules = profile["variant_rules"]
     hits: list[SearchHit] = []
     extracted_a_price = False
+    opened_a_page_with_sizes = False
     for candidate in opened:
         rows, page_html = await _read_variants(
             profile, candidate, hooks, fetcher, variants_cache
         )
         _check_variant_control(profile, candidate, rows, page_html)
+        # Rows without prices are the loudest evidence of all: the layer read the
+        # size list and lost only the price, so the page plainly had one and no
+        # amount of missing markup argues otherwise.
+        opened_a_page_with_sizes |= bool(rows) or _page_offers_sizes(profile, page_html)
         rows = tuple(_with_candidate_identity(row, candidate) for row in rows)
         extracted_a_price |= any(row.price is not None for row in rows)
         variants = apply_variant_rules(rows, rules)
         if variants:
             hits.append(SearchHit(candidate=candidate, variants=variants))
-    if opened and not extracted_a_price:
+    if opened and opened_a_page_with_sizes and not extracted_a_price:
         # Name what actually read the pages. A hook that took the job over is the
         # thing to open, and blaming the profile's layer for it sends whoever
         # reads this to the wrong file.
@@ -624,11 +663,16 @@ def _check_empty_search(profile: dict[str, Any], result: FetchResult) -> None:
     one at a time is not the same thing and stays allowed: one captured shop
     really does list five cards where only one is a product link.
 
-    The second reason is the guess. Nothing matched at all, so there is no
-    evidence from the profile itself, only from the page: enough product-shaped
-    markup on it and a run that read nothing is a broken selector rather than an
-    answer. A page that is genuinely empty of products fails this and is
-    correctly reported as empty.
+    The second reason is the guess, and it is only reached when the page does not
+    already answer the question itself. A shop that writes "this search found
+    nothing" into its markup is telling us the row count is right, and no amount
+    of product-shaped chrome around that sentence changes it: `_NO_RESULTS_SELECTOR`
+    ends the check there.
+
+    Failing that, nothing matched at all, so there is no evidence from the profile
+    itself, only from the page: enough product-shaped markup on it and a run that
+    read nothing is a broken selector rather than an answer. A page that is
+    genuinely empty of products fails this and is correctly reported as empty.
 
     Only reached when the search produced nothing, so the reparse costs the
     normal path nothing.
@@ -647,6 +691,8 @@ def _check_empty_search(profile: dict[str, Any], result: FetchResult) -> None:
             f"({selector!r}) but none of them carried a link "
             f"({profile['search']['result_url']!r}), so every hit was dropped"
         )
+    if root.css(_NO_RESULTS_SELECTOR):
+        return
     cards = len(root.css(_PRODUCT_MARKUP_SELECTOR))
     if cards >= PRODUCT_MARKUP_FLOOR:
         raise ExtractionFailed(
@@ -695,6 +741,55 @@ def _check_variant_control(
         f"({selector!r}) but the {profile['extraction']!r} layer read "
         f"{len(rows)}, so the sizes it missed would be priced by nobody"
     )
+
+
+def _page_offers_sizes(profile: dict[str, Any], page_html: str | None) -> bool:
+    """Whether this product page had a size list for the layer to fail at.
+
+    The question the site-level "read no priced size" check needs answered, and
+    the reason it can tell a profile that went blind from a catalog that simply
+    sells this perfume in one piece. Only a page that offers sizes is evidence
+    against the profile; a page with none was never going to produce a row.
+
+    Two ways to answer no. A page the shop marks sold out is one: its sizes are
+    listed but unbuyable, and several shops stop writing the markup that prices
+    them, which is a stock fact about one perfume rather than anything about the
+    profile. A page with no size-picker markup at all is the second: a plain full
+    bottle. Everything else answers yes, including a page this cannot judge,
+    because the check it feeds is the one that has to fail loudly by default.
+
+    That last part is why a GET endpoint profile, which answers from a URL and
+    never opens the product page unless it named a `variant_control`, keeps
+    failing exactly as it did before: with no markup in hand there is nothing to
+    clear the profile with.
+
+    The picker is looked for in the shop's own markup and never through the
+    profile's selectors. A profile whose blob key was renamed also reads zero
+    sizes off its own selector, so answering with it would excuse precisely the
+    break this exists to catch.
+    """
+    if page_html is None:
+        return True
+    root = HTMLParser(page_html).root
+    if root is None:
+        return True
+    if _page_says_sold_out(profile, root):
+        return False
+    return bool(root.css(_VARIANT_CONTROL_SELECTOR))
+
+
+def _page_says_sold_out(profile: dict[str, Any], root: Node) -> bool:
+    """Whether the page carries the shop's own out-of-stock marker.
+
+    Named by the profile, usually through its platform template, because there is
+    no markup every shop shares for this the way there is for a size picker: one
+    writes a "notify me when it's back" button where the add-to-cart button was,
+    another leaves the button and adds a notice beside it. A profile that names
+    nothing keeps the old behavior, where a sold-out page is indistinguishable
+    from a broken one.
+    """
+    selector = profile.get("out_of_stock")
+    return bool(selector) and bool(root.css(str(selector)))
 
 
 def _with_candidate_identity(
@@ -1067,6 +1162,10 @@ async def _read_endpoint_variants_post(
     one thing with no size list, and this shop lists plenty of them next to its
     decants. Ending the site over one of those is the same mistake the embedded
     layer already avoids, and it costs every decant the shop does sell.
+
+    Or unless the page says it is sold out, which reaches the same nothing by the
+    other road: the options are all there, the field the request needs is not,
+    because it sits on an add-to-cart button the shop stopped rendering.
     """
     page = await _fetch_page(profile, candidate.url, role="product", fetcher=fetcher)
     root = HTMLParser(page.html).root
@@ -1082,6 +1181,15 @@ async def _read_endpoint_variants_post(
     for field, selector in config["body"].items():
         value = select_field(root, str(selector))
         if value is None:
+            if _page_says_sold_out(profile, root):
+                # The fields live on the add-to-cart button, and a shop that has
+                # run out replaces it with a "notify me" button rather than
+                # leaving a dead one. So the page still lists its sizes and no
+                # longer says which product to ask about, and there is nothing to
+                # post: the same nothing as the full bottle above, arrived at for
+                # a stock reason instead of a catalog one. Both perfumes this hit
+                # in the field were out of stock, not unreadable.
+                return (), page.html
             raise ExtractionFailed(
                 f"{profile['id']}: could not read the POST field {field!r} "
                 f"({selector!r}) off {candidate.url}"
