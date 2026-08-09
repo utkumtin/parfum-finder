@@ -329,7 +329,16 @@ async def test_default_sort_is_price_per_ml_ascending_and_keys_reorder(
         assert table.get_row_at(0)[2] == "10 ml"  # back to ₺/ml ascending
 
 
-async def test_f_toggles_hiding_out_of_stock_rows(tmp_path: Path) -> None:
+async def test_out_of_stock_rows_start_hidden_and_f_brings_them_back(
+    tmp_path: Path,
+) -> None:
+    """A size nobody can buy must not be in the table by default.
+
+    Its price is not an offer, and the table sorts by ₺/ml, so an out-of-stock
+    row sitting at the top answers "what does this cost" with a number that is
+    not for sale. It is still fetched and still stored, so [f] has to be able to
+    put it back on screen rather than the row being dropped outright.
+    """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
 
@@ -345,17 +354,18 @@ async def test_f_toggles_hiding_out_of_stock_rows(tmp_path: Path) -> None:
         await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
 
         table = screen.query_one("#results", DataTable)
-        assert table.row_count == 2
+        assert table.row_count == 1
+        assert "1 stoksuz" in str(screen.query_one("#status", Static).content)
 
         table.focus()
         await pilot.pause()
         await pilot.press("f")
         await pilot.pause()
-        assert table.row_count == 1
+        assert table.row_count == 2
 
         await pilot.press("f")
         await pilot.pause()
-        assert table.row_count == 2
+        assert table.row_count == 1
 
 
 async def test_enter_opens_the_selected_rows_own_product_url(
@@ -536,11 +546,11 @@ async def test_the_screen_keys_work_right_after_a_search_without_refocusing(
         await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
 
         table = screen.query_one("#results", DataTable)
-        assert table.row_count == 2
+        assert table.row_count == 1
 
         await pilot.press("f")
         await pilot.pause()
-        assert table.row_count == 1
+        assert table.row_count == 2
 
         await pilot.press("1")
         await pilot.pause()
@@ -796,6 +806,11 @@ async def test_history_panel_shows_deltas_the_price_range_and_the_out_of_stock_m
         screen = app.screen
         await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
 
+        # The one reading here is out of stock, which the table hides by
+        # default. [f] shows it again, because the history panel deliberately
+        # keeps counting readings the table leaves out.
+        await pilot.press("f")
+        await pilot.pause()
         row = screen._visible_rows[0]  # type: ignore[attr-defined]
 
         # Two older readings, dated well before any real clock could produce,

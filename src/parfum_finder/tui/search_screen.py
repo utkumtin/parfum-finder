@@ -174,7 +174,7 @@ class SearchScreen(Screen[None]):
         ("1", "sort('ml')", "ml"),
         ("2", "sort('price')", "fiyat"),
         ("3", "sort('per_ml')", "₺/ml"),
-        ("f", "toggle_stock", "stok filtre"),
+        ("f", "toggle_stock", "stoksuzları göster"),
         ("h", "show_history", "fiyat geçmişi"),
         ("a", "add_basket", "sepete ekle"),
         ("s", "open_basket", "sepet"),
@@ -206,7 +206,13 @@ class SearchScreen(Screen[None]):
         self._write_lock = asyncio.Lock()
         self._notices: list[str] = []
         self._sort_key = "per_ml"
-        self._hide_out_of_stock = False
+        # Hidden from the start. A size that cannot be bought is not an offer,
+        # and leaving them in put the cheapest unbuyable price at the top of a
+        # table sorted by ₺/ml, which is the one number people read first. They
+        # are still fetched and still stored, [f] brings them back on screen,
+        # and the price history panel goes on counting them.
+        self._hide_out_of_stock = True
+        self._hidden_count = 0
         self._done = 0
         self._total = 0
         self._errors = 0
@@ -411,6 +417,10 @@ class SearchScreen(Screen[None]):
             for r in self._rows
             if not (self._hide_out_of_stock and r.in_stock is False)
         ]
+        # Counted, so the status line can say why a site that answered left no
+        # rows behind. Without it a search where everything is out of stock
+        # looks identical to one where nothing matched.
+        self._hidden_count = len(self._rows) - len(visible)
         visible.sort(key=self._sort_value)
         self._visible_rows = visible
         table.clear()
@@ -466,6 +476,8 @@ class SearchScreen(Screen[None]):
         text = f"{self._done}/{self._total} site tamam"
         if self._errors:
             text += f" · {self._errors} hata"
+        if self._hidden_count:
+            text += f" · {self._hidden_count} stoksuz sonuç gizlendi ([f] göster)"
         self.query_one("#status", Static).update(text)
 
     def _selected_row(self) -> _ResultRow | None:
@@ -486,6 +498,7 @@ class SearchScreen(Screen[None]):
     def action_toggle_stock(self) -> None:
         self._hide_out_of_stock = not self._hide_out_of_stock
         self._refresh_table()
+        self._update_status()
 
     def action_open_url(self) -> None:
         row = self._selected_row()
