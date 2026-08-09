@@ -89,7 +89,12 @@ async def test_a_2xx_without_product_evidence_does_not_qualify(
         _attempt("playwright"),
     )
 
-    report = await discover(f"{server_url}/product")
+    # The trial is forced onto httpx. What this test is about is the choice
+    # rule, and letting the trial follow the pick would send a real playwright
+    # fetch at the local server, so the rule could only be checked on a machine
+    # with a browser downloaded. The pick itself is reported from the
+    # measurement and the override does not touch it.
+    report = await discover(f"{server_url}/product", strategy="httpx")
 
     assert report.chosen_strategy == "playwright"
 
