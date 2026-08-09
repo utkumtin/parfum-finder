@@ -26,7 +26,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
-from textual.widgets import DataTable, Footer, Input, Static
+from textual.widgets import Button, DataTable, Footer, Input, Static
 
 from parfum_finder.engine import SiteResult
 from parfum_finder.matcher import DEFAULT_THRESHOLD, PerfumeQuery, parse_query
@@ -85,18 +85,40 @@ class _ResultRow:
 
 
 class ConfirmScreen(ModalScreen[bool]):
-    """Asks before a low-confidence match is written to the basket."""
+    """Asks before a low-confidence match is written to the basket.
+
+    The two answers are real buttons, not a line of text naming two keys. The
+    keys always worked, but a dialog that only prints "[y] evet [n] hayır" looks
+    like something to move a cursor through, so pressing arrows and enter did
+    nothing and the dialog read as frozen. Buttons take focus, tab moves between
+    them and enter presses the focused one, which is what anyone tries first.
+    The y and n keys stay, for anyone who already knows them.
+
+    "Hayır" holds the focus at open, so a reflexive enter on a dialog nobody
+    read cancels rather than putting a doubtful bottle in the basket.
+    """
+
+    AUTO_FOCUS = "#no"
 
     DEFAULT_CSS = """
     ConfirmScreen {
         align: center middle;
     }
-    ConfirmScreen > Static {
+    ConfirmScreen > Vertical {
         width: auto;
         max-width: 60;
+        height: auto;
         border: round $warning;
         padding: 1 2;
         background: $surface;
+    }
+    ConfirmScreen #buttons {
+        width: auto;
+        height: auto;
+        padding-top: 1;
+    }
+    ConfirmScreen Button {
+        margin-right: 2;
     }
     """
 
@@ -111,7 +133,15 @@ class ConfirmScreen(ModalScreen[bool]):
         self._message = message
 
     def compose(self) -> ComposeResult:
-        yield Static(f"{self._message}\n\n[y] evet   [n] hayır")
+        with Vertical():
+            yield Static(self._message)
+            with Horizontal(id="buttons"):
+                yield Button("Evet [y]", variant="warning", id="yes")
+                yield Button("Hayır [n]", variant="primary", id="no")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
+        self.dismiss(event.button.id == "yes")
 
     def action_confirm(self) -> None:
         self.dismiss(True)

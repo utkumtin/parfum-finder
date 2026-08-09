@@ -19,6 +19,7 @@ from textual.widgets import DataTable, Input, Static
 from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
 from parfum_finder.store import connect, record_snapshot
 from parfum_finder.tui.app import ParfumFinderApp
+from parfum_finder.tui.search_screen import ConfirmScreen
 
 QUERY_TEXT = "Dior Sauvage EDP"
 
@@ -866,3 +867,67 @@ async def test_history_panel_shows_deltas_the_price_range_and_the_out_of_stock_m
         # cursor moves is never mistaken for another row's history.
         assert row.site_label in text
         assert row.raw_title in text
+
+
+async def test_the_low_confidence_dialog_can_be_answered_with_the_keyboard_alone(
+    tmp_path: Path,
+) -> None:
+    """The confirm dialog has to look and behave like something answerable.
+
+    Its keys always worked, but the dialog used to be a line of text naming
+    them, with nothing focusable in it. Arrows and enter, which is what anyone
+    reaches for first, did nothing at all and the dialog read as frozen with
+    escape the only way out. Buttons make the two answers real: one holds
+    focus, tab moves between them and enter presses the focused one.
+
+    "Hayır" holds the focus at open, so a reflexive enter on a dialog nobody
+    read cancels instead of putting a doubtful bottle in the basket.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+
+    # Dior Eau Sauvage against a search for Dior Sauvage: a real match, scored
+    # below the threshold, which is exactly what the dialog exists to ask about.
+    title = "Dior Eau Sauvage EDP"
+    variant = _variant(50, 100000, title=title)
+    candidate = ProductCandidate(raw_title=title, url="https://example.com/p")
+    result = SiteResult("site-a", "ok", (SearchHit(candidate, (variant,)),), "ok")
+    runner = _static_runner({"site-a": result})
+
+    db_path = tmp_path / "db.sqlite3"
+    app = _app(sites_dir, db_path, runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+        assert not screen._visible_rows[0].confident  # type: ignore[attr-defined]
+
+        screen.query_one("#results", DataTable).focus()
+        await pilot.pause()
+        await pilot.press("a")
+        await _wait_until(lambda: isinstance(app.screen, ConfirmScreen), pilot)
+
+        # Enter on the dialog as opened cancels: nothing reaches the basket.
+        assert app.focused is not None and app.focused.id == "no"
+        await pilot.press("enter")
+        await _wait_until(lambda: not isinstance(app.screen, ConfirmScreen), pilot)
+        assert _basket_count(db_path) == 0
+
+        # Tab to "evet" and press it, the same way with no key shortcut used.
+        await pilot.press("a")
+        await _wait_until(lambda: isinstance(app.screen, ConfirmScreen), pilot)
+        await pilot.press("tab")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == "yes"
+        await pilot.press("enter")
+        await _wait_until(lambda: not isinstance(app.screen, ConfirmScreen), pilot)
+        await _wait_until(lambda: _basket_count(db_path) == 1, pilot)
+
+
+def _basket_count(db_path: Path) -> int:
+    conn = connect(db_path)
+    try:
+        return int(conn.execute("SELECT count(*) FROM basket_items").fetchone()[0])
+    finally:
+        conn.close()
