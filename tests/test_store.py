@@ -1040,12 +1040,17 @@ def test_snapshot_rows_marks_a_clone_instead_of_filing_it_as_the_original() -> N
     assert rows[0].clone_of == "Maison Francis Kurkdjian – Baccarat Rouge 540"
 
 
-def test_write_snapshots_never_records_a_clone(conn: sqlite3.Connection) -> None:
+def test_write_snapshots_never_records_a_row_without_its_own_identity(
+    conn: sqlite3.Connection,
+) -> None:
     """The drop happens here so no caller can forget it.
 
-    Both the CLI and the screen write through this function, and a clone that
-    slipped past either of them would be indistinguishable from a real price
-    once it was in the table.
+    Both the CLI and the screen write through this function, and a bottle stored
+    under another perfume's brand and name would be indistinguishable from that
+    perfume's own price once it was in the table. A clone that knows what it is
+    goes in as itself; the one whose own title read as nothing is the only row
+    left with nowhere to go, and it is dropped rather than filed under the
+    perfume it imitates.
     """
     _seed_site(conn)
     real = SnapshotRow(
@@ -1058,17 +1063,30 @@ def test_write_snapshots_never_records_a_clone(conn: sqlite3.Connection) -> None
     )
     clone = SnapshotRow(
         site_id="ornek",
+        brand="armaf",
+        name="club de nuit untold",
+        concentration="",
+        match_score=100,
+        variant=_variant(50, 4900, raw_title="Armaf Club De Nuit Untold 5 ml"),
+        clone_of="Maison Francis Kurkdjian – Baccarat Rouge 540",
+    )
+    nameless = SnapshotRow(
+        site_id="ornek",
         brand="maison",
         name="francis kurkdjian baccarat rouge 540",
         concentration="",
         match_score=100,
-        variant=_variant(50, 4900, raw_title="Untold 5 ml"),
+        variant=_variant(50, 3900, raw_title="Untold 5 ml"),
         clone_of="Maison Francis Kurkdjian – Baccarat Rouge 540",
+        own_identity=False,
     )
 
-    assert write_snapshots(conn, [real, clone]) == 1
-    prices = [
-        row["price_kurus"]
-        for row in conn.execute("SELECT price_kurus FROM price_snapshots")
-    ]
-    assert prices == [62000]
+    assert write_snapshots(conn, [real, clone, nameless]) == 2
+    rows = conn.execute(
+        "SELECT pf.brand, s.price_kurus FROM price_snapshots s"
+        " JOIN product_variants v ON v.variant_id = s.variant_id"
+        " JOIN products p ON p.product_id = v.product_id"
+        " JOIN perfumes pf ON pf.perfume_id = p.perfume_id"
+        " ORDER BY s.price_kurus"
+    ).fetchall()
+    assert [tuple(row) for row in rows] == [("armaf", 4900), ("maison", 62000)]

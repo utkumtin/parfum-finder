@@ -163,11 +163,15 @@ class SnapshotRow:
     being noticed once.
 
     `clone_of` is empty for a real hit. It is filled when the site is selling an
-    imitation that names the searched perfume in parentheses, and such a row is
-    carried so the screen can show it and then dropped before it is written. It
-    is a different bottle at a different price, so putting it under this
-    perfume's identity would corrupt the price history it is keyed on and hand
-    the basket a cheap number for something nobody asked for.
+    imitation that names the searched perfume in parentheses, and it is what the
+    screen marks such a row with. It says nothing about where the row is stored:
+    a clone is filed under its own house and name, so it gets a price history of
+    its own and never lends a cheap number to the perfume it imitates.
+
+    `own_identity` is that guarantee, made checkable. It is False only for a
+    clone whose own title was too short to name a house and a perfume, which
+    leaves brand/name holding the searched perfume's identity rather than this
+    bottle's. Those rows are shown and never written.
     """
 
     site_id: str
@@ -177,6 +181,7 @@ class SnapshotRow:
     match_score: int
     variant: Variant
     clone_of: str = ""
+    own_identity: bool = True
 
 
 def snapshot_rows(result: SiteResult, query: PerfumeQuery) -> list[SnapshotRow]:
@@ -195,18 +200,27 @@ def snapshot_rows(result: SiteResult, query: PerfumeQuery) -> list[SnapshotRow]:
             # another concentration. Storing it would put a different perfume's
             # price into this one's history.
             continue
+        # A clone is a different bottle that happens to have been found by this
+        # search, so it is filed under what its own title says it is. Using the
+        # query here would put an imitation's price into the searched perfume's
+        # history, and the concentration would be wrong too: match.concentration
+        # is the one read off the parenthesis, which belongs to the original.
+        identity = match.clone_identity if match.clone_of else None
         rows.extend(
             SnapshotRow(
                 site_id=result.site_id,
-                brand=query.brand,
-                name=query.name,
+                brand=identity.brand if identity else query.brand,
+                name=identity.name if identity else query.name,
                 # What the title named, not what was asked for. An EDT and an
                 # EDP are two products with two prices, and a query that named
                 # neither would otherwise merge them into one perfume row.
-                concentration=match.concentration,
+                concentration=(
+                    identity.concentration if identity else match.concentration
+                ),
                 match_score=match.score,
                 variant=variant,
                 clone_of=match.clone_of,
+                own_identity=not match.clone_of or identity is not None,
             )
             for variant in hit.variants
             if variant.raw_title is not None
@@ -272,9 +286,11 @@ def write_snapshots(
     The count is of price rows, not of input rows: sizes that came back without
     a price are stored as sizes and do not count as prices.
 
-    Clone rows are dropped here rather than at the caller. Every writer goes
-    through this function, so this is the one place that can guarantee an
-    imitation never lands in the searched perfume's price history.
+    A row that has no identity of its own is dropped here rather than at the
+    caller. Every writer goes through this function, so this is the one place
+    that can guarantee a bottle never lands in another perfume's price history.
+    In practice that is the clone whose own title was too short to read a house
+    and a perfume off; every other clone is stored, as itself.
 
     One transaction for the batch. A run that dies halfway through leaves the
     database as it was rather than a site with three of its eight sizes updated.
@@ -283,7 +299,7 @@ def write_snapshots(
     written = 0
     with conn:
         for row in rows:
-            if row.clone_of:
+            if not row.own_identity:
                 continue
             snapshot_id = _record(
                 conn,

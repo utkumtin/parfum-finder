@@ -329,6 +329,36 @@ def test_a_clone_is_still_shown_because_it_may_be_worth_buying() -> None:
     assert match.clone_of
 
 
+def test_a_clone_carries_the_identity_read_off_its_own_title() -> None:
+    # This is what the clone gets stored and basketed under. Reading it off the
+    # part outside the parentheses is the whole reason a clone can be bought on
+    # purpose: filed under the original it would be priced from other shops'
+    # listings of the original, and somebody would pay for the wrong bottle.
+    match = match_title(
+        _CLONE_TITLE, parse_query("Maison Francis Kurkdjian Baccarat Rouge 540")
+    )
+
+    assert match is not None
+    assert match.clone_identity == PerfumeQuery(
+        brand="armaf", name="club de nuit untold", concentration=""
+    )
+
+
+def test_a_clone_whose_own_title_names_one_word_has_no_identity_to_store() -> None:
+    # A brand and a perfume is the least an identity can be. "Untold" alone
+    # cannot be split into both, and inventing the missing half would put a
+    # made-up perfume in the database. None is what keeps such a row on screen
+    # and out of the store, which is the only case left that cannot be bought.
+    match = match_title(
+        "Untold (Maison Francis Kurkdjian – Baccarat Rouge 540)",
+        parse_query("Maison Francis Kurkdjian Baccarat Rouge 540"),
+    )
+
+    assert match is not None
+    assert match.clone_of
+    assert match.clone_identity is None
+
+
 def test_a_clones_own_name_is_scored_without_what_it_imitates() -> None:
     # Searching for the imitation itself. Before the split, the referenced
     # perfume's words counted against the name, and the right bottle scored 59

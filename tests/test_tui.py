@@ -972,16 +972,72 @@ async def test_clone_row_shows_the_klon_marker_and_what_it_imitates(
         assert row.clone_of == "Dior Sauvage EDP"
 
 
-async def test_add_basket_refuses_a_clone_row_without_opening_the_confirm_dialog(
+async def test_add_basket_refuses_the_one_clone_that_has_no_name_of_its_own(
     tmp_path: Path,
 ) -> None:
-    """A clone must never reach the basket, and never even ask.
+    """A clone whose own title reads as one word cannot be added, and says so.
 
-    The basket keys on the searched perfume's brand/name/concentration, so a
-    clone slipping through the low-confidence confirm dialog (it is always
-    below threshold) would attach another product's price to this perfume's
-    history. The refusal has to come before that dialog, or a hurried [y] on
-    an unrelated bottle would do exactly that.
+    This is the row that was never written to perfumes, because there was no
+    house and no perfume to write it as. Without the refusal in front of it the
+    add would reach add_basket_item, which raises on a perfume that is not on
+    record, inside a worker where nothing is left to catch it: no basket line, no
+    error on screen, nothing to say the keypress went nowhere.
+
+    No dialog either. There is no question to ask when the answer cannot be yes.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+
+    clone = Variant(
+        size_ml_x10=50,
+        raw_title="Untold (Dior Sauvage EDP) Dekant",
+        product_url="https://example.com/clone",
+        price_kurus=50000,
+        in_stock=True,
+    )
+    candidate = ProductCandidate(raw_title=clone.raw_title, url="https://example.com/p")
+    result = SiteResult("site-a", "ok", (SearchHit(candidate, (clone,)),), "site-a: ok")
+    runner = _static_runner({"site-a": result})
+
+    db_path = tmp_path / "db.sqlite3"
+    app = _app(sites_dir, db_path, runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        table.focus()
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+
+        assert len(pilot.app.screen_stack) == 2
+        conn = connect(db_path)
+        try:
+            assert conn.execute("SELECT * FROM basket_items").fetchall() == []
+        finally:
+            conn.close()
+
+        notices = str(screen.query_one("#notices", Static).content)
+        assert "bir klon" in notices
+        assert "eklenemez" in notices
+
+
+async def test_add_basket_asks_before_a_clone_and_files_it_under_its_own_name(
+    tmp_path: Path,
+) -> None:
+    """A clone goes into the basket as itself, and only after being named as one.
+
+    Both halves matter. It is stored under "armaf club de nuit untold" and not
+    under the Dior Sauvage that was searched for, because a basket line filed
+    under the original would be priced from other sites' real Dior listings: the
+    cheap clone goes in, the expensive original comes out.
+
+    And the dialog has to say "klon" and name what it imitates. A clone is worth
+    buying on purpose, but nobody who pressed [a] on a row they read as Sauvage
+    should end up with an Armaf without being told which of the two it is.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -1011,20 +1067,34 @@ async def test_add_basket_refuses_a_clone_row_without_opening_the_confirm_dialog
         await pilot.press("a")
         await pilot.pause()
 
-        # No confirm dialog opened: the screen stack never grew past the
-        # search screen, so a stray [y] afterwards has nothing to confirm.
-        assert len(pilot.app.screen_stack) == 2
+        assert len(pilot.app.screen_stack) == 3
+        question = str(pilot.app.screen.query_one(Static).content)
+        assert "bir klon" in question
+        assert "Dior Sauvage EDP" in question
 
+        # Declined, and nothing was written.
+        await pilot.press("n")
+        await pilot.pause()
         conn = connect(db_path)
         try:
             assert conn.execute("SELECT * FROM basket_items").fetchall() == []
         finally:
             conn.close()
 
-        notices = str(screen.query_one("#notices", Static).content)
-        assert "bir klon" in notices
-        assert "Dior Sauvage EDP" in notices
-        assert "sepete eklenmedi" in notices
+        await pilot.press("a")
+        await pilot.pause()
+        await pilot.press("y")
+        await _wait_until(lambda: bool(screen._basket_keys), pilot)  # type: ignore[attr-defined]
+
+        conn = connect(db_path)
+        try:
+            lines = conn.execute(
+                "SELECT pf.brand, pf.name FROM basket_items b"
+                " JOIN perfumes pf ON pf.perfume_id = b.perfume_id"
+            ).fetchall()
+        finally:
+            conn.close()
+        assert [tuple(line) for line in lines] == [("armaf", "club de nuit untold")]
 
 
 async def test_history_panel_shows_deltas_the_price_range_and_the_out_of_stock_mark(

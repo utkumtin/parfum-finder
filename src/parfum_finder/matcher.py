@@ -161,12 +161,20 @@ class Match:
     then it holds that parenthesis as the shop wrote it. A row carrying it is
     worth seeing, since a good clone can be worth buying instead, but it is not
     that perfume and must never be priced as it.
+
+    `clone_identity` is what the clone itself is, read off the part of the title
+    outside the parentheses: "Armaf Club De Nuit Untold", not the Dior Sauvage it
+    names. It is the answer to "then what should this be filed under", and
+    without it a clone has nowhere of its own to be stored. None when there is no
+    clone, and also when the leftover title is too short to name both a house and
+    a perfume, which is the one case an imitation still cannot be stored at all.
     """
 
     score: int
     concentration: str
     confident: bool
     clone_of: str = ""
+    clone_identity: PerfumeQuery | None = None
 
 
 def split_queries(text: str) -> list[str]:
@@ -322,7 +330,35 @@ def match_title(
     # this title points at the searched perfume, and the answer here is "surely,
     # as a copy of it". Leaving it confident would let the row be acted on as if
     # it were the real bottle.
-    return replace(match, confident=False, clone_of=reference)
+    return replace(
+        match,
+        confident=False,
+        clone_of=reference,
+        clone_identity=_own_identity(own_title),
+    )
+
+
+def _own_identity(own_title: str) -> PerfumeQuery | None:
+    """What a clone's own title says the bottle is, in the shape a query has.
+
+    Built the same way parse_query builds one, and folded the same way, because
+    it ends up as a perfume's identity in the database next to the ones that came
+    from a typed search. A clone stored under its own house and name has its own
+    price history and can be bought on purpose; stored under the perfume it
+    imitates it would be a cheap wrong number in that perfume's history.
+
+    A leftover title of one word or none cannot name both a house and a perfume,
+    and comes back None. That is the case where an imitation still has nowhere of
+    its own to go, and inventing a brand from half a word would be worse than
+    saying so.
+    """
+    tokens = _tokenize(own_title)
+    concentration, tokens = _split_concentration(tokens)
+    if len(tokens) < 2:
+        return None
+    return PerfumeQuery(
+        brand=tokens[0], name=" ".join(tokens[1:]), concentration=concentration
+    )
 
 
 def title_could_match(

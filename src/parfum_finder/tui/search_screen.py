@@ -216,6 +216,7 @@ class _ResultRow:
     query_index: int = 0
     product: str = ""
     clone_of: str = ""
+    own_identity: bool = True
 
     @property
     def price_per_ml_kurus(self) -> Decimal | None:
@@ -694,6 +695,7 @@ class SearchScreen(Screen[None]):
                 concentration=row.concentration,
                 product_url=row.variant.product_url,
                 clone_of=row.clone_of,
+                own_identity=row.own_identity,
             )
             for row in rows
         ]
@@ -939,14 +941,31 @@ class SearchScreen(Screen[None]):
         # push_screen(..., wait_for_dismiss=True) only works from inside a
         # worker, which is why the confirmation dialog and the write both
         # live in this @work method instead of directly in the action.
-        if row.clone_of:
+        if not row.own_identity:
+            # Nothing to add it as. The title outside the parentheses was too
+            # short to name a house and a perfume, so this bottle was never
+            # stored, and the basket only ever holds perfumes that were.
             self._notices = [
-                f"⚠ {row.raw_title} bir klon, aradığınız parfüm değil "
-                f"({row.clone_of}) — sepete eklenmedi."
+                f"⚠ {row.raw_title} bir klon ve kendi adı okunamadı "
+                f"({row.clone_of}) — sepete eklenemez."
             ]
             self._set_notices()
             return
-        if not row.confident:
+        if row.clone_of:
+            # Asked, not refused. A clone can be worth buying on purpose, and it
+            # goes into the basket as itself rather than as the perfume it
+            # imitates, so the only thing left to do is make sure whoever pressed
+            # [a] knows which of the two they are buying.
+            confirmed = await self.app.push_screen(
+                ConfirmScreen(
+                    f"{row.raw_title} bir klon, {row.clone_of} değil. "
+                    "Kendi adıyla sepete eklensin mi?"
+                ),
+                wait_for_dismiss=True,
+            )
+            if not confirmed:
+                return
+        elif not row.confident:
             confirmed = await self.app.push_screen(
                 ConfirmScreen(
                     f"{row.raw_title} düşük eşleşme skoruyla (%{row.match_score}) "
