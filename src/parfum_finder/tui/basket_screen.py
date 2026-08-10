@@ -590,8 +590,13 @@ def _split_block(
     prices: dict[tuple[int, str], int | None],
 ) -> list[str]:
     """The best-combination block: its legs, grand total, and its honesty checks."""
+    # The caveat is worded as advice, not as a disclaimer. "matematiksel optimal
+    # degildir" was true but told the reader nothing they could act on; what they
+    # actually need to know is that the other scenarios are still worth a look.
     lines = [
-        "EN İYİ BULUNAN KOMBİNASYON  (sezgisel — matematiksel optimal değildir)",
+        "EN İYİ BULUNAN KOMBİNASYON",
+        "Aramanın bulduğu en ucuz dağılım; daha ucuzu olabilir, "
+        "aşağıdaki seçeneklere de bakın.",
         "",
     ]
     is_split = len(plan.legs) > 1

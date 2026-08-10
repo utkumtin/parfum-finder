@@ -7,6 +7,7 @@ right print wrong by one kurus, and nobody would notice until a receipt did.
 """
 
 from parfum_finder.basket import (
+    MAX_PAIR_MOVE_ITEMS,
     BasketItem,
     ShippingConfig,
     optimize,
@@ -294,6 +295,98 @@ def test_optimize_returns_none_when_a_line_is_priced_nowhere() -> None:
     plan = optimize([_A, _B], prices, sites)
 
     assert plan is None
+
+
+def test_optimize_moves_two_lines_together_to_clear_a_threshold() -> None:
+    # The case single moves cannot reach. site-x carries item c for 30000, which
+    # leaves it 30000 short of its own free-shipping threshold, and site-y is a
+    # kurus cheaper per unit on _A and _B so the cheapest-unit start puts both
+    # there. Moving either one alone to site-x pays site-x's 9000 shipping and
+    # loses; moving both at once lands site-x exactly on 60000, so its shipping
+    # goes away and the basket gets 7000 cheaper. Only site-y prices item d and
+    # only site-x prices item c, so this split is the single viable subset and
+    # the enumeration cannot rescue the answer on its own.
+    item_c = BasketItem(item_id=3, label="c", qty=1)
+    item_d = BasketItem(item_id=4, label="d", qty=1)
+    prices: dict[tuple[int, str], int | None] = {
+        (1, "site-x"): 15000,
+        (1, "site-y"): 14000,
+        (2, "site-x"): 15000,
+        (2, "site-y"): 14000,
+        (3, "site-x"): 30000,
+        (4, "site-y"): 8000,
+    }
+    sites = [
+        _site("site-x", threshold=60000, shipping_cost=9000),
+        _site("site-y", threshold=100000, shipping_cost=5000),
+    ]
+
+    plan = optimize([_A, _B, item_c, item_d], prices, sites)
+
+    assert plan is not None
+    # 80000 is what the single-move-only climb settles for: _A and _B left on
+    # site-y, site-x paying shipping on item c alone.
+    assert plan.total_kurus == 73000
+    by_site = {leg.scenario.site_id: leg.item_ids for leg in plan.legs}
+    assert by_site == {"site-x": (1, 2, 3), "site-y": (4,)}
+
+
+def test_optimize_trades_two_lines_between_sites_to_keep_both_free() -> None:
+    # The other pair shape: neither line moves to a new site, they trade. site-p
+    # starts 2000 short of its threshold and site-q starts over its own. Sending
+    # _B to site-p alone clears site-p but drops site-q under its threshold, so
+    # it loses; sending _A to site-q alone just pays 1000 more for the same
+    # shipping. Trading them lands both sites free at once and saves 2000. Item
+    # c is only on site-p and item d only on site-q, so neither site can be
+    # dropped and the enumeration cannot reach this on its own.
+    item_c = BasketItem(item_id=3, label="c", qty=1)
+    item_d = BasketItem(item_id=4, label="d", qty=1)
+    prices: dict[tuple[int, str], int | None] = {
+        (1, "site-p"): 9000,
+        (1, "site-q"): 10000,
+        (2, "site-p"): 11000,
+        (2, "site-q"): 8000,
+        (3, "site-p"): 30000,
+        (4, "site-q"): 30000,
+    }
+    sites = [
+        _site("site-p", threshold=41000, shipping_cost=6000),
+        _site("site-q", threshold=35000, shipping_cost=9000),
+    ]
+
+    plan = optimize([_A, _B, item_c, item_d], prices, sites)
+
+    assert plan is not None
+    # 83000 is where the single-move-only climb stops: site-p still paying 6000.
+    assert plan.total_kurus == 81000
+    by_site = {leg.scenario.site_id: leg.item_ids for leg in plan.legs}
+    assert by_site == {"site-p": (2, 3), "site-q": (1, 4)}
+    assert all(leg.scenario.free_shipping_met for leg in plan.legs)
+
+
+def test_optimize_still_covers_the_basket_past_the_pair_move_cap() -> None:
+    # Past MAX_PAIR_MOVE_ITEMS the pair sweep is switched off to stay inside the
+    # time budget. That is a quality cut, never a correctness one: the plan must
+    # still assign every single line to exactly one site.
+    items = [
+        BasketItem(item_id=n, label=f"line-{n}", qty=1)
+        for n in range(1, MAX_PAIR_MOVE_ITEMS + 2)
+    ]
+    prices: dict[tuple[int, str], int | None] = {}
+    for item in items:
+        prices[(item.item_id, "site-a")] = 1000 + item.item_id * 10
+        prices[(item.item_id, "site-b")] = 1200 - item.item_id * 10
+    sites = [
+        _site("site-a", threshold=20000, shipping_cost=3000),
+        _site("site-b", threshold=25000, shipping_cost=4000),
+    ]
+
+    plan = optimize(items, prices, sites)
+
+    assert plan is not None
+    assigned = sorted(item_id for leg in plan.legs for item_id in leg.item_ids)
+    assert assigned == [item.item_id for item in items]
+    assert plan.total_kurus == sum(leg.scenario.total_kurus for leg in plan.legs)
 
 
 def test_optimize_is_deterministic_across_repeated_calls() -> None:

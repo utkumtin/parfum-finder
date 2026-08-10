@@ -828,7 +828,9 @@ async def test_the_split_block_carries_its_heuristic_label_verbatim(
 
     optimize() enumerates a bounded subset search, not every possible split, so
     the screen has to keep saying "found", not "best possible", every time it
-    shows this block.
+    shows this block. The caveat also has to stay actionable: it tells the
+    reader to look at the other scenarios, which is the only thing they can
+    actually do about the search being a heuristic.
     """
     sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -840,9 +842,10 @@ async def test_the_split_block_carries_its_heuristic_label_verbatim(
         _stub_optimize(monkeypatch, _plan(_leg("site-a", "Site A", 25000, 0, item_id)))
         screen = await _open_basket(pilot)
         text = _text(screen, "scenarios")
+        assert "EN İYİ BULUNAN KOMBİNASYON" in text
         assert (
-            "EN İYİ BULUNAN KOMBİNASYON  (sezgisel — matematiksel optimal değildir)"
-            in text
+            "Aramanın bulduğu en ucuz dağılım; daha ucuzu olabilir, "
+            "aşağıdaki seçeneklere de bakın." in text
         )
 
 

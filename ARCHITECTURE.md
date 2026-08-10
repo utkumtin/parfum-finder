@@ -445,20 +445,39 @@ Bir ürünü daha pahalı bir siteden almak, o sitenin eşiğini aşırıp kargo
 ```
 1. Site alt-kümeleri üzerinde enumerasyon  (2^M, M ≤ 10 → ≤ 1024 kombinasyon)
 2. Her alt-küme için: her ürünü, alt-kümedeki en ucuz siteye ata
-3. YEREL İYİLEŞTİRME: her ürünü alt-kümedeki diğer sitelere taşımayı dene;
+3. YEREL İYİLEŞTİRME (tekli): her ürünü alt-kümedeki diğer sitelere taşımayı dene;
    genel toplam düşüyorsa kabul et; sabitlenene kadar tekrarla
-4. Tüm alt-kümeler arasından en düşük genel toplamı seç
+4. YEREL İYİLEŞTİRME (ikili): tekli tur hiçbir iyileşme bulamayınca iki ürünü
+   birlikte aynı siteye taşımayı ve iki ürünün sitelerini takas etmeyi dene;
+   ilk iyileşmede kabul edip 3'e dön (sepet ≤ 25 satır, aşağıya bak)
+5. Tüm alt-kümeler arasından en düşük genel toplamı seç
 ```
 
 Tek-site senaryoları bu enumerasyonun tekil alt-kümeleridir — **ayrı kod yok**.
 
+İkili hamlenin nedeni: tekli hamle, iki ürünün **birlikte** taşınıp bir sitenin
+kargo bedava eşiğini aştığı durumları göremez. Tek başına taşınan ürün eşiği
+geçiremediği için hamle pahalı görünür ve arama yerel minimumda takılır.
+
+Her hamle yalnızca toplam **tam sayı kuruş kesin olarak azaldığında** kabul
+edilir, bu da tur sayısına ayrı bir üst sınır koymadan sonlanmayı garanti eder.
+
+**Performans sınırı:** ikili tarama sepet satır sayısında kareseldir. 10 site ve
+yoğun fiyat matrisiyle ölçüldü: 15 satır ~130 ms, 20 satır ~230 ms, 25 satır
+~410 ms, 30 satır ~720 ms. Kabul tavanı 500 ms olduğu için ikili tarama 25
+satırda kesiliyor (`MAX_PAIR_MOVE_ITEMS`); üstünde arama tekli hamleyle devam
+ediyor.
+
 ### Dürüstlük notu — zorunlu
 
-Bu bir **sezgiseldir**, ispatlı optimal değildir. Yerel iyileştirme, eşik etkileşimlerinin
-büyük kısmını yakalar ama global optimumu garanti etmez.
+Bu bir **sezgiseldir**, ispatlı optimal değildir. Kesin olan taraf hangi site
+alt-kümesinin kullanıldığı: o taraf tam taranıyor. Sezgisel olan, alt-küme
+içindeki ürün→site ataması. Tekli ve ikili yerel iyileştirme eşik
+etkileşimlerinin büyük kısmını yakalar ama global optimumu garanti etmez.
 
 TUI bu satırı **"en iyi bulunan kombinasyon"** olarak etiketler, "matematiksel en ucuz"
-diye sunmaz.
+diye sunmaz. Uyarı kullanıcı diliyle yazılır ve ne yapması gerektiğini söyler:
+`Aramanın bulduğu en ucuz dağılım; daha ucuzu olabilir, aşağıdaki seçeneklere de bakın.`
 
 ### Eksik ürün politikası
 

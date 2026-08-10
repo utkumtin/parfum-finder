@@ -29,6 +29,14 @@ Prices = Mapping[tuple[int, str], int | None]
 # anyone is realistically going to order the same basket from.
 MAX_ENUMERATED_SITES = 10
 
+# The pair sweep is quadratic in basket lines and dominates the search, so it
+# gets its own ceiling. Measured on 10 sites with a dense price matrix and
+# thresholds straddling the leg subtotals, which is the worst case because it
+# keeps every subset alive: 15 lines is ~130 ms, 20 lines is ~230 ms, 25 lines
+# is ~410 ms, 30 lines is ~720 ms. The budget is 500 ms, so 25 is where the
+# pair sweep stops. Past it the search still runs, with single moves only.
+MAX_PAIR_MOVE_ITEMS = 25
+
 
 @dataclass(frozen=True)
 class BasketItem:
@@ -131,6 +139,24 @@ class SplitPlan:
     legs: tuple[SplitLeg, ...]
     total_kurus: int
     omitted_sites: tuple[str, ...]
+
+
+@dataclass
+class _ClimbState:
+    """The hill-climb's working assignment plus the running per-site figures.
+
+    `subtotals` and `lines` are kept in step with `assignment` so scoring a
+    trial move only has to reprice the sites that move touches. `reachable`
+    lists the sites one line could move to at all, with what it would cost
+    there, so the move loops never look up a price that isn't in this subset.
+    All of it is cached derived data, so nothing outside the search should ever
+    see any of it.
+    """
+
+    assignment: dict[int, str]
+    subtotals: dict[str, int]
+    lines: dict[str, int]
+    reachable: dict[int, tuple[tuple[str, int], ...]]
 
 
 def site_scenario(
@@ -240,6 +266,7 @@ def optimize(
     no split worth showing.
     """
     site_by_id = {s.site_id: s for s in shipping}
+    ordered_items = sorted(items, key=lambda i: i.item_id)
     full_scenarios = {s.site_id: site_scenario(items, prices, s) for s in shipping}
     candidates = [s for s in shipping if full_scenarios[s.site_id].covered > 0]
 
@@ -268,28 +295,177 @@ def optimize(
             for site_id, ids in by_site.items()
         )
 
+    # What one basket line costs on one site, quantity included, keyed by line
+    # and then by site. The search scores hundreds of thousands of trial moves,
+    # so this is derived once and `prices` is never touched inside the climb.
+    cost_of: dict[int, dict[str, int]] = {}
+    for item in ordered_items:
+        per_site: dict[str, int] = {}
+        for config in candidates:
+            price = prices.get((item.item_id, config.site_id))
+            if price is not None:
+                per_site[config.site_id] = price * item.qty
+        cost_of[item.item_id] = per_site
+
+    def leg_cost(site_id: str, subtotal: int, lines: int) -> int:
+        """One leg's total from its subtotal. No lines means no leg, so no shipping."""
+        if lines == 0:
+            return 0
+        config = site_by_id[site_id]
+        threshold = config.free_shipping_threshold_kurus
+        if threshold is not None and subtotal >= threshold:
+            return subtotal
+        return subtotal + config.shipping_cost_kurus
+
+    def apply_moves(state: _ClimbState, moves: Sequence[tuple[int, str]]) -> None:
+        for item_id, target in moves:
+            source = state.assignment[item_id]
+            state.subtotals[source] -= cost_of[item_id][source]
+            state.lines[source] -= 1
+            state.assignment[item_id] = target
+            state.subtotals[target] = (
+                state.subtotals.get(target, 0) + cost_of[item_id][target]
+            )
+            state.lines[target] = state.lines.get(target, 0) + 1
+
+    def best_single_move(state: _ClimbState, item_id: int) -> str | None:
+        """The site that cuts the total most by taking over one line, or None.
+
+        A move only changes what the two sites it touches charge, so the rest of
+        the plan never gets repriced. The source side does not depend on the
+        target either, so it is priced once and reused across the candidates.
+        """
+        source = state.assignment[item_id]
+        source_subtotal = state.subtotals[source]
+        source_lines = state.lines[source]
+        leaving = leg_cost(
+            source, source_subtotal - cost_of[item_id][source], source_lines - 1
+        ) - leg_cost(source, source_subtotal, source_lines)
+
+        best_delta = 0
+        best_site: str | None = None
+        for site_id, cost in state.reachable[item_id]:
+            if site_id == source:
+                continue
+            subtotal = state.subtotals.get(site_id, 0)
+            lines = state.lines.get(site_id, 0)
+            delta = (
+                leaving
+                + leg_cost(site_id, subtotal + cost, lines + 1)
+                - leg_cost(site_id, subtotal, lines)
+            )
+            if delta < best_delta:
+                best_delta = delta
+                best_site = site_id
+        return best_site
+
+    def first_pair_move(state: _ClimbState) -> tuple[tuple[int, str], ...] | None:
+        """The first strictly cheaper two-line move, or None if there isn't one.
+
+        Single moves get stuck when two lines only pay off together, which is
+        exactly what happens when neither one alone clears a site's free
+        shipping threshold but both together do. Two move shapes cover that:
+        send both lines to the same site, or swap the two lines' sites. The
+        first improvement wins rather than the best one, because the caller goes
+        straight back to single moves afterwards and would re-find anything
+        better from the new position anyway.
+        """
+        assignment = state.assignment
+        subtotals = state.subtotals
+        lines = state.lines
+
+        for index, first in enumerate(ordered_items):
+            a = first.item_id
+            site_a = assignment[a]
+            a_out = cost_of[a][site_a]
+            for second in ordered_items[index + 1 :]:
+                b = second.item_id
+                site_b = assignment[b]
+                b_out = cost_of[b][site_b]
+                b_costs = cost_of[b]
+
+                # Both lines onto one site. What the sources give up is the same
+                # whichever site takes them, so it is priced once per pair.
+                if site_a == site_b:
+                    subtotal = subtotals[site_a]
+                    count = lines[site_a]
+                    leaving = leg_cost(
+                        site_a, subtotal - a_out - b_out, count - 2
+                    ) - leg_cost(site_a, subtotal, count)
+                else:
+                    leaving = (
+                        leg_cost(site_a, subtotals[site_a] - a_out, lines[site_a] - 1)
+                        - leg_cost(site_a, subtotals[site_a], lines[site_a])
+                        + leg_cost(site_b, subtotals[site_b] - b_out, lines[site_b] - 1)
+                        - leg_cost(site_b, subtotals[site_b], lines[site_b])
+                    )
+                for site_id, a_in in state.reachable[a]:
+                    if site_id == site_a or site_id == site_b:
+                        continue
+                    b_in = b_costs.get(site_id)
+                    if b_in is None:
+                        continue
+                    subtotal = subtotals.get(site_id, 0)
+                    count = lines.get(site_id, 0)
+                    delta = (
+                        leaving
+                        + leg_cost(site_id, subtotal + a_in + b_in, count + 2)
+                        - leg_cost(site_id, subtotal, count)
+                    )
+                    if delta < 0:
+                        return ((a, site_id), (b, site_id))
+
+                # Trade sites. Neither leg gains or loses a line here, only what
+                # it is paying for, so the line counts stay put.
+                if site_a == site_b:
+                    continue
+                a_traded = cost_of[a].get(site_b)
+                b_traded = b_costs.get(site_a)
+                if a_traded is None or b_traded is None:
+                    continue
+                delta = (
+                    leg_cost(
+                        site_a, subtotals[site_a] - a_out + b_traded, lines[site_a]
+                    )
+                    - leg_cost(site_a, subtotals[site_a], lines[site_a])
+                    + leg_cost(
+                        site_b, subtotals[site_b] - b_out + a_traded, lines[site_b]
+                    )
+                    - leg_cost(site_b, subtotals[site_b], lines[site_b])
+                )
+                if delta < 0:
+                    return ((a, site_b), (b, site_a))
+        return None
+
     best_total: int | None = None
     best_key: tuple[int, int, tuple[str, ...]] | None = None
     best_assignment: dict[int, str] | None = None
 
     for mask in range(1, 1 << site_count):
-        subset_sites = [candidates[i] for i in range(site_count) if mask & (1 << i)]
+        subset_ids = {
+            candidates[i].site_id for i in range(site_count) if mask & (1 << i)
+        }
+        reachable = {
+            item.item_id: tuple(
+                (site_id, cost)
+                for site_id, cost in cost_of[item.item_id].items()
+                if site_id in subset_ids
+            )
+            for item in ordered_items
+        }
 
         assignment: dict[int, str] = {}
         covers_all = True
-        for item in items:
-            best_price: int | None = None
-            best_site_id: str | None = None
-            for site in subset_sites:
-                price = prices.get((item.item_id, site.site_id))
-                if price is None:
-                    continue
-                if best_price is None or price < best_price:
-                    best_price = price
-                    best_site_id = site.site_id
-            if best_site_id is None:
+        for item in ordered_items:
+            options = reachable[item.item_id]
+            if not options:
                 covers_all = False
                 break
+            best_site_id, best_cost = options[0]
+            for site_id, cost in options[1:]:
+                if cost < best_cost:
+                    best_cost = cost
+                    best_site_id = site_id
             assignment[item.item_id] = best_site_id
         if not covers_all:
             continue
@@ -298,29 +474,35 @@ def optimize(
         # total by pushing that site's subtotal over its free-shipping
         # threshold, so the cheapest-unit-price assignment above is only a
         # starting point. The total is an integer that strictly decreases on
-        # every accepted move, so this always terminates on its own.
-        moved = True
-        while moved:
+        # every accepted move, so this always terminates on its own and needs
+        # no separate round limit.
+        state = _ClimbState(
+            assignment=assignment, subtotals={}, lines={}, reachable=reachable
+        )
+        for item_id, site_id in assignment.items():
+            state.subtotals[site_id] = (
+                state.subtotals.get(site_id, 0) + cost_of[item_id][site_id]
+            )
+            state.lines[site_id] = state.lines.get(site_id, 0) + 1
+
+        while True:
             moved = False
-            for item in sorted(items, key=lambda i: i.item_id):
-                current_total = plan_total(assignment)
-                current_site = assignment[item.item_id]
-                best_move_site = current_site
-                best_move_total = current_total
-                for site in subset_sites:
-                    if site.site_id == current_site:
-                        continue
-                    if prices.get((item.item_id, site.site_id)) is None:
-                        continue
-                    trial = dict(assignment)
-                    trial[item.item_id] = site.site_id
-                    trial_total = plan_total(trial)
-                    if trial_total < best_move_total:
-                        best_move_total = trial_total
-                        best_move_site = site.site_id
-                if best_move_site != current_site:
-                    assignment[item.item_id] = best_move_site
+            for item in ordered_items:
+                target = best_single_move(state, item.item_id)
+                if target is not None:
+                    apply_moves(state, ((item.item_id, target),))
                     moved = True
+            if moved:
+                continue
+            # Single moves are exhausted, so try the two-line moves they can't
+            # reach. One improvement is enough to go back to single moves,
+            # which are cheaper and may now have somewhere to go.
+            if len(ordered_items) > MAX_PAIR_MOVE_ITEMS:
+                break
+            pair = first_pair_move(state)
+            if pair is None:
+                break
+            apply_moves(state, pair)
 
         total = plan_total(assignment)
         sites_used = tuple(sorted(set(assignment.values())))
