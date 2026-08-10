@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "id": "dekantdoktoru",
-  "name": "Dekant Doktoru",
-  "base_url": "https://www.dekantdoktoru.com",
+  "id": "splitcim",
+  "name": "Splitçim",
+  "base_url": "https://www.splitcim.com",
   "platform": "ideasoft",
   "strategy": "httpx",
   "search": {
@@ -19,12 +19,9 @@
   },
   "shipping": {
     "free_shipping_threshold_kurus": 125000,
-    "shipping_cost_kurus": 12000,
-    "notes": "Aras Kargo: 120TL, Yurtici Kargo: 150TL (Kargo bedelleri güncel olmayabilir, lütfen siteyi kontrol ediniz.)"
+    "shipping_cost_kurus": 15000,
+    "notes": "1250TL üzeri kargo bedava, altında 150TL. (Kargo bedelleri güncel olmayabilir, lütfen siteyi kontrol ediniz.)"
   },
-  "discovered_at": "2026-08-07T13:56:58Z",
-  "needs_review": [
-    "shipping: hiçbir alan gerçek veri değil, elle doldurulmalı",
-    "en büyük gözlenen ölçü (30ml) ARCHITECTURE.md §4'teki size_ml >= 30 kuralıyla eleniyor"
-  ]
+  "discovered_at": "2026-08-10T07:21:31Z",
+  "needs_review": []
 }

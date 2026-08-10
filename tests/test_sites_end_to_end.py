@@ -138,6 +138,7 @@ def _fake_fetch(
         "ruxangroup",
         "dekantparfum",
         "dekantdoktoru",
+        "splitcim",
     ],
 )
 async def test_every_target_site_is_driven_from_its_real_profile(site_id: str) -> None:

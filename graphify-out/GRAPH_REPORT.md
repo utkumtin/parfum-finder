@@ -1,7 +1,7 @@
-# Graph Report - parfum-finder  (2026-08-09)
+# Graph Report - parfum-finder  (2026-08-10)
 
 ## Corpus Check
-- 65 files · ~228,490 words
+- 68 files · ~248,348 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `27cf3514`
+- Built from commit: `91411cdb`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -64,19 +64,19 @@
 - Offline Validation Fixtures
 - Basket Domain Logic
 - Search Screen Rows
+- test_engine.py
 - Profile Age Checks
+- extract_endpoint_variants
 - Snapshot Row Semantics
+- conftest.py
 - Endpoint Schema Fields
 - Request Schema Fields
 - Snapshot Row Building
-- Variant Field Types
 - Fetch Strategy Selection
 - Price History
 - Extraction Layer Enum
-- Endpoint Variant Extraction
 - Variant Pattern A
 - Project Root
-- Decimal
 
 ## God Nodes (most connected - your core abstractions)
 1. `search_site()` - 64 edges
@@ -245,8 +245,8 @@ Cohesion: 0.11
 Nodes (18): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+10 more)
 
 ### Community 33 - "Variant Extraction Ladder"
-Cohesion: 0.24
-Nodes (15): _fake_fetch(), _meta(), _path(), Proof that M4's own criterion holds: every real site profile drives the generic, The one real search-result card that led to this site's captured product.      C, Route every fetch call a site's search_site() run makes to real bytes.      Only, _single_result_search_html(), test_decantall_reads_its_four_real_decant_prices() (+7 more)
+Cohesion: 0.16
+Nodes (5): Changed, One perfume of a search, as typed and as parsed.      The index is the outermost, Empty the table for a new scan.          The columns are the same every time now, _Search, Submitted
 
 ### Community 34 - "Fetch Strategy Probing"
 Cohesion: 0.21
@@ -266,7 +266,7 @@ Nodes (14): DiscoveryReport, _format_choice(), _format_confidence(), _format_fin
 
 ### Community 38 - "TUI Confirm Dialog"
 Cohesion: 0.24
-Nodes (11): _flatten_defaults(), _format_defaults(), _match_platforms(), Any, Path, Every template with at least one of its markers somewhere in the page.      Case, Write one page and return where it landed plus its digest.      Saved as UTF-8 w, Render a template's defaults as one dotted key per line. (+3 more)
+Nodes (15): _fake_fetch(), _meta(), _path(), Proof that M4's own criterion holds: every real site profile drives the generic, The one real search-result card that led to this site's captured product.      C, Route every fetch call a site's search_site() run makes to real bytes.      Only, _single_result_search_html(), test_decantall_reads_its_four_real_decant_prices() (+7 more)
 
 ### Community 39 - "TUI App Shell"
 Cohesion: 0.13
@@ -281,12 +281,12 @@ Cohesion: 0.14
 Nodes (14): GET, POST, properties, default, enum, type, type, type (+6 more)
 
 ### Community 42 - "Fixture Fetcher (Tests)"
-Cohesion: 0.22
-Nodes (9): product_label(), Reduce a site's own title to the product it is about, spelled one way.      What, Split a title into what the bottle is and what it says it imitates.      The sec, _split_clone_reference(), test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates(), test_a_longer_named_bottle_does_not_join_the_shorter_ones_block(), test_a_title_with_no_product_words_left_has_no_label(), test_every_shops_spelling_of_one_bottle_lands_in_one_block() (+1 more)
+Cohesion: 0.15
+Nodes (13): One call has to leave a row the search table can read straight off.      The cal, first_seen is what says how long a shop has carried a size., Sites come from the profiles, so an id nothing synced is a mistake., A stale reading must never outrank the one taken after it.      latest_prices al, A 10 ml listing must never fill a basket line asking for 5 ml.      The matrix j, Whether an out-of-stock price counts as missing is the caller's call.      Dropp, _record(), test_a_second_scan_moves_last_seen_and_keeps_first_seen() (+5 more)
 
 ### Community 43 - "Validation Reporting"
-Cohesion: 0.32
-Nodes (7): FieldConfidence, One field this run can fill in, with how far it can be trusted.      `field` is, Every profile field this run can put a value on, scored., Score every profile field this run can fill in, in profile order.      Only fiel, Read the extraction layer off the page, for a site no template covers.      Judg, _score_extraction(), score_fields()
+Cohesion: 0.24
+Nodes (11): _flatten_defaults(), _format_defaults(), _match_platforms(), Any, Path, Every template with at least one of its markers somewhere in the page.      Case, Write one page and return where it landed plus its digest.      Saved as UTF-8 w, Render a template's defaults as one dotted key per line. (+3 more)
 
 ### Community 44 - "Decant Variant Rules"
 Cohesion: 0.25
@@ -297,8 +297,8 @@ Cohesion: 0.25
 Nodes (8): Turn one site's hits into the rows write_snapshots is ready to store.      Share, snapshot_rows(), A shop's imitation must not be stored as the perfume it imitates.      The clone, Another house's bottle on the same results page must not enter this history., EDT and EDP are different products, so the row has to say which one this was., test_snapshot_rows_drops_a_title_the_matcher_rejects(), test_snapshot_rows_marks_a_clone_instead_of_filing_it_as_the_original(), test_snapshot_rows_stores_the_titles_own_concentration()
 
 ### Community 46 - "Offline Validation Fixtures"
-Cohesion: 0.29
-Nodes (6): _choose_strategy(), Strategy, _qualifies(), The strategy the trials actually ran with., Pick the cheapest strategy that came back with real content, or None.      probe, Whether one strategy came back with a usable page.
+Cohesion: 0.22
+Nodes (9): product_label(), Reduce a site's own title to the product it is about, spelled one way.      What, Split a title into what the bottle is and what it says it imitates.      The sec, _split_clone_reference(), test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates(), test_a_longer_named_bottle_does_not_join_the_shorter_ones_block(), test_a_title_with_no_product_words_left_has_no_label(), test_every_shops_spelling_of_one_bottle_lands_in_one_block() (+1 more)
 
 ### Community 47 - "Basket Domain Logic"
 Cohesion: 0.06
@@ -308,13 +308,21 @@ Nodes (96): apply_variant_rules(), CacheKey, CandidateFilter, Path, VariantsRead
 Cohesion: 0.23
 Nodes (6): Decimal, Row, One priced size, exactly as the table shows it and as a keypress needs it., The default order: typed order, product, site, size.          The typed order co, The order once a column has been picked: the site layer drops out.          Aski, _ResultRow
 
+### Community 49 - "test_engine.py"
+Cohesion: 0.25
+Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules, additionalProperties, required, type
+
 ### Community 50 - "Profile Age Checks"
 Cohesion: 0.20
 Nodes (8): _age_line(), format_live_report(), Every check run against one site's profile, in the order they ran.      Checks s, Whether the profile is old enough to be worth re-discovering., The check that broke, or None if the profile is intact., The age note for one site, or None when its age is unremarkable.      A profile, Render offline and live results side by side, as APP_FLOW §6 shows them.      Bo, SiteValidation
 
-### Community 52 - "Snapshot Row Semantics"
-Cohesion: 0.15
-Nodes (13): One call has to leave a row the search table can read straight off.      The cal, first_seen is what says how long a shop has carried a size., Sites come from the profiles, so an id nothing synced is a mistake., A stale reading must never outrank the one taken after it.      latest_prices al, A 10 ml listing must never fill a basket line asking for 5 ml.      The matrix j, Whether an out-of-stock price counts as missing is the caller's call.      Dropp, _record(), test_a_second_scan_moves_last_seen_and_keeps_first_seen() (+5 more)
+### Community 51 - "extract_endpoint_variants"
+Cohesion: 0.32
+Nodes (7): FieldConfidence, One field this run can fill in, with how far it can be trusted.      `field` is, Every profile field this run can put a value on, scored., Score every profile field this run can fill in, in profile order.      Only fiel, Read the extraction layer off the page, for a site no template covers.      Judg, _score_extraction(), score_fields()
+
+### Community 53 - "conftest.py"
+Cohesion: 0.29
+Nodes (6): _choose_strategy(), Strategy, _qualifies(), The strategy the trials actually ran with., Pick the cheapest strategy that came back with real content, or None.      probe, Whether one strategy came back with a usable page.
 
 ### Community 54 - "Endpoint Schema Fields"
 Cohesion: 0.22
@@ -328,10 +336,6 @@ Nodes (8): type, additionalProperties, type, body, request_headers, additionalPr
 Cohesion: 0.20
 Nodes (11): _listing_filter(), Any, CandidateFilter, Connection, Scan every perfume against every site and print each site as it lands.      One, Decide, from a search result's own title, whether to open its page., Write one site's rows in a transaction of its own.      Per site rather than per, One line per site: which site, how it went, and what it said.      The site id i (+3 more)
 
-### Community 59 - "Variant Field Types"
-Cohesion: 0.16
-Nodes (5): Changed, One perfume of a search, as typed and as parsed.      The index is the outermost, Empty the table for a new scan.          The columns are the same every time now, _Search, Submitted
-
 ### Community 60 - "Fetch Strategy Selection"
 Cohesion: 0.31
 Nodes (9): Node, _parse_selector(), Run one "<css>::text" / "<css>::attr(name)" selector inside a node.      The nod, Run one "<css>::text" / "<css>::attr(name)" selector, reading every match., Split a "<css>::text" / "<css>::attr(name)" selector into its two parts., Read the attribute or text of one already-selected node, or None., _read_selected(), select_all() (+1 more)
@@ -344,10 +348,6 @@ Nodes (7): price_history(), Row, Return one variant's past readings, newest firs
 Cohesion: 0.33
 Nodes (6): css, embedded_json, endpoint, jsonld, enum, extraction
 
-### Community 66 - "Endpoint Variant Extraction"
-Cohesion: 0.25
-Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules, additionalProperties, required, type
-
 ## Knowledge Gaps
 - **152 isolated node(s):** `parfum-finder`, `$schema`, `$id`, `title`, `description` (+147 more)
   These have ≤1 connection - possible missing edges or undocumented components.
@@ -356,11 +356,11 @@ Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SiteResult` connect `Search/Basket Domain Models` to `TUI App & Screens`, `Site Profiles & Templates`, `TUI App Shell`, `Search Engine Core`, `Basket Optimizer Core`, `Multi-Site Search Run`, `Product Extraction`, `Basket Domain Logic`, `Offline Profile Validation`, `Search Screen Rows`, `Search TUI Screen`, `Snapshot Writing`, `Candidate Filtering`, `Basket Site Scenarios`, `SQLite Store`, `Snapshot Row Building`, `Variant Field Types`, `Store Timestamp Tests`?**
+- **Why does `SiteResult` connect `Search/Basket Domain Models` to `TUI App & Screens`, `Site Profiles & Templates`, `Variant Extraction Ladder`, `TUI App Shell`, `Search Engine Core`, `Basket Optimizer Core`, `Multi-Site Search Run`, `Product Extraction`, `Basket Domain Logic`, `Offline Profile Validation`, `Search Screen Rows`, `Search TUI Screen`, `Snapshot Writing`, `Candidate Filtering`, `Basket Site Scenarios`, `SQLite Store`, `Snapshot Row Building`, `Store Timestamp Tests`?**
   _High betweenness centrality (0.061) - this node is a cross-community bridge._
-- **Why does `SearchScreen` connect `Search TUI Screen` to `TUI App & Screens`, `Site Profiles & Templates`, `Title Matcher`, `Search/Basket Domain Models`, `TUI App Shell`, `Decimal`, `Search Engine Core`, `Basket Optimizer Core`, `Search Screen Rows`, `Offline Profile Validation`, `Snapshot Writing`, `Candidate Filtering`, `Variant Field Types`?**
+- **Why does `SearchScreen` connect `Search TUI Screen` to `TUI App & Screens`, `Site Profiles & Templates`, `Title Matcher`, `Variant Extraction Ladder`, `Search/Basket Domain Models`, `TUI App Shell`, `Search Engine Core`, `Basket Optimizer Core`, `Search Screen Rows`, `Offline Profile Validation`, `Snapshot Writing`, `Snapshot Row Semantics`, `Candidate Filtering`?**
   _High betweenness centrality (0.056) - this node is a cross-community bridge._
-- **Why does `PlaywrightNotInstalled` connect `Store Timestamp Tests` to `Fetch Strategy Probing`, `HTTP/Browser Fetching`, `Search/Basket Domain Models`, `Discovery Report Model`, `Search Engine Core`, `Validation Reporting`, `Basket Domain Logic`, `Playwright Errors`, `Discovery CLI Reporting`?**
+- **Why does `PlaywrightNotInstalled` connect `Store Timestamp Tests` to `Fetch Strategy Probing`, `HTTP/Browser Fetching`, `Search/Basket Domain Models`, `Discovery Report Model`, `Search Engine Core`, `Basket Domain Logic`, `Playwright Errors`, `extract_endpoint_variants`, `Discovery CLI Reporting`?**
   _High betweenness centrality (0.033) - this node is a cross-community bridge._
 - **Are the 7 inferred relationships involving `SearchScreen` (e.g. with `ParfumFinderApp` and `SiteResult`) actually correct?**
   _`SearchScreen` has 7 INFERRED edges - model-reasoned connections that need verification._

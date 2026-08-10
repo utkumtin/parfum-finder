@@ -129,6 +129,7 @@ _SITE_STYLES = {
     "dekantparfum": "#c8b26b",
     "luxurydekant": "#b294c4",
     "ruxangroup": "#d18f8f",
+    "splitcim": "#a3c46b",
     "venco": "#5fb3b3",
 }
 

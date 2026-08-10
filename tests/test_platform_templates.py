@@ -30,7 +30,7 @@ _FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 # markers no longer appear in the HTML it was derived from is a template that
 # will silently stop recognizing its platform.
 FIXTURE_IDS: dict[str, list[str]] = {
-    "ideasoft": ["dekantparfum", "dekantdoktoru"],
+    "ideasoft": ["dekantparfum", "dekantdoktoru", "splitcim"],
     "woocommerce": ["luxurydekant", "ruxangroup"],
     "ikas": ["decantall"],
 }

@@ -1,0 +1,33 @@
+{
+  "entry_url": "https://www.splitcim.com/",
+  "captured_at": "2026-08-10T07:21:31Z",
+  "strategy": "httpx",
+  "measured_strategy": "httpx",
+  "pages": {
+    "search": {
+      "url": "https://www.splitcim.com/arama/sauvage",
+      "status_code": 200,
+      "bytes": 151445,
+      "sha256": "842bdf07ad0fa315efaea9b5f4eb89392dae252465643eea8ea36c0b08101dc4"
+    },
+    "product": {
+      "url": "https://www.splitcim.com/urun/ccc-kopya-kopya",
+      "status_code": 200,
+      "bytes": 204529,
+      "sha256": "c34bcf4f916271a5f6381255c5a87fdd41842ef2f4d61ad0cef0b023a701f937"
+    },
+    "related_options": {
+      "url": "https://www.splitcim.com/product/related-options",
+      "method": "POST",
+      "body": {
+        "parent_product_id": 1263,
+        "selected_option_group_id": 2,
+        "selected_options[]": 6
+      },
+      "captured_at": "2026-08-10T07:21:31Z",
+      "status_code": 200,
+      "bytes": 1712,
+      "sha256": "5345097499882ebb491f5c15593944bb11a0a9f0b384c48ae79f2a12c68d4c9e"
+    }
+  }
+}

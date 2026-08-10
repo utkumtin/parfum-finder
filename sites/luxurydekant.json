@@ -19,8 +19,8 @@
     "max_size_ml": 30
   },
   "shipping": {
-    "free_shipping_threshold_kurus": 2000,
-    "shipping_cost_kurus": 150,
+    "free_shipping_threshold_kurus": 200000,
+    "shipping_cost_kurus": 15000,
     "notes": "Kargo bedelleri güncel olmayabilir, lütfen siteyi kontrol ediniz."
   },
   "discovered_at": "2026-08-07T13:56:42Z",

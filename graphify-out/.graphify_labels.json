@@ -48,17 +48,17 @@
   "46": "Offline Validation Fixtures",
   "47": "Basket Domain Logic",
   "48": "Search Screen Rows",
+  "49": "test_engine.py",
   "50": "Profile Age Checks",
+  "51": "extract_endpoint_variants",
   "52": "Snapshot Row Semantics",
+  "53": "conftest.py",
   "54": "Endpoint Schema Fields",
   "56": "Request Schema Fields",
   "58": "Snapshot Row Building",
-  "59": "Variant Field Types",
   "60": "Fetch Strategy Selection",
   "61": "Price History",
   "62": "Extraction Layer Enum",
-  "66": "Endpoint Variant Extraction",
   "69": "Variant Pattern A",
-  "70": "Project Root",
-  "71": "Decimal"
+  "70": "Project Root"
 }

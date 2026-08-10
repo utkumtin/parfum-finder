@@ -30,8 +30,8 @@
     "max_size_ml": 30
   },
   "shipping": {
-    "free_shipping_threshold_kurus": 1400,
-    "shipping_cost_kurus": 132,
+    "free_shipping_threshold_kurus": 140000,
+    "shipping_cost_kurus": 13200,
     "notes": "MNG Kargo: 155TL, Aras Kargo: 132TL, Sürat Kargo: 111 TL (Kargo bedelleri güncel olmayabilir, lütfen siteyi kontrol ediniz."
   },
   "discovered_at": "2026-08-07T13:56:25Z",

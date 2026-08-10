@@ -1,9 +1,9 @@
 # Keşif raporu
 
-M2 keşif turunun çıktısı. Altı hedef sitenin her biri için: hangi platform, hangi fetch
+M2 keşif turunun çıktısı. Hedef sitelerin her biri için: hangi platform, hangi fetch
 stratejisi, hangi çıkarım katmanı, hangi varyant deseni.
 
-Tur tarihi: 2026-08-07. Ölçüm aracı: `parfum-finder discover <anasayfa> --product-url <ürün>`.
+Tur tarihi: 2026-08-07. Turdan sonra eklenen siteler kendi bölümlerinde tarihleriyle yazılı. Ölçüm aracı: `parfum-finder discover <anasayfa> --product-url <ürün>`.
 Her satırın altındaki kanıt, ölçümü tekrar edecek kişinin aynı sonuca ulaşabilmesi için
 yazıldı. Bir alan "bilinmiyor" ise öyle yazıldı, tahmin edilmedi.
 
@@ -19,6 +19,7 @@ yazıldı. Bir alan "bilinmiyor" ise öyle yazıldı, tahmin edilmedi.
 | `dekantparfum` | www.dekantparfum.com.tr | İdeasoft | `httpx` | 2 — JSON endpoint | **B** |
 | `dekantdoktoru` | www.dekantdoktoru.com | İdeasoft | `httpx` | 2 — JSON endpoint | **B** |
 | `ruxangroup` | ruxangroup.com | WooCommerce | `httpx` | 3 — gömülü JS | **C** |
+| `splitcim` | www.splitcim.com | İdeasoft | `httpx` | 2 — JSON endpoint | **B** |
 
 ### Turun üç ana sonucu
 
@@ -129,7 +130,7 @@ yazıldı. Bir alan "bilinmiyor" ise öyle yazıldı, tahmin edilmedi.
 - **Varyant deseni:** **B**. `div.variant-list` içinde 3 ml / 5 ml / 10 ml / 15 ml / 20 ml /
   30 ml, fiyatsız.
 
-#### İdeasoft varyant endpoint'i (iki site için ortak)
+#### İdeasoft varyant endpoint'i (üç site için ortak)
 
 Tema JS'i (`storefront/assets/javascript/layout/product.js`) ölçü seçildiğinde şu isteği atıyor:
 
@@ -157,7 +158,8 @@ Dönen cevap tek istekte ihtiyaç duyulan her şeyi veriyor:
 }]}}
 ```
 
-İki sitede de doğrulandı (dekantdoktoru: ana ürün 58, dekantparfum: ana ürün 14).
+Üç sitede de doğrulandı (dekantdoktoru: ana ürün 58, dekantparfum: ana ürün 14,
+splitcim: ana ürün 1263).
 
 **M4 sırasında düzeltilen iki nokta (2026-08-08):**
 
@@ -194,6 +196,21 @@ Dönen cevap tek istekte ihtiyaç duyulan her şeyi veriyor:
 - **Ölçü etiketleri temiz değil:** `30mldekant` gibi bitişik yazımlar var, `variant_rules`
   ml çıkarımı bunu tolere etmeli.
 
+### `splitcim` — www.splitcim.com
+
+Bu site M2 turundan sonra, 2026-08-10'da eklendi. Ölçüm aynı komutla yapıldı.
+
+- **Platform:** **İdeasoft**. Footer'da açıkça yazıyor, `discover`'ın imza testi de aynı
+  sonucu veriyor (`/idea/` varlık yolları).
+- **Strateji:** `httpx`.
+- **Katman:** **2 (platform JSON endpoint)**, diğer iki İdeasoft sitesiyle aynı.
+- **Katman 1 neden yetmiyor:** Sayfada hiç JSON-LD yok, diğer İdeasoft siteleriyle aynı durum.
+- **Varyant deseni:** **B**. `span.variant-text` içinde 3 / 5 / 10 / 15 / 30 ml, fiyatsız.
+- **Ölçü etiketleri pazarlama metni taşıyor:** `3ml – Deneme`, `⭐ 10ml – En Popüler`,
+  `30ml – Yoğun Kullanım`. Rakam ile `ml` arasında boşluk yok ve etikette emoji var, ikisini de
+  `variant_rules`'un mevcut ml deseni sorunsuz okuyor.
+- **Kargo:** 1250 TL üzeri ücretsiz, altında 150 TL. Sitenin kendi bilgisi, elle girildi.
+
 ---
 
 ## Arama URL şablonları
@@ -210,6 +227,7 @@ ikisi de anasayfayı döndürüyordu).
 | `dekantparfum` | `{base}/arama/{query}` |
 | `dekantdoktoru` | `{base}/arama/{query}` |
 | `ruxangroup` | `{base}/?s={query}&post_type=product` |
+| `splitcim` | `{base}/arama/{query}` |
 
 Platform başına toplanınca: WooCommerce `?s=...&post_type=product`, İdeasoft `/arama/<sorgu>`
 (sorgu yol parçası, query string değil). İkisi de M3'te platform şablonuna yazılabilir.
