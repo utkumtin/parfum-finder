@@ -1,8 +1,10 @@
 """The basket screen: the shopping list, a scenario per site, and the best split.
 
-Sites that cover the whole list are shown separately from sites that only cover
-part of it, and listed above them. A partial site is tagged, e.g. "4/5 items", and
-never compared directly against a full-coverage total. Each scenario shows how much
+The real decision is almost always between one full-coverage shop and splitting
+the order, so those two blocks are what the screen opens on. Every other
+scenario, including the partial ones, sits behind [t] and lands at the bottom
+when it is opened. A partial site is tagged, e.g. "4/5 items", and never
+compared directly against a full-coverage total. Each scenario shows how much
 more is needed to unlock free shipping. The split-across-sites result is always
 labeled as the best combination found, not the mathematically cheapest.
 """
@@ -77,6 +79,14 @@ _TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 _EMPTY = "—"
 
+# Everything _render_scenarios needs, exactly as _render_all scored it.
+_Scored = tuple[
+    BasketReport,
+    SplitPlan | None,
+    list[BasketItem],
+    dict[tuple[int, str], int | None],
+]
+
 
 @dataclass(frozen=True)
 class _BasketRow:
@@ -134,6 +144,7 @@ class BasketScreen(Screen[None]):
         ("plus", "increment", "adet +"),
         ("minus", "decrement", "adet -"),
         ("r", "refresh_prices", "tazele"),
+        ("t", "toggle_scenarios", "tüm senaryolar"),
         ("escape", "back", "geri"),
     ]
 
@@ -169,6 +180,17 @@ class BasketScreen(Screen[None]):
         self._refreshing = False
         self._scanned = 0
         self._scans = 0
+        # Off means the scenario area shows the cheapest full-coverage site and
+        # the split plan only. That is the comparison the user is actually
+        # making; the runner-up shops and the partial ones are reference, not
+        # the decision, and burying the split under six near-identical blocks
+        # is what made the screen hard to read.
+        self._show_all_scenarios = False
+        # What the last _render_all() scored, so toggling [t] can repaint from
+        # it. optimize() is the expensive call on this screen and a keypress
+        # that only changes how much of the answer is on screen has no business
+        # asking for the answer again.
+        self._scored: _Scored | None = None
 
     def compose(self) -> ComposeResult:
         yield DataTable(id="basket", cursor_type="row")
@@ -241,6 +263,7 @@ class BasketScreen(Screen[None]):
         # basket has nothing to split, and this also keeps an empty screen from
         # depending on optimize() at all.
         plan = optimize(items, prices, shipping) if self._rows else None
+        self._scored = (report, plan, items, prices)
         self._render_notices(report)
         self._render_scenarios(report, plan, items, prices)
         self._update_status()
@@ -347,20 +370,33 @@ class BasketScreen(Screen[None]):
         items: Sequence[BasketItem],
         prices: dict[tuple[int, str], int | None],
     ) -> None:
+        # With no full-coverage site there is no cheapest-shop-versus-split
+        # decision to open on, and the notice above the table sends the reader
+        # to the partial scenarios by name. Collapsing them would point that
+        # notice at nothing, so this case is always open.
+        expanded = self._show_all_scenarios or not report.full
+        # How many blocks the toggle governs. Zero means one full site and no
+        # partials, so there is nothing to fold away and no hint to print.
+        hideable = len(report.full[1:]) + len(report.partial) if report.full else 0
         lines: list[str] = []
         if report.full:
-            lines.append("TEK SİTE SENARYOLARI — tam kapsamlı")
-            lines.append("")
-            for scenario in report.full:
+            shown = report.full if expanded else report.full[:1]
+            lines.extend(_heading("TEK SİTE — TAM KAPSAMLI"))
+            for scenario in shown:
                 lines.extend(_scenario_block(scenario, "✓"))
-        if report.partial:
-            lines.append("── kısmi (tam kapsamlılarla doğrudan kıyaslanamaz) ──")
-            lines.append("")
-            for scenario in report.partial:
-                lines.extend(_scenario_block(scenario, "⚠"))
         if plan is not None:
             lines.extend(_split_block(plan, report, items, prices))
-        self.query_one("#scenarios", Static).update("\n".join(lines).rstrip())
+        # Partials last: their totals are cheap for the wrong reason, and the
+        # further they sit from the numbers they cannot be compared against,
+        # the less often they get compared against them anyway.
+        if expanded and report.partial:
+            lines.extend(
+                _heading("KISMİ — TAM KAPSAMLILARLA DOĞRUDAN KIYASLANAMAZ", mark="⚠ ")
+            )
+            for scenario in report.partial:
+                lines.extend(_scenario_block(scenario, "⚠"))
+        lines.extend(_toggle_hint(hideable, expanded=expanded))
+        self.query_one("#scenarios", Static).update("\n".join(lines).strip("\n"))
 
     def _update_status(self) -> None:
         if self._refreshing:
@@ -377,6 +413,11 @@ class BasketScreen(Screen[None]):
         return self._rows[index]
 
     # -- keys -----------------------------------------------------------------
+
+    def action_toggle_scenarios(self) -> None:
+        self._show_all_scenarios = not self._show_all_scenarios
+        if self._scored is not None:
+            self._render_scenarios(*self._scored)
 
     def action_back(self) -> None:
         self.app.pop_screen()
@@ -530,6 +571,25 @@ def _set_qty(basket_item_id: int, qty: int) -> _Change:
     return change
 
 
+def _heading(text: str, *, mark: str = "") -> list[str]:
+    """A block title plus the blank line that keeps it off the block above it.
+
+    The three blocks used to run together as one wall of numbers. Bold plus a
+    gap is what separates them, so every heading goes through here rather than
+    each caller remembering to pad its own.
+    """
+    return ["", f"[bold]{mark}{text}[/bold]", ""]
+
+
+def _toggle_hint(hideable: int, *, expanded: bool) -> list[str]:
+    """The one line that says the screen is holding something back, or is not."""
+    if hideable == 0:
+        return []
+    if expanded:
+        return ["", r"\[t] diğer senaryoları gizle"]
+    return ["", rf"\[t] {hideable} senaryo daha göster"]
+
+
 def _scenario_block(scenario: SiteScenario, mark: str) -> list[str]:
     """The two or three lines one site's scenario takes up on screen."""
     subtotal = format_price(Decimal(scenario.subtotal_kurus) / Decimal(100))
@@ -594,7 +654,7 @@ def _split_block(
     # degildir" was true but told the reader nothing they could act on; what they
     # actually need to know is that the other scenarios are still worth a look.
     lines = [
-        "EN İYİ BULUNAN KOMBİNASYON",
+        *_heading("EN İYİ BULUNAN KOMBİNASYON"),
         "Aramanın bulduğu en ucuz dağılım; daha ucuzu olabilir, "
         "aşağıdaki seçeneklere de bakın.",
         "",

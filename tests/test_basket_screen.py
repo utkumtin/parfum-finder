@@ -454,6 +454,8 @@ async def test_a_partial_site_is_grouped_apart_and_names_what_it_lacks(
 
     Site B here is cheaper only because it is not selling one of the items, and
     listing it alongside the full-coverage sites would read as the better buy.
+    The warning rides on the heading rather than a separator line, so it is
+    still attached to the group when the reader scrolls into the middle of it.
     """
     sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -467,12 +469,167 @@ async def test_a_partial_site_is_grouped_apart_and_names_what_it_lacks(
 
     async with _app(sites_dir, db).run_test() as pilot:
         screen = await _open_basket(pilot)
+        await pilot.press("t")
         text = _text(screen, "scenarios")
-        full, partial = text.split("── kısmi")
+        full, partial = text.split("KISMİ — TAM KAPSAMLILARLA DOĞRUDAN KIYASLANAMAZ")
         assert "Site A   2/2" in full
         assert "Site B   1/2" in partial
         assert "eksik: dior sauvage EDP 10 ml" in partial
         assert "(kısmi)" in partial
+
+
+async def test_the_partial_group_sits_below_the_split_block(tmp_path: Path) -> None:
+    """The partials are reference material, and the split is a decision.
+
+    Keeping the group that cannot be compared against anything between the two
+    totals that can be compared is what made the old screen hard to read: the
+    eye lands on a cheap partial total on its way from one real number to the
+    other.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 25000))
+    _price(db, "site-a", _variant(100, 45000))
+    _price(db, "site-b", _variant(50, 20000))
+    _basket(db, 50)
+    _basket(db, 100)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        screen = await _open_basket(pilot)
+        await pilot.press("t")
+        text = _text(screen, "scenarios")
+        assert text.index("EN İYİ BULUNAN KOMBİNASYON") < text.index("KISMİ —")
+
+
+async def test_the_default_view_is_the_cheapest_full_site_against_the_split(
+    tmp_path: Path,
+) -> None:
+    """Opening on every scenario at once buries the choice actually being made.
+
+    In practice the decision is between the cheapest shop that can fill the
+    whole list and splitting the order, so only those two are on screen at
+    rest. The runner-up shops and the partials are still reachable, and the
+    screen says how many of them it is holding back rather than pretending
+    they do not exist.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    _write_profile(sites_dir, "site-c", "Site C")
+    _sync(sites_dir, db)
+    # Site A is cheapest, Site B is a pricier full site, Site C is partial.
+    _price(db, "site-a", _variant(50, 25000))
+    _price(db, "site-a", _variant(100, 45000))
+    _price(db, "site-b", _variant(50, 26000))
+    _price(db, "site-b", _variant(100, 46000))
+    _price(db, "site-c", _variant(50, 20000))
+    _basket(db, 50)
+    _basket(db, 100)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert "Site A   2/2" in text
+        assert "EN İYİ BULUNAN KOMBİNASYON" in text
+        # Site C may still be named inside the split plan, which is one of the
+        # two blocks that stay. What is folded away is its own scenario block.
+        assert "Site B   2/2" not in text
+        assert "Site C   1/2" not in text
+        assert "KISMİ —" not in text
+        assert "[t] 2 senaryo daha göster" in text
+
+
+async def test_t_opens_the_remaining_scenarios_and_closes_them_again(
+    tmp_path: Path,
+) -> None:
+    """The fold has to be reversible, or it is a feature that hides prices.
+
+    A reader who opened the rest to check one number needs the compact view
+    back without leaving and re-entering the screen.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 25000))
+    _price(db, "site-b", _variant(50, 26000))
+    _basket(db, 50)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        screen = await _open_basket(pilot)
+        assert "Site B" not in _text(screen, "scenarios")
+
+        await pilot.press("t")
+        opened = _text(screen, "scenarios")
+        assert "Site B   1/1" in opened
+        assert "[t] diğer senaryoları gizle" in opened
+
+        await pilot.press("t")
+        assert "Site B" not in _text(screen, "scenarios")
+
+
+async def test_toggling_does_not_re_run_the_combination_search(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """[t] changes how much of the answer is shown, not what the answer is.
+
+    optimize() is the expensive call on this screen, so a keypress that only
+    folds blocks open and shut must repaint from what was already scored.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 25000))
+    _price(db, "site-b", _variant(50, 26000))
+    item_id = _basket(db, 50)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        screen = await _open_basket(pilot)
+        calls = 0
+
+        def _counted(items: Any, prices: Any, shipping: Any) -> SplitPlan:
+            nonlocal calls
+            calls += 1
+            return _plan(_leg("site-a", "Site A", 25000, 0, item_id))
+
+        monkeypatch.setattr(basket_screen_module, "optimize", _counted)
+        await pilot.press("t")
+        # The presses have to actually repaint, or "optimize was never called"
+        # would also be true of a binding that does nothing at all.
+        assert "Site B" in _text(screen, "scenarios")
+        await pilot.press("t")
+        assert "Site B" not in _text(screen, "scenarios")
+        assert calls == 0
+
+
+async def test_with_no_full_coverage_site_the_partials_are_open_from_the_start(
+    tmp_path: Path,
+) -> None:
+    """The notice above the table sends the reader to the partial scenarios.
+
+    Folding them away by default would point that notice at an empty screen,
+    and there is no cheapest-full-site-versus-split decision left to keep the
+    view compact for.
+    """
+    sites_dir, db = tmp_path / "sites", tmp_path / "db.sqlite"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    _sync(sites_dir, db)
+    _price(db, "site-a", _variant(50, 25000))
+    _price(db, "site-b", _variant(100, 45000))
+    _basket(db, 50)
+    _basket(db, 100)
+
+    async with _app(sites_dir, db).run_test() as pilot:
+        screen = await _open_basket(pilot)
+        text = _text(screen, "scenarios")
+        assert "Hiçbir site listenin tamamını" in _text(screen, "basket-notices")
+        assert "Site A   1/2" in text
+        assert "Site B   1/2" in text
+        assert "senaryo daha göster" not in text
 
 
 async def test_the_free_shipping_gap_is_the_number_the_decision_needs(

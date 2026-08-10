@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "tests/test_basket.py": {
-    "mtime": 1786347954.6522107,
-    "ast_hash": "18d67a1a4585dfacac5322493ce043e4",
+    "mtime": 1786349159.1092355,
+    "ast_hash": "bc2bb235d6cd7148dbf4909c5e2ac275",
     "semantic_hash": ""
   },
   "tests/test_basket_screen.py": {
