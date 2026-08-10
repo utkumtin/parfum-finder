@@ -49,6 +49,10 @@
       "description": "The product page's own size picker, as a \"<css>::attr(name)\" or \"<css>::text\" selector matching one option each. When present, a page whose picker offers more sizes than the extraction layer produced rows fails loudly instead of contributing a table that is quietly missing sizes. Options that read as empty are ignored, so a leading \"choose a size\" placeholder does not need excluding. A page the selector does not match at all is not checked: that is a plain full bottle. On a GET endpoint profile this costs one extra request per product, because that layer otherwise never opens the product page.",
       "type": "string"
     },
+    "out_of_stock": {
+      "description": "A plain CSS selector matching markup the shop only writes on a product page it has run out of, such as the \"notify me when it's back\" button that replaces add-to-cart. Sold-out pages are the one case where a page that reads as unpriceable says nothing about the profile, so naming this keeps two loud failures from firing on stock facts: a POST variant endpoint whose body fields sit on the missing add-to-cart button returns no sizes instead of failing, and a search whose only opened page was sold out reports empty instead of a broken profile. A profile that names nothing keeps the older, stricter behavior.",
+      "type": "string"
+    },
     "product": {
       "type": "object",
       "additionalProperties": false,

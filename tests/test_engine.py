@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from selectolax.parser import HTMLParser
 
 from parfum_finder import engine
 from parfum_finder.engine import (
@@ -37,6 +38,7 @@ from parfum_finder.fetch import (
     fetch,
 )
 from parfum_finder.matcher import parse_query, title_could_match
+from parfum_finder.probe import _PRODUCT_MARKUP_SELECTOR
 
 
 def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:
@@ -320,6 +322,67 @@ async def test_a_post_endpoint_missing_a_static_body_field_fails_loudly(
 
     with pytest.raises(ExtractionFailed) as excinfo:
         await search_site(profile, "test")
+
+    assert "parent_product_id" in str(excinfo.value)
+
+
+# The ideasoft-shaped POST endpoint of the two tests above, as a value, because
+# the sold-out cases below differ from the working one only in which page they
+# are pointed at.
+_POST_ENDPOINT: dict[str, Any] = {
+    "product_json": "{base_url}/engine-related-options",
+    "method": "POST",
+    "body": {
+        "parent_product_id": (
+            'a.add-to-cart-button[data-context="detail"]::attr(data-product-id)'
+        ),
+        "selected_option_group_id": "div.variant-list-group::attr(data-group-id)",
+    },
+    "option_selector": "span.variant-text::attr(data-option-id)",
+    "option_body_key": "selected_options[]",
+    "variants_path": "data.options",
+    "field_map": {
+        "size_raw": "option_title",
+        "price": "product_price.sale_price",
+        "in_stock": "product_stock_amount",
+    },
+}
+
+
+async def test_a_sold_out_page_is_not_a_broken_post_endpoint(server_url: str) -> None:
+    # The shop ran out, so the add-to-cart button carrying the product id is gone
+    # and replaced by a "notify me" one, while the sizes stay listed. That is a
+    # stock fact about one perfume: the profile still describes the site, and
+    # both live perfumes this hit were out of stock rather than unreadable.
+    profile = _profile(
+        server_url,
+        extraction="endpoint",
+        endpoint=_POST_ENDPOINT,
+        out_of_stock='[data-selector="stock-warning"]',
+    )
+    profile["search"]["url_template"] = (
+        "{base_url}/engine-search-post-endpoint-sold-out?q={query}"
+    )
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "empty"
+    assert result.hits == ()
+
+
+async def test_a_sold_out_page_the_profile_cannot_recognize_still_fails(
+    server_url: str,
+) -> None:
+    # The same page under a profile that names no out-of-stock marker. Without
+    # one there is nothing to tell a shop that ran out from a shop that moved its
+    # add-to-cart button, and the loud failure is the right answer to both.
+    profile = _profile(server_url, extraction="endpoint", endpoint=_POST_ENDPOINT)
+    profile["search"]["url_template"] = (
+        "{base_url}/engine-search-post-endpoint-sold-out?q={query}"
+    )
+
+    with pytest.raises(ExtractionFailed) as excinfo:
+        await search_site(profile, "test parfum")
 
     assert "parent_product_id" in str(excinfo.value)
 
@@ -715,6 +778,48 @@ async def test_a_page_of_full_bottles_only_is_empty_too(server_url: str) -> None
     result = await run_site(profile, "test parfum")
 
     assert result.status == "empty"
+
+
+async def test_a_page_that_says_it_found_nothing_is_believed(server_url: str) -> None:
+    # Two of the six live sites hang their whole catalog off the header, so their
+    # no-results page carries hundreds of product-shaped nodes and used to wear
+    # the broken-profile badge on every perfume they simply do not stock. The
+    # page says so itself, and that outranks counting chrome.
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-search-says-empty?q={query}"
+
+    result = await run_site(profile, "yok boyle bir parfum")
+
+    assert result.status == "empty"
+    assert result.hits == ()
+
+
+async def test_the_no_results_page_would_otherwise_read_as_suspect(
+    server_url: str,
+) -> None:
+    # Guards the test above against passing for the wrong reason. Without the
+    # shop's own no-results marker the same page trips the product-markup floor,
+    # which is what makes it a real regression test rather than a page that was
+    # never going to be flagged. Read through the same fetch the engine uses, so
+    # the page under test is the page the engine sees.
+    html = (await fetch(f"{server_url}/engine-search-says-empty", "httpx")).html
+
+    cards = len(HTMLParser(html).css(_PRODUCT_MARKUP_SELECTOR))
+
+    assert cards >= engine.PRODUCT_MARKUP_FLOOR
+
+
+async def test_a_lone_full_bottle_is_empty_not_suspect(server_url: str) -> None:
+    # The one result has no size list on it at all, so there was never a price
+    # for the layer to fail at. One shop's catalog is roughly four fifths full
+    # bottles, and every perfume it sells only as one used to come back flagged.
+    profile = _profile(server_url)
+    profile["search"]["url_template"] = "{base_url}/engine-search-bottle-only?q={query}"
+
+    result = await run_site(profile, "test parfum")
+
+    assert result.status == "empty"
+    assert result.hits == ()
 
 
 async def test_a_dead_row_selector_on_a_full_page_is_suspect(server_url: str) -> None:

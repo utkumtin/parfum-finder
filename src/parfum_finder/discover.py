@@ -51,7 +51,12 @@ from parfum_finder.fetch import (
     Strategy,
     fetch,
 )
-from parfum_finder.probe import ProbeAttempt, ProbeReport, probe
+from parfum_finder.probe import (
+    _VARIANT_CONTROL_SELECTOR,
+    ProbeAttempt,
+    ProbeReport,
+    probe,
+)
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.profiles import DEFAULT_PLATFORMS_DIR, load_platform_templates
 from parfum_finder.store import now_iso
@@ -91,37 +96,6 @@ try:
     _FETCH_ERROR_TYPES = (*_FETCH_ERROR_TYPES, _PlaywrightError)
 except ImportError:
     pass
-
-# Markup that lets a shopper pick a size. Its presence next to a single readable
-# price is the quiet failure this project cares most about: the other sizes exist,
-# they just arrive by a request this page never made, so a naive read compares one
-# site's 5 ml price against another's 50 ml price. Turkish stores write "varyant"
-# and "secenek" as often as the English words, and CSS attribute matching is case
-# sensitive, so the lowercase spellings are the ones that hit in practice.
-_VARIANT_CONTROL_SELECTOR = ", ".join(
-    (
-        '[class*="variant"]',
-        '[class*="varyant"]',
-        '[class*="secenek"]',
-        "[data-variant]",
-        "[data-variant-id]",
-        'select[name*="variant"]',
-        'select[name*="varyant"]',
-        'select[name*="option"]',
-        'select[name*="secenek"]',
-        # WooCommerce variable products spell it "variation", which shares no
-        # substring with "variant", so the entries above miss them entirely.
-        # Its markup is a form carrying every variation as an escaped JSON blob
-        # plus one select per attribute, named attribute_pa_<something>. Both of
-        # those belong to the product being sold. A looser match on "variation"
-        # is not usable here: shop themes hang that word on the swatches of the
-        # related-products grid too, so a simple product with no sizes of its
-        # own would come back looking like it had them.
-        "[data-product_variations]",
-        '[class*="variations_form"]',
-        'select[name^="attribute_"]',
-    )
-)
 
 
 @dataclass(frozen=True)

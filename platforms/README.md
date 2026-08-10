@@ -20,3 +20,12 @@ buluyor, ve motor her id için ayrı bir istek atıp satırları birleştiriyor.
 `product_price.sale_price` alanı gerçek fiyat olarak seçildi: üç farklı üründe sayfanın
 kendi gösterdiği fiyatla karşılaştırılarak doğrulandı, `product_price.price` ise
 `sale_price`'ın KDV'siz hali (aradaki oran hep 1,2 - `tax: 20` alanıyla tutarlı).
+
+`out_of_stock`, dükkanın yalnızca tükenen ürün sayfasına yazdığı markup'ın selector'ı.
+İki şablonda tanımlı ve ikisi de gerçek sayfadan okundu: İdeasoft tükenen üründe sepet
+butonunu `data-selector="stock-warning"` taşıyan "Gelince Haber Ver" butonuyla
+değiştiriyor (POST `body`'sinin `parent_product_id`'si tam o butonun üzerinde yaşadığı
+için, bu olmadan tükenen her ürün "profil bozulmuş" sayılıyordu), WooCommerce ise
+`p.stock.out-of-stock` bildirimi yazıyor. İkas şablonunda yok: karşılaşılmadı, ve
+tahminle yazılan selector eşleşmediğinde sessizce hiçbir şey yapmaz. Ayrıntısı
+ARCHITECTURE.md §6'daki fail-loud karşı kuralı.
