@@ -59,15 +59,15 @@
   "57": "_FixtureFetcher",
   "58": "ComposeResult",
   "59": "_named_profile",
-  "60": "Fetch Strategy Selection",
+  "60": "_NoRootParser",
   "61": "Price History",
-  "62": "Extraction Layer Enum",
-  "63": "MonkeyPatch",
-  "66": "extract_endpoint_variants",
+  "62": "SiteValidation",
+  "63": "enum",
+  "64": ".__call__",
+  "65": "rate_limit_ms",
+  "66": "format_age",
   "69": "Variant Pattern A",
   "70": "Project Root",
   "71": "basket_prices",
-  "72": "_NoRootParser",
-  "75": "set_basket_qty",
-  "76": ".__call__"
+  "75": "set_basket_qty"
 }

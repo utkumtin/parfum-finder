@@ -635,6 +635,80 @@ async def test_add_basket_on_a_confident_row_writes_without_confirmation(
         assert len(basket) == 1
 
 
+async def test_a_row_in_the_basket_is_painted_on_every_site_that_offers_it(
+    tmp_path: Path,
+) -> None:
+    """The table has to say which sizes are already picked, and where.
+
+    Without it the only way to know whether [a] was already pressed on a bottle
+    is to open the basket and come back, and a scan of six shops for three
+    perfumes is exactly where that gets forgotten and a size gets added twice.
+
+    Every site's row for that size is painted, not just the one [a] was pressed
+    on: the basket holds a bottle, not a shop, and the choice of where to buy it
+    is the thing the basket screen makes afterwards. Painting only the source row
+    would read as "buy it here", which is not what was decided.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    runner = _static_runner(
+        {
+            "site-a": _ok_result("site-a", _variant(50, 100000)),
+            "site-b": _ok_result("site-b", _variant(50, 120000)),
+        }
+    )
+
+    db_path = tmp_path / "db.sqlite3"
+    app = _app(sites_dir, db_path, runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        assert table.row_count == 2
+        assert not any(
+            _painted_in_basket(table.get_row_at(i)) for i in range(table.row_count)
+        )
+
+        table.focus()
+        await pilot.pause()
+        await pilot.press("a")
+        await _wait_until(lambda: _painted_in_basket(table.get_row_at(0)), pilot)
+
+        # Both rows, and every cell of them: a partly painted row reads as a
+        # column saying something about itself rather than about the row.
+        assert all(
+            _painted_in_basket(table.get_row_at(i)) for i in range(table.row_count)
+        )
+
+        # And the paint comes off again. The basket screen leaves with
+        # pop_screen, so nothing about the way back reports what changed in
+        # there: a line removed with [d] has to un-paint its rows anyway, or the
+        # table goes on claiming a bottle is picked after it was dropped.
+        await pilot.press("s")
+        await pilot.pause()
+        await pilot.press("d")
+        await pilot.pause()
+        await pilot.press("escape")
+        await _wait_until(lambda: not _painted_in_basket(table.get_row_at(0)), pilot)
+        assert not any(
+            _painted_in_basket(table.get_row_at(i)) for i in range(table.row_count)
+        )
+
+
+def _painted_in_basket(cells: list[object]) -> bool:
+    from rich.text import Text
+
+    from parfum_finder.tui.search_screen import _IN_BASKET_STYLE
+
+    return all(
+        isinstance(cell, Text) and cell.style == _IN_BASKET_STYLE for cell in cells
+    )
+
+
 async def test_prices_land_in_the_db_after_a_site_finishes(tmp_path: Path) -> None:
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")

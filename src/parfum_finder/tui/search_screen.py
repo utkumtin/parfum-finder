@@ -62,6 +62,7 @@ from parfum_finder.store import (
     DEFAULT_DB_PATH,
     SnapshotRow,
     add_basket_item,
+    basket_lines,
     connect,
     now_iso,
     price_history,
@@ -138,6 +139,13 @@ _SITE_STYLES = {
 # stock of that listing were read correctly whatever the score says, and
 # painting them made a whole row look untrustworthy over one weak title.
 _LOW_CONFIDENCE_STYLE = "#cf9145"
+
+# A row already in the basket. This one paints the whole row, unlike the other
+# two styles: what it says is not about one cell, it is that this size of this
+# perfume is already picked and does not need deciding again. The site colour
+# and the low-confidence orange give way underneath it, which is the cost of
+# being able to see the picked rows while scrolling past the rest.
+_IN_BASKET_STYLE = "#4fbf7a"
 
 # Where the sortable columns start.
 _FIRST_SORTABLE = _COLUMNS.index("ml")
@@ -344,6 +352,11 @@ class SearchScreen(Screen[None]):
         self._limit_notice = ""
         self._rows: list[_ResultRow] = []
         self._visible_rows: list[_ResultRow] = []
+        # Which perfume/size pairs are in the basket, by the same four fields the
+        # basket itself is keyed on. Site is not among them on purpose: a basket
+        # line is a bottle to buy, not a shop to buy it from, so every site's row
+        # for that size is marked and picking between them is still open.
+        self._basket_keys: set[tuple[str, str, str, int]] = set()
         # One writer at a time. Every site worker opens its own connection and
         # store.connect() runs the schema script inside a write transaction, so
         # two sites landing together can collide on a locked database. Taking
@@ -388,6 +401,16 @@ class SearchScreen(Screen[None]):
     def on_mount(self) -> None:
         self.query_one("#results", DataTable).add_columns(*self._columns())
         self._bootstrap()
+        # Read once at mount: the basket outlives the app, so a search run after
+        # a restart still has to come up with its picked rows painted.
+        self._reload_basket()
+
+    def on_screen_resume(self) -> None:
+        # Coming back from the basket, where lines can be removed and quantities
+        # changed. Hooked here and not on the push_screen callback because the
+        # basket leaves with pop_screen, which never runs that callback, and the
+        # rows would stay painted for a bottle no longer in the basket.
+        self._reload_basket()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         # DataTable already binds "enter" to select the cursor's row and
@@ -819,6 +842,20 @@ class SearchScreen(Screen[None]):
             else row.site_label
         )
         score = str(row.match_score)
+        if self._basket_key(row) in self._basket_keys:
+            return tuple(
+                Text(cell, style=_IN_BASKET_STYLE)
+                for cell in (
+                    row.product,
+                    row.site_label,
+                    title,
+                    ml,
+                    price,
+                    per_ml,
+                    stock,
+                    score,
+                )
+            )
         return (
             # The block heading is left plain even on a weak match. The doubt is
             # about whether the site's title is this perfume at all, and that is
@@ -920,6 +957,30 @@ class SearchScreen(Screen[None]):
             if not confirmed:
                 return
         await asyncio.to_thread(self._add_basket_item, row)
+        # Re-read rather than adding the key by hand: the write can bump an
+        # existing line instead of making one, and the table has to end up
+        # showing what the basket holds, not what this keypress meant to do.
+        self._basket_keys = await asyncio.to_thread(self._read_basket_keys)
+        self._refresh_table()
+
+    @staticmethod
+    def _basket_key(row: _ResultRow) -> tuple[str, str, str, int]:
+        return (row.brand, row.name, row.concentration, row.size_ml_x10)
+
+    @work(exclusive=True, group="basket-keys")
+    async def _reload_basket(self) -> None:
+        self._basket_keys = await asyncio.to_thread(self._read_basket_keys)
+        self._refresh_table()
+
+    def _read_basket_keys(self) -> set[tuple[str, str, str, int]]:
+        conn = connect(self.db_path)
+        try:
+            return {
+                (line.brand, line.name, line.concentration, line.size_ml_x10)
+                for line in basket_lines(conn)
+            }
+        finally:
+            conn.close()
 
     def _add_basket_item(self, row: _ResultRow) -> None:
         conn = connect(self.db_path)
