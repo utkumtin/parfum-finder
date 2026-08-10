@@ -1312,6 +1312,46 @@ async def test_a_mistyped_perfume_does_not_cancel_the_ones_that_parsed(
         assert "names only a brand" in str(screen.query_one("#notices", Static).content)
 
 
+async def test_unparseable_query_mid_scan_takes_the_bar_down_with_it(
+    tmp_path: Path,
+) -> None:
+    """A brand-only search sent while a scan runs must not freeze the screen.
+
+    The second search cancels the first worker before it can lower the scanning
+    flag, and then returns without starting anything. Nobody is left to end the
+    scan, so the bar and the counter used to sit there for good.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+
+    gate = asyncio.Event()
+
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
+        await gate.wait()
+        return _ok_result(str(profile["id"]), _variant(50, 25000))
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._scanning, pilot)  # type: ignore[attr-defined]
+
+        await _submit_query(pilot, "Chanel")
+        await _wait_until(lambda: not screen._scanning, pilot)  # type: ignore[attr-defined]
+
+        assert not screen.query_one("#progress", ProgressBar).display
+        assert str(screen.query_one("#status", Static).content) == ""
+        assert "names only a brand" in str(screen.query_one("#notices", Static).content)
+
+        # The abandoned scan's rows must not land either, whenever it unblocks.
+        gate.set()
+        await pilot.pause()
+        await pilot.pause()
+        assert screen.query_one("#results", DataTable).row_count == 0
+
+
 async def test_more_perfumes_than_the_limit_sends_no_requests_at_all(
     tmp_path: Path,
 ) -> None:

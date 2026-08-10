@@ -471,8 +471,19 @@ class SearchScreen(Screen[None]):
                 continue
             searches.append(_Search(index=len(searches), text=part, query=query))
         if not searches:
+            # This worker already cancelled whatever scan was running, and it is
+            # not starting one of its own, so nobody else is left to lower the
+            # flag. Ending the scan here is what keeps a frozen bar and a stuck
+            # counter off the screen. The generation bump goes with it, so the
+            # late rows of the cancelled scan do not pile into _rows.
+            self._generation += 1
+            self._scanning = False
+            self._done = 0
+            self._total = 0
+            self._errors = 0
             self._notices = rejected or ["a search needs a perfume to look for"]
             self._set_notices()
+            self._update_status()
             return
         await self._bootstrapped.wait()
         self._generation += 1
@@ -831,6 +842,14 @@ class SearchScreen(Screen[None]):
         # "tarama", not "site": with several perfumes the total is one scan per
         # site per perfume, and calling that a site count says a scan of six
         # shops did eighteen of them.
+        bar = self.query_one("#progress", ProgressBar)
+        if self._total == 0:
+            # Nothing has been scanned, so there is no progress to report. The
+            # app looks like this on startup too, and now it does so by rule
+            # rather than because nothing happened to call this yet.
+            self.query_one("#status", Static).update("")
+            bar.display = False
+            return
         text = f"{self._done}/{self._total} tarama tamam"
         if self._errors:
             # The count is the only thing on screen about a failing site now, so
@@ -842,7 +861,6 @@ class SearchScreen(Screen[None]):
         # Driven from here rather than from its own call sites: every place the
         # counters move already calls this, and a bar updated from only some of
         # them would stall partway through a scan that is still running.
-        bar = self.query_one("#progress", ProgressBar)
         bar.display = self._scanning
         if self._scanning:
             bar.update(total=self._total, progress=self._done)

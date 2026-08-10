@@ -54,11 +54,21 @@
   "52": "Snapshot Row Semantics",
   "53": "conftest.py",
   "54": "Endpoint Schema Fields",
+  "55": "ConfirmScreen",
   "56": "Request Schema Fields",
+  "57": "_FixtureFetcher",
   "58": "Snapshot Row Building",
+  "59": "_named_profile",
   "60": "Fetch Strategy Selection",
   "61": "Price History",
   "62": "Extraction Layer Enum",
+  "63": "run_sites",
+  "64": "validate_live",
+  "65": ".__call__",
+  "66": "extract_endpoint_variants",
+  "67": "field_map",
+  "68": "exclude_keywords",
   "69": "Variant Pattern A",
-  "70": "Project Root"
+  "70": "Project Root",
+  "71": "Any"
 }
