@@ -10,6 +10,12 @@ Subcommands will be added incrementally as the project grows:
                               - launch the interactive app
     (default, no subcommand)   - same as tui
 
+The three --sheet-* flags also fall back to PARFUM_SHEET_CREDENTIALS,
+PARFUM_SHEET_ID and PARFUM_SHEET_WORKSHEET, read from a .env file in the
+current directory (see .env.example) if one is present. That way sheet
+integration works under plain `parfum-finder` too, not just `parfum-finder
+tui --sheet-...`.
+
 CLI framework: argparse (stdlib). A handful of subcommands with plain
 positional/flag arguments don't need a third-party library -- argparse's
 subparsers cover this without adding a dependency.
@@ -17,10 +23,13 @@ subparsers cover this without adding a dependency.
 
 import argparse
 import asyncio
+import os
 import sqlite3
 import sys
 from pathlib import Path
 from typing import Any, get_args
+
+from dotenv import load_dotenv
 
 from parfum_finder.discover import discover
 from parfum_finder.discover import format_report as format_discovery_report
@@ -229,6 +238,10 @@ def _report_line(result: SiteResult) -> str:
 
 
 def main() -> None:
+    # Picks up a .env file from the current directory (or a parent of it) so the
+    # sheet flags below don't have to be typed on every run. Silent no-op when
+    # no .env exists -- the flags still work passed explicitly either way.
+    load_dotenv()
     parser = argparse.ArgumentParser(prog="parfum-finder")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -360,21 +373,24 @@ def main() -> None:
     tui_parser.add_argument(
         "--sheet-credentials",
         type=Path,
-        default=None,
+        default=os.environ.get("PARFUM_SHEET_CREDENTIALS"),
         metavar="PATH",
-        help="Google service account JSON key (enables [w] sheet write)",
+        help="Google service account JSON key (enables [w] sheet write); "
+        "falls back to $PARFUM_SHEET_CREDENTIALS / .env",
     )
     tui_parser.add_argument(
         "--sheet-id",
-        default=None,
+        default=os.environ.get("PARFUM_SHEET_ID"),
         metavar="ID_OR_URL",
-        help="Google Sheet ID or URL holding the wishlist",
+        help="Google Sheet ID or URL holding the wishlist; "
+        "falls back to $PARFUM_SHEET_ID / .env",
     )
     tui_parser.add_argument(
         "--sheet-worksheet",
-        default=None,
+        default=os.environ.get("PARFUM_SHEET_WORKSHEET"),
         metavar="NAME",
-        help="worksheet (tab) name inside the sheet",
+        help="worksheet (tab) name inside the sheet; "
+        "falls back to $PARFUM_SHEET_WORKSHEET / .env",
     )
 
     args = parser.parse_args()
@@ -388,9 +404,19 @@ def main() -> None:
         # errors to the terminal, where they belong.
         setup_logging()
         db_path = args.db if args.command == "tui" else DEFAULT_DB_PATH
-        sheets_credentials = args.sheet_credentials if args.command == "tui" else None
-        sheets_spreadsheet = args.sheet_id if args.command == "tui" else None
-        sheets_worksheet = args.sheet_worksheet if args.command == "tui" else None
+        # The sheet flags live on the "tui" subparser, so plain `parfum-finder`
+        # (no subcommand) never gets them from args -- read the same .env-backed
+        # environment variables directly instead, so bare invocation gets sheet
+        # integration too rather than silently losing it.
+        if args.command == "tui":
+            sheets_credentials = args.sheet_credentials
+            sheets_spreadsheet = args.sheet_id
+            sheets_worksheet = args.sheet_worksheet
+        else:
+            raw_credentials = os.environ.get("PARFUM_SHEET_CREDENTIALS")
+            sheets_credentials = Path(raw_credentials) if raw_credentials else None
+            sheets_spreadsheet = os.environ.get("PARFUM_SHEET_ID")
+            sheets_worksheet = os.environ.get("PARFUM_SHEET_WORKSHEET")
         ParfumFinderApp(
             sites_dir=SITES_DIR,
             db_path=db_path,

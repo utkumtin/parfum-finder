@@ -217,6 +217,9 @@ async def test_a_size_keeps_its_own_page_when_the_feed_names_one(
 ) -> None:
     # One platform gives every size its own product page. Those URLs have to
     # survive to the row, or opening a 10 ml result would land on the 5 ml page.
+    # The feed hands back site-relative paths, so they must come out resolved
+    # to an absolute URL -- a relative link is useless once it leaves the app,
+    # e.g. written into a spreadsheet.
     profile = _profile(
         server_url,
         extraction="endpoint",
@@ -240,8 +243,8 @@ async def test_a_size_keeps_its_own_page_when_the_feed_names_one(
         "Test Parfum 10 ml",
     ]
     assert [v.product_url for v in hits[0].variants] == [
-        "/urun/test-parfum-5-ml",
-        "/urun/test-parfum-10-ml",
+        f"{server_url}/urun/test-parfum-5-ml",
+        f"{server_url}/urun/test-parfum-10-ml",
     ]
 
 

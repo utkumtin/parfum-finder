@@ -244,6 +244,14 @@ def _fake_tui_app(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     """
     seen: dict[str, object] = {}
 
+    # Keep these tests hermetic: a real .env in the project root, or the sheet
+    # vars already set in the running shell, must not leak into what main()
+    # sees here.
+    monkeypatch.setattr("parfum_finder.cli.load_dotenv", lambda *a, **k: None)
+    monkeypatch.delenv("PARFUM_SHEET_CREDENTIALS", raising=False)
+    monkeypatch.delenv("PARFUM_SHEET_ID", raising=False)
+    monkeypatch.delenv("PARFUM_SHEET_WORKSHEET", raising=False)
+
     class FakeApp:
         def __init__(
             self,
@@ -306,6 +314,31 @@ def test_tui_subcommand_passes_the_db_flag_through(
         "sheets_credentials": None,
         "sheets_spreadsheet": None,
         "sheets_worksheet": None,
+        "ran": True,
+    }
+
+
+def test_no_subcommand_still_picks_up_sheet_env_vars(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The --sheet-* flags live on the "tui" subparser, so bare `parfum-finder`
+    # never sees them via args -- this is what lets .env-backed sheet
+    # integration work without typing `tui --sheet-...` every time.
+    seen = _fake_tui_app(monkeypatch)
+    creds = tmp_path / "service-account.json"
+    monkeypatch.setenv("PARFUM_SHEET_CREDENTIALS", str(creds))
+    monkeypatch.setenv("PARFUM_SHEET_ID", "sheet-123")
+    monkeypatch.setenv("PARFUM_SHEET_WORKSHEET", "Wishlist")
+    monkeypatch.setattr(sys, "argv", ["parfum-finder"])
+
+    main()
+
+    assert seen == {
+        "sites_dir": cli.SITES_DIR,
+        "db_path": cli.DEFAULT_DB_PATH,
+        "sheets_credentials": creds,
+        "sheets_spreadsheet": "sheet-123",
+        "sheets_worksheet": "Wishlist",
         "ran": True,
     }
 

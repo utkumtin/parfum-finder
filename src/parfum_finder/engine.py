@@ -795,20 +795,29 @@ def _page_says_sold_out(profile: dict[str, Any], root: Node) -> bool:
 def _with_candidate_identity(
     row: RawVariant, candidate: ProductCandidate
 ) -> RawVariant:
-    """Give a size the listing's title and URL when the page gave it none.
+    """Give a size the listing's title and URL when the page gave it none,
+    and make sure whatever URL it does have is one a browser can open on its own.
 
     A site that lists every size as its own product names each one; a site with
     one page per product and a size table names none of them, and every size
     there really does share the page's title and URL. Leaving those empty would
     show blank rows in the results table and give the browse-this-one key nothing
     to open.
+
+    A row's own URL, when it has one, still might be site-relative -- some
+    endpoints and markup tables hand back "/urun/..." rather than a full link,
+    since that is all the page itself needs. `candidate.url` is always absolute
+    (it was already resolved against the page that was fetched), so resolving
+    the row's URL against it turns a relative path into one that opens correctly
+    outside the app, e.g. when written into the wishlist sheet.
     """
-    if row.title is not None and row.url is not None:
+    url = urljoin(candidate.url, row.url) if row.url is not None else candidate.url
+    if row.title is not None and url == row.url:
         return row
     return replace(
         row,
         title=row.title if row.title is not None else candidate.raw_title,
-        url=row.url if row.url is not None else candidate.url,
+        url=url,
     )
 
 
