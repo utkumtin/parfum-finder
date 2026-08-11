@@ -72,5 +72,15 @@
   "70": "Project Root",
   "71": "basket_prices",
   "72": "ComposeResult",
-  "73": "Row"
+  "73": "Row",
+  "74": "_NoRootParser",
+  "75": "field_map",
+  "76": "exclude_keywords",
+  "77": "SiteResult",
+  "78": "CacheKey",
+  "79": "Decimal",
+  "80": "Node",
+  "81": "RuntimeError",
+  "82": "VariantsRead",
+  "83": "Exception"
 }

@@ -162,9 +162,7 @@ def find_header_columns(header_row: list[str]) -> tuple[int, int]:
         if col is None
     ]
     if missing:
-        raise SheetsError(
-            f"Sheet'te şu başlık(lar) bulunamadı: {', '.join(missing)}"
-        )
+        raise SheetsError(f"Sheet'te şu başlık(lar) bulunamadı: {', '.join(missing)}")
     assert price_col is not None and where_col is not None
     return price_col, where_col
 

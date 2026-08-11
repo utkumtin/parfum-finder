@@ -693,9 +693,7 @@ async def test_write_sheet_writes_directly_on_a_confident_match(
         assert match is not None and match.confident
         return (wishlist_row, match)
 
-    monkeypatch.setattr(
-        "parfum_finder.tui.search_screen.find_match", _fake_find_match
-    )
+    monkeypatch.setattr("parfum_finder.tui.search_screen.find_match", _fake_find_match)
     monkeypatch.setattr(
         "parfum_finder.tui.search_screen.write_result",
         lambda *a, **k: write_calls.append((a, k)),

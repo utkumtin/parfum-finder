@@ -110,7 +110,9 @@ def test_find_match_returns_none_when_nothing_clears_the_floor_score() -> None:
 
 def test_write_result_batches_both_cells_into_one_request() -> None:
     ws = _FakeWorksheet([])
-    write_result(ws, 5, 3, 4, "150.00 ₺ (3 ml)", "Dekant Doktoru", "https://example.com/p")
+    write_result(
+        ws, 5, 3, 4, "150.00 ₺ (3 ml)", "Dekant Doktoru", "https://example.com/p"
+    )
     assert len(ws.batch_update_calls) == 1
     data, _ = ws.batch_update_calls[0]
     assert len(data) == 2
