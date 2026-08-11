@@ -1,7 +1,7 @@
 """The search screen: a progress bar while scanning, one grouped table after.
 
 Columns: the site's own title (as "Ürün"), site, size (ml), price, price per
-ml, stock, match score. Nothing lands in the table mid-scan. Sites finish
+ml, match score. Nothing lands in the table mid-scan. Sites finish
 in whatever order they finish, and a table growing under a reader's eyes cannot
 be read: the cheapest row so far keeps changing, and the row someone is looking
 at keeps moving. So the scan shows a progress bar in the table's place and the
@@ -120,7 +120,11 @@ _SORT_BY_COLUMN = {0: "ml", 1: "price", 2: "per_ml"}
 # such as "Layton" and "Layton Exclusif". The product a row is really about is
 # still derived from it for grouping and sorting, it just no longer gets a
 # column of its own next to this one.
-_COLUMNS = ("Ürün", "Site", "ml", "Fiyat", "₺/ml", "Stok", "%")
+#
+# No "Stok" column: out-of-stock sizes are already hidden by default, so a
+# column repeating that on every visible row added little. row.in_stock stays
+# on _ResultRow, since the hide/show filter still needs it.
+_COLUMNS = ("Ürün", "Site", "ml", "Fiyat", "₺/ml", "%")
 
 # One colour per site, so a long table reads as blocks instead of one wall of
 # rows. Keyed by site_id and not by the label, because a stale profile gets a
@@ -333,7 +337,6 @@ class SearchScreen(Screen[None]):
         ("1", "sort('ml')", "ml"),
         ("2", "sort('price')", "fiyat"),
         ("3", "sort('per_ml')", "₺/ml"),
-        ("f", "toggle_stock", "stoksuzları göster"),
         ("h", "show_history", "fiyat geçmişi"),
         ("a", "add_basket", "sepete ekle"),
         ("w", "write_sheet", "sheet'e yaz"),
@@ -386,11 +389,11 @@ class SearchScreen(Screen[None]):
         # own; the product blocks survive either way, since a table alternating
         # between two different bottles compares nothing.
         self._sort_key: str | None = None
-        # Hidden from the start. A size that cannot be bought is not an offer,
-        # and leaving them in put the cheapest unbuyable price at the top of a
-        # table sorted by ₺/ml, which is the one number people read first. They
-        # are still fetched and still stored, [f] brings them back on screen,
-        # and the price history panel goes on counting them.
+        # Hidden from the start, and there is no key left to bring them back:
+        # a size that cannot be bought is not an offer, and leaving them in put
+        # the cheapest unbuyable price at the top of a table sorted by ₺/ml,
+        # which is the one number people read first. They are still fetched
+        # and still stored, and the price history panel goes on counting them.
         self._hide_out_of_stock = True
         self._hidden_count = 0
         self._done = 0
@@ -753,8 +756,8 @@ class SearchScreen(Screen[None]):
         self._hidden_count = len(self._rows) - len(visible)
         if self._sort_key is None:
             # Built from every row, not the visible ones, so that hiding and
-            # showing the out-of-stock sizes with [f] cannot reshuffle the site
-            # blocks under someone who was reading them.
+            # showing the out-of-stock sizes cannot reshuffle the site blocks
+            # under someone who was reading them.
             ranks = self._site_ranks()
             visible.sort(key=lambda row: self._grouped_value(row, ranks))
         else:
@@ -848,7 +851,6 @@ class SearchScreen(Screen[None]):
             per_ml = "-"
         else:
             per_ml = format_price(Decimal(row.price_per_ml_kurus) / Decimal(100))
-        stock = "✓" if row.in_stock else ("✗" if row.in_stock is False else "?")
         title = row.raw_title
         if row.clone_of:
             title = f"{title}  KLON ← {row.clone_of}"
@@ -868,7 +870,6 @@ class SearchScreen(Screen[None]):
                     ml,
                     price,
                     per_ml,
-                    stock,
                     score,
                 )
             )
@@ -878,7 +879,6 @@ class SearchScreen(Screen[None]):
             ml,
             price,
             per_ml,
-            stock,
             score if row.confident else Text(score, style=_LOW_CONFIDENCE_STYLE),
         )
 
@@ -905,7 +905,10 @@ class SearchScreen(Screen[None]):
             # it says where the detail went.
             text += f" · {self._errors} hata ({LOG_FILE_NAME})"
         if self._hidden_count:
-            text += rf" · {self._hidden_count} stoksuz sonuç gizlendi (\[f] göster)"
+            # No key to point at anymore: the toggle that used to bring these
+            # back is not offered to the user, so the hint would name a key
+            # that does nothing.
+            text += f" · {self._hidden_count} stoksuz sonuç gizlendi"
         self.query_one("#status", Static).update(text)
         # Driven from here rather than from its own call sites: every place the
         # counters move already calls this, and a bar updated from only some of
@@ -929,6 +932,9 @@ class SearchScreen(Screen[None]):
         self._sort_key = key
         self._refresh_table()
 
+    # Not on BINDINGS anymore, so no key reaches this. Left in place, along
+    # with _hide_out_of_stock, as the plumbing a future key or setting could
+    # still call.
     def action_toggle_stock(self) -> None:
         self._hide_out_of_stock = not self._hide_out_of_stock
         self._refresh_table()

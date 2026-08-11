@@ -342,15 +342,15 @@ async def test_low_score_row_flags_the_match_percent_cell(tmp_path: Path) -> Non
         from parfum_finder.tui.search_screen import _LOW_CONFIDENCE_STYLE
 
         cells = table.get_row_at(0)
-        percent_cell = cells[6]
+        percent_cell = cells[5]
         assert isinstance(percent_cell, Text)
         assert percent_cell.style == _LOW_CONFIDENCE_STYLE
         assert str(percent_cell) == "31"
         # The title is the other half of the doubt: it is what did not match.
         assert isinstance(cells[0], Text)
         assert cells[0].style == _LOW_CONFIDENCE_STYLE
-        # ml, fiyat, ₺/ml and stok stay plain text, unmarked.
-        assert all(isinstance(cell, str) for cell in cells[2:6])
+        # ml, fiyat and ₺/ml stay plain text, unmarked.
+        assert all(isinstance(cell, str) for cell in cells[2:5])
 
 
 async def test_site_colour_lands_on_the_site_cell_and_nowhere_else(
@@ -459,15 +459,15 @@ async def test_sizes_go_up_inside_a_block_and_the_keys_still_reorder(
         assert table.get_row_at(0)[2] == "5 ml"  # ml ascending
 
 
-async def test_out_of_stock_rows_start_hidden_and_f_brings_them_back(
+async def test_out_of_stock_rows_start_hidden_and_stay_hidden(
     tmp_path: Path,
 ) -> None:
     """A size nobody can buy must not be in the table by default.
 
     Its price is not an offer, and the table sorts by ₺/ml, so an out-of-stock
     row sitting at the top answers "what does this cost" with a number that is
-    not for sale. It is still fetched and still stored, so [f] has to be able to
-    put it back on screen rather than the row being dropped outright.
+    not for sale. There is no key left that un-hides it, so a person pressing
+    around the keyboard must not stumble into bringing it back either.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -487,20 +487,20 @@ async def test_out_of_stock_rows_start_hidden_and_f_brings_them_back(
         assert table.row_count == 1
         status = _rendered(screen.query_one("#status", Static))
         assert "1 stoksuz" in status
-        # Naming the key is the whole point of the counter: it says a row was
-        # hidden and how to see it. Asserted on the rendered text because
-        # content markup eats an unescaped [f] and leaves only the count.
-        assert "[f]" in status
+        # No key is offered to reveal it anymore.
+        assert "[f]" not in status
 
         table.focus()
         await pilot.pause()
         await pilot.press("f")
         await pilot.pause()
-        assert table.row_count == 2
-
-        await pilot.press("f")
-        await pilot.pause()
         assert table.row_count == 1
+
+        # The plumbing behind the old key is still there for something else to
+        # call; it just is not wired to a key anymore.
+        screen.action_toggle_stock()  # type: ignore[attr-defined]
+        await pilot.pause()
+        assert table.row_count == 2
 
 
 async def test_enter_opens_the_selected_rows_own_product_url(
@@ -951,17 +951,21 @@ async def test_the_screen_keys_work_right_after_a_search_without_refocusing(
     """Submitting a query has to hand focus to the table.
 
     A focused Input swallows every printable key, so with focus left in the
-    search box the footer would keep offering [f], [1], [a] and none of them
-    would do anything. This test presses them the way a person would, with no
-    focus call of its own, which is the only way that regression can fail a
-    test.
+    search box the footer would keep offering [3], [a] and none of them would
+    do anything. This test presses them the way a person would, with no focus
+    call of its own, which is the only way that regression can fail a test.
+
+    The size chosen is 5 ml by default order (grouping already sorts by size
+    ascending), so the press has to be a sort key whose result the default
+    order could not produce on its own: the 10 ml bottle is cheaper per ml
+    here, so only an actually-delivered [3] press can put it first.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
 
-    in_stock = _variant(50, 100000, in_stock=True)
-    out_of_stock = _variant(100, 200000, in_stock=False)
-    runner = _static_runner({"site-a": _ok_result("site-a", in_stock, out_of_stock)})
+    runner = _static_runner(
+        {"site-a": _ok_result("site-a", _variant(50, 100000), _variant(100, 150000))}
+    )
 
     app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
     async with app.run_test() as pilot:
@@ -969,15 +973,13 @@ async def test_the_screen_keys_work_right_after_a_search_without_refocusing(
         await _submit_query(pilot)
         screen = app.screen
         table = await _wait_for_table(pilot)
-        assert table.row_count == 1
-
-        await pilot.press("f")
-        await pilot.pause()
         assert table.row_count == 2
-
-        await pilot.press("1")
-        await pilot.pause()
+        # Default order, not yet proof of anything.
         assert table.get_row_at(0)[2] == "5 ml"
+
+        await pilot.press("3")
+        await pilot.pause()
+        assert table.get_row_at(0)[2] == "10 ml"
 
         # Escape is the way back to the search box for the next query.
         await pilot.press("escape")
@@ -990,12 +992,12 @@ async def test_showing_the_hidden_rows_does_not_move_the_cursor_off_the_picked_r
 ) -> None:
     """The row under the cursor has to survive the table being rebuilt.
 
-    Nothing rebuilds it mid-scan anymore, but [f] and the sort keys still do,
-    and rebuilding sends the cursor back to the top. Without re-seeking, someone
-    who pressed [f] to check what was hidden would then press [a] and add a
-    different bottle than the one they were looking at. That is the exact
-    mistake the raw-title column exists to prevent, so it cannot be allowed in
-    through the back door.
+    Nothing rebuilds it mid-scan anymore, but the sort keys still do, and so
+    does the (no longer user-reachable) stock toggle. Rebuilding sends the
+    cursor back to the top, and without re-seeking, someone who had picked a
+    row would then press [a] and add a different bottle than the one they were
+    looking at. That is the exact mistake the raw-title column exists to
+    prevent, so it cannot be allowed in through the back door.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -1029,7 +1031,7 @@ async def test_showing_the_hidden_rows_does_not_move_the_cursor_off_the_picked_r
         assert picked is not None
 
         table.focus()
-        await pilot.press("f")
+        screen.action_toggle_stock()  # type: ignore[attr-defined]
         await pilot.pause()
         assert table.row_count == 3
 
@@ -1341,9 +1343,11 @@ async def test_history_panel_shows_deltas_the_price_range_and_the_out_of_stock_m
         await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
 
         # The one reading here is out of stock, which the table hides by
-        # default. [f] shows it again, because the history panel deliberately
-        # keeps counting readings the table leaves out.
-        await pilot.press("f")
+        # default. Un-hiding it (no key does this anymore, so the toggle is
+        # called directly) reaches the row this test needs, because the
+        # history panel deliberately keeps counting readings the table leaves
+        # out.
+        screen.action_toggle_stock()  # type: ignore[attr-defined]
         await pilot.pause()
         row = screen._visible_rows[0]  # type: ignore[attr-defined]
 
@@ -1871,10 +1875,10 @@ async def test_showing_the_hidden_rows_does_not_reshuffle_the_site_blocks(
 ) -> None:
     """Block order is a property of the scan, not of what is on screen.
 
-    Computed from the visible rows, [f] would reorder the whole table under
-    someone who pressed it to check one thing, and pressing it again would give
-    a third order. So the ranking reads every row whose price was readable,
-    including the ones [f] is hiding.
+    Computed from the visible rows, un-hiding a row would reorder the whole
+    table under someone who toggled it to check one thing, and toggling it
+    again would give a third order. So the ranking reads every row whose price
+    was readable, including the ones the toggle is hiding.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -1883,8 +1887,9 @@ async def test_showing_the_hidden_rows_does_not_reshuffle_the_site_blocks(
     title = "Dior Sauvage EDP Dekant"
     runner = _static_runner(
         {
-            # Its cheapest small bottle is out of stock, so with [f] off the only
-            # site-a row on screen is a 5 ml -- outside the band entirely.
+            # Its cheapest small bottle is out of stock, so hidden by default
+            # the only site-a row on screen is a 5 ml -- outside the band
+            # entirely.
             "site-a": _named_result(
                 "site-a",
                 title,
@@ -1900,12 +1905,13 @@ async def test_showing_the_hidden_rows_does_not_reshuffle_the_site_blocks(
         await pilot.pause()
         await _submit_query(pilot)
         table = await _wait_for_table(pilot)
+        screen = app.screen
 
         hidden = [str(table.get_row_at(i)[1]) for i in range(table.row_count)]
         assert hidden == ["Site A", "Site B"]
 
         table.focus()
-        await pilot.press("f")
+        screen.action_toggle_stock()  # type: ignore[attr-defined]
         await pilot.pause()
         shown = [str(table.get_row_at(i)[1]) for i in range(table.row_count)]
         assert shown == ["Site A", "Site A", "Site B"]
@@ -1934,7 +1940,7 @@ async def test_one_query_finding_two_bottles_gets_two_blocks(tmp_path: Path) -> 
             "Parfums De Marly Layton Exclusif",
         ]
         # The Exclusif really is the 77% row the split exists for.
-        assert str(table.get_row_at(1)[6]) == "77"
+        assert str(table.get_row_at(1)[5]) == "77"
 
 
 async def test_picking_a_column_keeps_the_product_blocks(tmp_path: Path) -> None:
@@ -1973,7 +1979,7 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
 
     The columns are added once, at mount, now that they no longer depend on how
     many perfumes were typed. A second search that added them again would leave
-    fourteen headings and shift every cell the keys read by seven.
+    twelve headings and shift every cell the keys read by six.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -1992,7 +1998,7 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
         await _submit_query(pilot)
         table = await _wait_for_table(pilot)
         assert table.row_count == 1
-        assert len(table.columns) == 7
+        assert len(table.columns) == 6
 
         await _submit_query(pilot, "Chanel Bleu EDP")
         # Waited on by content, not by the scanning flag: one fake site finishes
@@ -2009,4 +2015,4 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
         # The first search's row is gone, not sitting above the second's.
         assert table.row_count == 1
         assert table.get_row_at(0)[0] == "Chanel Bleu EDP Dekant 3 ml"
-        assert len(table.columns) == 7
+        assert len(table.columns) == 6

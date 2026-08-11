@@ -175,8 +175,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/tui/search_screen.py": {
-    "mtime": 1786439195.3543105,
-    "ast_hash": "e42a29e0bf4ebae619f77664f1fce150",
+    "mtime": 1786440387.270072,
+    "ast_hash": "bdab07375383d93d2c238de5934ce481",
     "semantic_hash": ""
   },
   "src/parfum_finder/validate.py": {
@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "tests/test_tui.py": {
-    "mtime": 1786439309.4259686,
-    "ast_hash": "3216cdcd8e5ac3794ec2261771b09b77",
+    "mtime": 1786440562.3480866,
+    "ast_hash": "721fa69e8302125d68ba6b829a994609",
     "semantic_hash": ""
   },
   "tests/test_validate.py": {
