@@ -23,6 +23,9 @@ parfum-finder = "parfum_finder:main"
 browser = [
     "playwright>=1.62.0",
 ]
+sheets = [
+    "gspread>=6.1.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.18,<0.12.0"]
@@ -57,7 +60,7 @@ warn_redundant_casts = true
 [[tool.mypy.overrides]]
 # C-extension-backed libraries that don't ship type stubs. If another dependency
 # raises "cannot find implementation or library stub", add it here too.
-module = ["curl_cffi.*", "selectolax.*"]
+module = ["curl_cffi.*", "selectolax.*", "gspread.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

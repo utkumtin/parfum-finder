@@ -35,7 +35,7 @@ from collections.abc import Awaitable, MutableMapping
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from rich.text import Text
 from textual import work
@@ -58,6 +58,15 @@ from parfum_finder.matcher import (
 )
 from parfum_finder.normalize import format_ml, format_price
 from parfum_finder.profiles import load_site_profile, sync_to_db
+from parfum_finder.sheets import (
+    SheetsError,
+    WishlistRow,
+    find_header_columns,
+    find_match,
+    open_worksheet,
+    read_sheet,
+    write_result,
+)
 from parfum_finder.store import (
     DEFAULT_DB_PATH,
     SnapshotRow,
@@ -75,6 +84,9 @@ from parfum_finder.validate import (
     STALE_PROFILE_DAYS,
     profile_age_days,
 )
+
+if TYPE_CHECKING:
+    import gspread
 
 
 class SiteRunner(Protocol):
@@ -328,6 +340,7 @@ class SearchScreen(Screen[None]):
         ("f", "toggle_stock", "stoksuzları göster"),
         ("h", "show_history", "fiyat geçmişi"),
         ("a", "add_basket", "sepete ekle"),
+        ("w", "write_sheet", "sheet'e yaz"),
         ("s", "open_basket", "sepet"),
         ("escape", "focus_query", "ara"),
         ("q", "quit", "çık"),
@@ -340,11 +353,17 @@ class SearchScreen(Screen[None]):
         sites_dir: Path = DEFAULT_SITES_DIR,
         db_path: Path = DEFAULT_DB_PATH,
         runner: SiteRunner,
+        sheets_credentials: Path | None = None,
+        sheets_spreadsheet: str | None = None,
+        sheets_worksheet: str | None = None,
     ) -> None:
         super().__init__()
         self.sites_dir = sites_dir
         self.db_path = db_path
         self.runner = runner
+        self.sheets_credentials = sheets_credentials
+        self.sheets_spreadsheet = sheets_spreadsheet
+        self.sheets_worksheet = sheets_worksheet
         self._profiles: list[dict[str, Any]] = []
         self._bootstrapped = asyncio.Event()
         # What the current results are about. Empty until the first search, and
@@ -936,6 +955,12 @@ class SearchScreen(Screen[None]):
             return
         self._add_to_basket(row)
 
+    def action_write_sheet(self) -> None:
+        row = self._selected_row()
+        if row is None:
+            return
+        self._write_to_sheet(row)
+
     @work(exclusive=True, group="add-basket")
     async def _add_to_basket(self, row: _ResultRow) -> None:
         # push_screen(..., wait_for_dismiss=True) only works from inside a
@@ -1013,6 +1038,101 @@ class SearchScreen(Screen[None]):
             )
         finally:
             conn.close()
+
+    @work(exclusive=True, group="write-sheet")
+    async def _write_to_sheet(self, row: _ResultRow) -> None:
+        # Same reasoning as _add_to_basket: the confirmation dialog needs to
+        # be awaited from inside a worker, so the whole flow lives here.
+        sheets_configured = bool(
+            self.sheets_credentials
+            and self.sheets_spreadsheet
+            and self.sheets_worksheet
+        )
+        if not sheets_configured:
+            self._notices = [
+                "⚠ Sheet entegrasyonu ayarlanmamış "
+                "(--sheet-credentials/--sheet-id/--sheet-worksheet)."
+            ]
+            self._set_notices()
+            return
+        if row.price_kurus is None:
+            self._notices = [f"⚠ {row.raw_title} için fiyat yok — sheet'e yazılamaz."]
+            self._set_notices()
+            return
+
+        query = PerfumeQuery(
+            brand=row.brand, name=row.name, concentration=row.concentration
+        )
+        try:
+            ws, wishlist_rows, price_col, where_col = await asyncio.to_thread(
+                self._read_wishlist
+            )
+        except SheetsError as exc:
+            self._notices = [f"⚠ {exc}"]
+            self._set_notices()
+            return
+
+        found = find_match(wishlist_rows, query)
+        if found is None:
+            self._notices = [
+                f"⚠ {row.brand} {row.name} istek listenizde bulunamadı "
+                "— sheet'e manuel ekleyin."
+            ]
+            self._set_notices()
+            return
+        matched_row, match = found
+        if not match.confident:
+            confirmed = await self.app.push_screen(
+                ConfirmScreen(
+                    f"'{matched_row.brand} {matched_row.model}' sheet satırı "
+                    f"düşük eşleşme skoruyla (%{match.score}) bulundu. "
+                    f"{row.raw_title} için buraya yazılsın mı?"
+                ),
+                wait_for_dismiss=True,
+            )
+            if not confirmed:
+                return
+
+        price_text = (
+            f"{format_price(Decimal(row.price_kurus) / Decimal(100))} "
+            f"({format_ml(Decimal(row.size_ml_x10) / Decimal(10))})"
+        )
+        try:
+            await asyncio.to_thread(
+                write_result,
+                ws,
+                matched_row.row_index,
+                price_col,
+                where_col,
+                price_text,
+                row.site_label,
+                row.product_url,
+            )
+        except SheetsError as exc:
+            self._notices = [f"⚠ {exc}"]
+            self._set_notices()
+            return
+
+        self._notices = [
+            f"✓ {matched_row.brand} {matched_row.model} → {price_text} "
+            f"— {row.site_label} sheet'e yazıldı."
+        ]
+        self._set_notices()
+
+    def _read_wishlist(
+        self,
+    ) -> tuple[gspread.Worksheet, list[WishlistRow], int, int]:
+        # One blocking call: open the tab, read it in a single request, and
+        # resolve the header columns up front, so a missing header is
+        # reported before the match/confirm flow instead of after it.
+        credentials = self.sheets_credentials
+        spreadsheet = self.sheets_spreadsheet
+        worksheet_name = self.sheets_worksheet
+        assert credentials and spreadsheet and worksheet_name
+        ws = open_worksheet(credentials, spreadsheet, worksheet_name)
+        header_row, wishlist_rows = read_sheet(ws)
+        price_col, where_col = find_header_columns(header_row)
+        return ws, wishlist_rows, price_col, where_col
 
     def action_show_history(self) -> None:
         panel = self.query_one("#history-panel", Static)

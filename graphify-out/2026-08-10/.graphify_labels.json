@@ -66,6 +66,8 @@
   "64": ".__call__",
   "65": "rate_limit_ms",
   "66": "format_age",
+  "67": "_resolve_platform",
+  "68": "extract_css_variants",
   "69": "Variant Pattern A",
   "70": "Project Root",
   "71": "basket_prices",

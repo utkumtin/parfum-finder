@@ -635,6 +635,224 @@ async def test_add_basket_on_a_confident_row_writes_without_confirmation(
         assert len(basket) == 1
 
 
+async def test_write_sheet_warns_and_writes_nothing_when_not_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[Any] = []
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.open_worksheet",
+        lambda *a, **k: calls.append((a, k)),
+    )
+
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner = _static_runner({"site-a": _ok_result("site-a", _variant(50, 100000))})
+
+    db_path = tmp_path / "db.sqlite3"
+    app = _app(sites_dir, db_path, runner)  # no sheets_* kwargs -> unconfigured
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        table.focus()
+        await pilot.pause()
+        await pilot.press("w")
+        await pilot.pause()
+
+        assert calls == []
+        notices = str(screen.query_one("#notices", Static).content)
+        assert "ayarlanmamış" in notices
+
+
+async def test_write_sheet_writes_directly_on_a_confident_match(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from parfum_finder.matcher import match_title
+    from parfum_finder.sheets import WishlistRow
+
+    fake_ws = object()
+    wishlist_row = WishlistRow(row_index=7, brand="Dior", model="Sauvage EDP")
+    write_calls: list[Any] = []
+
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.open_worksheet", lambda *a, **k: fake_ws
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.read_sheet",
+        lambda ws: (["BRAND", "PARFUM", "BEST PRICE", "WHERE"], [wishlist_row]),
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.find_header_columns", lambda header: (3, 4)
+    )
+
+    def _fake_find_match(rows: Any, query: Any) -> Any:
+        match = match_title(f"{wishlist_row.brand} {wishlist_row.model}", query)
+        assert match is not None and match.confident
+        return (wishlist_row, match)
+
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.find_match", _fake_find_match
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.write_result",
+        lambda *a, **k: write_calls.append((a, k)),
+    )
+
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner = _static_runner({"site-a": _ok_result("site-a", _variant(50, 100000))})
+
+    db_path = tmp_path / "db.sqlite3"
+    app = ParfumFinderApp(
+        sites_dir=sites_dir,
+        db_path=db_path,
+        runner=runner,
+        sheets_credentials=tmp_path / "creds.json",
+        sheets_spreadsheet="sheet-id",
+        sheets_worksheet="Wishlist",
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        table.focus()
+        await pilot.pause()
+        await pilot.press("w")
+        await pilot.pause()
+
+        assert len(write_calls) == 1
+        args, _ = write_calls[0]
+        assert args[0] is fake_ws
+        assert args[1] == 7  # wishlist_row.row_index
+        assert args[2:4] == (3, 4)  # price_col, where_col
+        notices = str(screen.query_one("#notices", Static).content)
+        assert "✓" in notices and "Dior Sauvage EDP" in notices
+
+
+async def test_write_sheet_warns_and_writes_nothing_when_not_in_wishlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_calls: list[Any] = []
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.open_worksheet", lambda *a, **k: object()
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.read_sheet",
+        lambda ws: (["BRAND", "PARFUM", "BEST PRICE", "WHERE"], []),
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.find_header_columns", lambda header: (3, 4)
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.find_match", lambda rows, query: None
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.write_result",
+        lambda *a, **k: write_calls.append((a, k)),
+    )
+
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner = _static_runner({"site-a": _ok_result("site-a", _variant(50, 100000))})
+
+    db_path = tmp_path / "db.sqlite3"
+    app = ParfumFinderApp(
+        sites_dir=sites_dir,
+        db_path=db_path,
+        runner=runner,
+        sheets_credentials=tmp_path / "creds.json",
+        sheets_spreadsheet="sheet-id",
+        sheets_worksheet="Wishlist",
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        table.focus()
+        await pilot.pause()
+        await pilot.press("w")
+        await pilot.pause()
+
+        assert write_calls == []
+        notices = str(screen.query_one("#notices", Static).content)
+        assert "bulunamadı" in notices
+
+
+async def test_write_sheet_asks_confirmation_for_low_score_and_writes_only_after_yes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from parfum_finder.matcher import Match
+    from parfum_finder.sheets import WishlistRow
+
+    fake_ws = object()
+    wishlist_row = WishlistRow(row_index=9, brand="Dior", model="Sauvage")
+    weak_match = Match(score=70, concentration="EDP", confident=False)
+    write_calls: list[Any] = []
+
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.open_worksheet", lambda *a, **k: fake_ws
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.read_sheet",
+        lambda ws: (["BRAND", "PARFUM", "BEST PRICE", "WHERE"], [wishlist_row]),
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.find_header_columns", lambda header: (3, 4)
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.find_match",
+        lambda rows, query: (wishlist_row, weak_match),
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.write_result",
+        lambda *a, **k: write_calls.append((a, k)),
+    )
+
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner = _static_runner({"site-a": _ok_result("site-a", _variant(50, 100000))})
+
+    db_path = tmp_path / "db.sqlite3"
+    app = ParfumFinderApp(
+        sites_dir=sites_dir,
+        db_path=db_path,
+        runner=runner,
+        sheets_credentials=tmp_path / "creds.json",
+        sheets_spreadsheet="sheet-id",
+        sheets_worksheet="Wishlist",
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen = app.screen
+        await _wait_until(lambda: screen._done == 1, pilot)  # type: ignore[attr-defined]
+
+        table = screen.query_one("#results", DataTable)
+        table.focus()
+        await pilot.pause()
+
+        await pilot.press("w")
+        await pilot.pause()
+        await pilot.press("n")
+        await pilot.pause()
+        assert write_calls == []
+
+        await pilot.press("w")
+        await pilot.pause()
+        await pilot.press("y")
+        await pilot.pause()
+        assert len(write_calls) == 1
+
+
 async def test_a_row_in_the_basket_is_painted_on_every_site_that_offers_it(
     tmp_path: Path,
 ) -> None:

@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "tests/test_tui.py": {
-    "mtime": 1786353683.453236,
-    "ast_hash": "5311e531a04c301bdb231b52bb3495ca",
+    "mtime": 1786354261.7443275,
+    "ast_hash": "fef9cb85089b700021ba11fb91ca5074",
     "semantic_hash": ""
   },
   "tests/test_validate.py": {

@@ -6,7 +6,8 @@ Subcommands will be added incrementally as the project grows:
     validate [<id>...] [--live] - check that a profile still works
     search <perfume> [--site] [--db] - scan every site and store the prices
                               several perfumes at once: "a - b - c"
-    tui [--db]                 - launch the interactive app
+    tui [--db] [--sheet-credentials] [--sheet-id] [--sheet-worksheet]
+                              - launch the interactive app
     (default, no subcommand)   - same as tui
 
 CLI framework: argparse (stdlib). A handful of subcommands with plain
@@ -356,6 +357,25 @@ def main() -> None:
         metavar="PATH",
         help=f"price database to read and write (default: {DEFAULT_DB_PATH})",
     )
+    tui_parser.add_argument(
+        "--sheet-credentials",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Google service account JSON key (enables [w] sheet write)",
+    )
+    tui_parser.add_argument(
+        "--sheet-id",
+        default=None,
+        metavar="ID_OR_URL",
+        help="Google Sheet ID or URL holding the wishlist",
+    )
+    tui_parser.add_argument(
+        "--sheet-worksheet",
+        default=None,
+        metavar="NAME",
+        help="worksheet (tab) name inside the sheet",
+    )
 
     args = parser.parse_args()
 
@@ -368,7 +388,16 @@ def main() -> None:
         # errors to the terminal, where they belong.
         setup_logging()
         db_path = args.db if args.command == "tui" else DEFAULT_DB_PATH
-        ParfumFinderApp(sites_dir=SITES_DIR, db_path=db_path).run()
+        sheets_credentials = args.sheet_credentials if args.command == "tui" else None
+        sheets_spreadsheet = args.sheet_id if args.command == "tui" else None
+        sheets_worksheet = args.sheet_worksheet if args.command == "tui" else None
+        ParfumFinderApp(
+            sites_dir=SITES_DIR,
+            db_path=db_path,
+            sheets_credentials=sheets_credentials,
+            sheets_spreadsheet=sheets_spreadsheet,
+            sheets_worksheet=sheets_worksheet,
+        ).run()
     elif args.command == "probe":
         probe_report = asyncio.run(probe(args.url, timeout_s=args.timeout))
         print(format_probe_report(probe_report))

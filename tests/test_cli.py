@@ -245,9 +245,20 @@ def _fake_tui_app(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     seen: dict[str, object] = {}
 
     class FakeApp:
-        def __init__(self, *, sites_dir: Path, db_path: Path) -> None:
+        def __init__(
+            self,
+            *,
+            sites_dir: Path,
+            db_path: Path,
+            sheets_credentials: Path | None = None,
+            sheets_spreadsheet: str | None = None,
+            sheets_worksheet: str | None = None,
+        ) -> None:
             seen["sites_dir"] = sites_dir
             seen["db_path"] = db_path
+            seen["sheets_credentials"] = sheets_credentials
+            seen["sheets_spreadsheet"] = sheets_spreadsheet
+            seen["sheets_worksheet"] = sheets_worksheet
 
         def run(self) -> None:
             seen["ran"] = True
@@ -273,6 +284,9 @@ def test_no_subcommand_launches_the_tui_against_the_default_db(
     assert seen == {
         "sites_dir": cli.SITES_DIR,
         "db_path": cli.DEFAULT_DB_PATH,
+        "sheets_credentials": None,
+        "sheets_spreadsheet": None,
+        "sheets_worksheet": None,
         "ran": True,
     }
 
@@ -286,7 +300,46 @@ def test_tui_subcommand_passes_the_db_flag_through(
 
     main()
 
-    assert seen == {"sites_dir": cli.SITES_DIR, "db_path": db_path, "ran": True}
+    assert seen == {
+        "sites_dir": cli.SITES_DIR,
+        "db_path": db_path,
+        "sheets_credentials": None,
+        "sheets_spreadsheet": None,
+        "sheets_worksheet": None,
+        "ran": True,
+    }
+
+
+def test_tui_subcommand_passes_the_sheet_flags_through(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    seen = _fake_tui_app(monkeypatch)
+    creds = tmp_path / "service-account.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "parfum-finder",
+            "tui",
+            "--sheet-credentials",
+            str(creds),
+            "--sheet-id",
+            "sheet-123",
+            "--sheet-worksheet",
+            "Wishlist",
+        ],
+    )
+
+    main()
+
+    assert seen == {
+        "sites_dir": cli.SITES_DIR,
+        "db_path": cli.DEFAULT_DB_PATH,
+        "sheets_credentials": creds,
+        "sheets_spreadsheet": "sheet-123",
+        "sheets_worksheet": "Wishlist",
+        "ran": True,
+    }
 
 
 def test_the_live_flag_runs_the_live_pass_and_prints_both_columns(

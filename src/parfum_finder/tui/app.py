@@ -33,11 +33,17 @@ class ParfumFinderApp(App[None]):
         sites_dir: Path = DEFAULT_SITES_DIR,
         db_path: Path = DEFAULT_DB_PATH,
         runner: SiteRunner = run_site,
+        sheets_credentials: Path | None = None,
+        sheets_spreadsheet: str | None = None,
+        sheets_worksheet: str | None = None,
     ) -> None:
         super().__init__()
         self.sites_dir = sites_dir
         self.db_path = db_path
         self.runner = runner
+        self.sheets_credentials = sheets_credentials
+        self.sheets_spreadsheet = sheets_spreadsheet
+        self.sheets_worksheet = sheets_worksheet
 
     def on_mount(self) -> None:
         # Assigned here rather than as a class attribute: App.theme is a Reactive
@@ -48,7 +54,12 @@ class ParfumFinderApp(App[None]):
         self.theme = THEME
         self.push_screen(
             SearchScreen(
-                sites_dir=self.sites_dir, db_path=self.db_path, runner=self.runner
+                sites_dir=self.sites_dir,
+                db_path=self.db_path,
+                runner=self.runner,
+                sheets_credentials=self.sheets_credentials,
+                sheets_spreadsheet=self.sheets_spreadsheet,
+                sheets_worksheet=self.sheets_worksheet,
             )
         )
 
