@@ -1,7 +1,7 @@
 """The search screen: a progress bar while scanning, one grouped table after.
 
-Columns: matched product, site, the site's own title, size (ml), price, price
-per ml, stock, match score. Nothing lands in the table mid-scan. Sites finish
+Columns: the site's own title (as "Ürün"), site, size (ml), price, price per
+ml, stock, match score. Nothing lands in the table mid-scan. Sites finish
 in whatever order they finish, and a table growing under a reader's eyes cannot
 be read: the cheapest row so far keeps changing, and the row someone is looking
 at keeps moving. So the scan shows a progress bar in the table's place and the
@@ -115,16 +115,12 @@ class SiteRunner(Protocol):
 # the size column.
 _SORT_BY_COLUMN = {0: "ml", 1: "price", 2: "per_ml"}
 
-# "Eşleşen Ürün" is the product the row is really about, derived from the site's
-# own title; "Site Başlığı" is that title as the shop wrote it. Two columns of
-# product text side by side, so neither can be called just "Ürün" -- one says
-# which bottle this is, the other says how to recognise it in the shop.
-#
-# The matched-product column is always here. It is not an echo of the search
-# box: one query can legitimately produce more than one product block, so there
-# is no case where a person can tell from the search line alone which bottle a
-# row is about.
-_COLUMNS = ("Eşleşen Ürün", "Site", "Site Başlığı", "ml", "Fiyat", "₺/ml", "Stok", "%")
+# "Ürün" is the site's own title, untouched -- it is what makes a wrong match
+# visible, and it is what tells apart two bottles a single search can turn up,
+# such as "Layton" and "Layton Exclusif". The product a row is really about is
+# still derived from it for grouping and sorting, it just no longer gets a
+# column of its own next to this one.
+_COLUMNS = ("Ürün", "Site", "ml", "Fiyat", "₺/ml", "Stok", "%")
 
 # One colour per site, so a long table reads as blocks instead of one wall of
 # rows. Keyed by site_id and not by the label, because a stale profile gets a
@@ -867,9 +863,8 @@ class SearchScreen(Screen[None]):
             return tuple(
                 Text(cell, style=_IN_BASKET_STYLE)
                 for cell in (
-                    row.product,
-                    row.site_label,
                     title,
+                    row.site_label,
                     ml,
                     price,
                     per_ml,
@@ -878,12 +873,8 @@ class SearchScreen(Screen[None]):
                 )
             )
         return (
-            # The block heading is left plain even on a weak match. The doubt is
-            # about whether the site's title is this perfume at all, and that is
-            # already said twice, on the title and on the score.
-            row.product,
-            site,
             title if row.confident else Text(title, style=_LOW_CONFIDENCE_STYLE),
+            site,
             ml,
             price,
             per_ml,

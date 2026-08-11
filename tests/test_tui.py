@@ -191,9 +191,9 @@ async def test_no_rows_land_until_every_site_is_done(tmp_path: Path) -> None:
         gate.set()
         table = await _wait_for_table(pilot)
         assert table.row_count == 3
-        # Site Başlığı is the site's raw title, untouched -- it is what makes a
+        # Ürün is the site's raw title, untouched -- it is what makes a
         # wrong match visible, so nothing here may tidy it up.
-        assert table.get_row_at(0)[2] == "Dior Sauvage EDP Dekant 5 ml"
+        assert table.get_row_at(0)[0] == "Dior Sauvage EDP Dekant 5 ml"
         assert "3/3" in str(screen.query_one("#status", Static).content)
         # The bar has nothing left to say once the rows are there.
         assert not screen.query_one("#progress", ProgressBar).display
@@ -342,18 +342,15 @@ async def test_low_score_row_flags_the_match_percent_cell(tmp_path: Path) -> Non
         from parfum_finder.tui.search_screen import _LOW_CONFIDENCE_STYLE
 
         cells = table.get_row_at(0)
-        percent_cell = cells[7]
+        percent_cell = cells[6]
         assert isinstance(percent_cell, Text)
         assert percent_cell.style == _LOW_CONFIDENCE_STYLE
         assert str(percent_cell) == "31"
         # The title is the other half of the doubt: it is what did not match.
-        assert isinstance(cells[2], Text)
-        assert cells[2].style == _LOW_CONFIDENCE_STYLE
-        # The block heading stays plain: the doubt is already said twice, and a
-        # third marking would make a whole row look wrong over one weak title.
-        assert isinstance(cells[0], str)
+        assert isinstance(cells[0], Text)
+        assert cells[0].style == _LOW_CONFIDENCE_STYLE
         # ml, fiyat, ₺/ml and stok stay plain text, unmarked.
-        assert all(isinstance(cell, str) for cell in cells[3:7])
+        assert all(isinstance(cell, str) for cell in cells[2:6])
 
 
 async def test_site_colour_lands_on_the_site_cell_and_nowhere_else(
@@ -445,21 +442,21 @@ async def test_sizes_go_up_inside_a_block_and_the_keys_still_reorder(
         await _submit_query(pilot)
         table = await _wait_for_table(pilot)
 
-        assert table.get_row_at(0)[3] == "5 ml"  # size ascending, default
+        assert table.get_row_at(0)[2] == "5 ml"  # size ascending, default
 
         table.focus()
         await pilot.pause()
         await pilot.press("3")
         await pilot.pause()
-        assert table.get_row_at(0)[3] == "10 ml"  # ₺/ml ascending
+        assert table.get_row_at(0)[2] == "10 ml"  # ₺/ml ascending
 
         await pilot.press("2")
         await pilot.pause()
-        assert table.get_row_at(0)[3] == "5 ml"  # price ascending (1500 < 2000)
+        assert table.get_row_at(0)[2] == "5 ml"  # price ascending (1500 < 2000)
 
         await pilot.press("1")
         await pilot.pause()
-        assert table.get_row_at(0)[3] == "5 ml"  # ml ascending
+        assert table.get_row_at(0)[2] == "5 ml"  # ml ascending
 
 
 async def test_out_of_stock_rows_start_hidden_and_f_brings_them_back(
@@ -980,7 +977,7 @@ async def test_the_screen_keys_work_right_after_a_search_without_refocusing(
 
         await pilot.press("1")
         await pilot.pause()
-        assert table.get_row_at(0)[3] == "5 ml"
+        assert table.get_row_at(0)[2] == "5 ml"
 
         # Escape is the way back to the search box for the next query.
         await pilot.press("escape")
@@ -1177,7 +1174,7 @@ async def test_clone_row_shows_the_klon_marker_and_what_it_imitates(
         screen = app.screen
         table = await _wait_for_table(pilot)
         assert table.row_count == 1
-        title_cell = str(table.get_row_at(0)[2])
+        title_cell = str(table.get_row_at(0)[0])
         # The raw title survives untouched, since it is still what makes a wrong
         # match visible, with the marker appended rather than substituted in.
         assert clone.raw_title is not None
@@ -1584,35 +1581,11 @@ async def test_one_line_of_two_perfumes_scans_every_site_for_both(
         ]
         table = screen.query_one("#results", DataTable)
         assert table.row_count == 4
-        # Which bottle a row is about, read off the site's own title rather than
-        # copied back out of the search box.
+        # Which bottle a row is about, grouped off the site's own title rather
+        # than copied back out of the search box, even though the table no
+        # longer shows that product name as a column of its own.
         assert str(screen.query_one("#status", Static).content).startswith("4/4")
-        assert table.get_row_at(0)[0] == "Dior Sauvage EDP"
-
-
-async def test_a_single_perfume_still_gets_the_matched_product_column(
-    tmp_path: Path,
-) -> None:
-    """One query is not one product, so the column cannot be hidden for it.
-
-    It used to appear only on multi-perfume searches, on the grounds that it
-    would otherwise repeat the search text down the screen. It no longer holds
-    the search text: a search for "Parfums de Marly Layton" comes back with
-    Layton and Layton Exclusif, two bottles at two prices, and this column is
-    what says which is which.
-    """
-    sites_dir = tmp_path / "sites"
-    _write_profile(sites_dir, "site-a", "Site A")
-    runner, _ = _per_query_runner()
-
-    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        await _submit_query(pilot)
-        table = await _wait_for_table(pilot)
-
-        assert table.get_row_at(0)[0] == "Dior Sauvage EDP"
-        assert table.get_row_at(0)[1] == "Site A"
+        assert screen._visible_rows[0].product == "Dior Sauvage EDP"  # type: ignore[attr-defined]
 
 
 async def test_one_shop_is_asked_for_its_perfumes_one_at_a_time(
@@ -1752,8 +1725,7 @@ async def test_the_table_stays_grouped_by_perfume_whatever_the_sort_is(
         screen = app.screen
         await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
 
-        table = screen.query_one("#results", DataTable)
-        assert [table.get_row_at(i)[0] for i in range(2)] == [
+        assert [screen._visible_rows[i].product for i in range(2)] == [  # type: ignore[attr-defined]
             "Dior Sauvage EDP",
             "Chanel Bleu EDP",
         ]
@@ -1955,13 +1927,14 @@ async def test_one_query_finding_two_bottles_gets_two_blocks(tmp_path: Path) -> 
         await pilot.pause()
         await _submit_query(pilot, "Parfums de Marly Layton")
         table = await _wait_for_table(pilot)
+        screen = app.screen
 
-        assert [str(table.get_row_at(i)[0]) for i in range(2)] == [
+        assert [screen._visible_rows[i].product for i in range(2)] == [  # type: ignore[attr-defined]
             "Parfums De Marly Layton",
             "Parfums De Marly Layton Exclusif",
         ]
         # The Exclusif really is the 77% row the split exists for.
-        assert str(table.get_row_at(1)[7]) == "77"
+        assert str(table.get_row_at(1)[6]) == "77"
 
 
 async def test_picking_a_column_keeps_the_product_blocks(tmp_path: Path) -> None:
@@ -1981,12 +1954,13 @@ async def test_picking_a_column_keeps_the_product_blocks(tmp_path: Path) -> None
         await _submit_query(pilot, "Parfums de Marly Layton")
         table = await _wait_for_table(pilot)
 
+        screen = app.screen
         table.focus()
         await pilot.press("3")
         await pilot.pause()
         # The Exclusif is three times the price, so a table sorted by ₺/ml with
         # no product layer would put the Layton row first and leave it there.
-        assert [str(table.get_row_at(i)[0]) for i in range(2)] == [
+        assert [screen._visible_rows[i].product for i in range(2)] == [  # type: ignore[attr-defined]
             "Parfums De Marly Layton",
             "Parfums De Marly Layton Exclusif",
         ]
@@ -1999,7 +1973,7 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
 
     The columns are added once, at mount, now that they no longer depend on how
     many perfumes were typed. A second search that added them again would leave
-    sixteen headings and shift every cell the keys read by eight.
+    fourteen headings and shift every cell the keys read by seven.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -2018,7 +1992,7 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
         await _submit_query(pilot)
         table = await _wait_for_table(pilot)
         assert table.row_count == 1
-        assert len(table.columns) == 8
+        assert len(table.columns) == 7
 
         await _submit_query(pilot, "Chanel Bleu EDP")
         # Waited on by content, not by the scanning flag: one fake site finishes
@@ -2034,5 +2008,5 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
 
         # The first search's row is gone, not sitting above the second's.
         assert table.row_count == 1
-        assert table.get_row_at(0)[0] == "Chanel Bleu EDP"
-        assert len(table.columns) == 8
+        assert table.get_row_at(0)[0] == "Chanel Bleu EDP Dekant 3 ml"
+        assert len(table.columns) == 7
