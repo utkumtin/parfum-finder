@@ -14,13 +14,27 @@ the app runs without the optional `sheets` extra installed.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Protocol
 
 from parfum_finder.logging_setup import logger
 from parfum_finder.matcher import PREFILTER_THRESHOLD, Match, PerfumeQuery, match_title
 
 if TYPE_CHECKING:
     import gspread
+
+
+class Worksheet(Protocol):
+    """The two calls read_sheet/write_result actually need off a worksheet.
+
+    Typed as a Protocol rather than gspread.Worksheet directly so a test
+    double only has to match this surface, not the whole real class -- and
+    so this module stays honest about how little of gspread's API it uses.
+    """
+
+    def get_all_values(self) -> list[list[str]]: ...
+
+    def batch_update(self, data: Any, *, value_input_option: Any = None) -> Any: ...
 
 
 class SheetsError(Exception):
@@ -46,7 +60,7 @@ class WishlistRow:
 
 
 def open_worksheet(
-    credentials_path: Any, spreadsheet: str, worksheet_name: str
+    credentials_path: Path | str, spreadsheet: str, worksheet_name: str
 ) -> gspread.Worksheet:
     """Authorize with a service account and return the target tab.
 
@@ -60,6 +74,11 @@ def open_worksheet(
             "gspread yüklü değil. `uv sync --extra sheets` ile kurun."
         ) from exc
 
+    # A path coming from a .env file or --sheet-credentials never goes through
+    # the shell, so a leading "~" is never expanded the way it would be on a
+    # command line -- expand it here or gspread looks for a file literally
+    # named "~".
+    credentials_path = Path(credentials_path).expanduser()
     try:
         client = gspread.service_account(filename=credentials_path)
         if spreadsheet.startswith("http://") or spreadsheet.startswith("https://"):
@@ -79,7 +98,7 @@ def open_worksheet(
         raise SheetsError(f"Sheet açılamadı: {exc}") from exc
 
 
-def read_sheet(ws: gspread.Worksheet) -> tuple[list[str], list[WishlistRow]]:
+def read_sheet(ws: Worksheet) -> tuple[list[str], list[WishlistRow]]:
     """Read the whole tab in one request: the header row, and every wishlist
     row under it.
 
@@ -175,7 +194,7 @@ def _sanitized(text: str) -> str:
 
 
 def write_result(
-    ws: gspread.Worksheet,
+    ws: Worksheet,
     row_index: int,
     price_col: int,
     where_col: int,

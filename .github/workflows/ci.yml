@@ -23,8 +23,10 @@ jobs:
       # The browser extra is installed so mypy type-checks the playwright code
       # paths instead of treating them as Any. The chromium binary itself is not
       # needed for type checking.
+      # The sheets extra is installed for the same reason, and so
+      # tests/test_sheets.py doesn't fail on a missing gspread import.
       - name: Install dependencies
-        run: uv sync --locked --extra browser
+        run: uv sync --locked --extra browser --extra sheets
 
       - name: Lint
         run: uv run ruff check .

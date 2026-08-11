@@ -7,6 +7,7 @@ stands in, exposing only the surface the module actually calls.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -17,6 +18,7 @@ from parfum_finder.sheets import (
     WishlistRow,
     find_header_columns,
     find_match,
+    open_worksheet,
     read_sheet,
     write_result,
 )
@@ -34,6 +36,28 @@ class _FakeWorksheet:
 
     def batch_update(self, data: Any, value_input_option: Any = None) -> None:
         self.batch_update_calls.append((data, value_input_option))
+
+
+def test_open_worksheet_expands_a_tilde_in_the_credentials_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A path read from .env never passes through a shell, so "~" arrives
+    # literally -- gspread would look for a file named "~" and raise
+    # FileNotFoundError if this isn't expanded first.
+    import gspread
+
+    seen: list[Any] = []
+
+    def fake_service_account(*, filename: Any) -> Any:
+        seen.append(filename)
+        raise RuntimeError("stop before any real auth/network call")
+
+    monkeypatch.setattr(gspread, "service_account", fake_service_account)
+
+    with pytest.raises(SheetsError):
+        open_worksheet("~/creds.json", "sheet-id", "Sheet1")
+
+    assert seen == [Path("~/creds.json").expanduser()]
 
 
 def test_read_sheet_forward_fills_the_merged_brand_across_its_models() -> None:
