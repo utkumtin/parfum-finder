@@ -1250,6 +1250,16 @@ class SearchScreen(Screen[None]):
             self._notices = [f"⚠ {row.raw_title} için fiyat yok — sheet'e yazılamaz."]
             self._set_notices()
             return
+        if row.age_days >= STALE_PRICE_DAYS:
+            confirmed = await self.app.push_screen(
+                ConfirmScreen(
+                    f"{row.raw_title} fiyatı {format_age(row.age_days)} alındı. "
+                    "Yine de sheet'e yazılsın mı?"
+                ),
+                wait_for_dismiss=True,
+            )
+            if not confirmed:
+                return
 
         query = PerfumeQuery(
             brand=row.brand, name=row.name, concentration=row.concentration

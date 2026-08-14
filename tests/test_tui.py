@@ -858,6 +858,102 @@ async def test_write_sheet_asks_confirmation_for_low_score_and_writes_only_after
         assert len(write_calls) == 1
 
 
+async def test_write_sheet_asks_confirmation_for_a_stale_cached_price(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A price read from a three-week-old record must say so before it lands
+    on the sheet, not just in the table's own age column.
+
+    Sheet's `w` used to write cached prices with no age information at all,
+    so a stale number could be copied out without anyone noticing it was old.
+    """
+    from parfum_finder.matcher import match_title
+    from parfum_finder.sheets import WishlistRow
+
+    fake_ws = object()
+    wishlist_row = WishlistRow(row_index=7, brand="Dior", model="Sauvage EDP")
+    write_calls: list[Any] = []
+
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.open_worksheet", lambda *a, **k: fake_ws
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.read_sheet",
+        lambda ws: (["BRAND", "PARFUM", "BEST PRICE", "WHERE"], [wishlist_row]),
+    )
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.find_header_columns", lambda header: (3, 4)
+    )
+
+    def _fake_find_match(rows: Any, query: Any) -> Any:
+        match = match_title(f"{wishlist_row.brand} {wishlist_row.model}", query)
+        assert match is not None and match.confident
+        return (wishlist_row, match)
+
+    monkeypatch.setattr("parfum_finder.tui.search_screen.find_match", _fake_find_match)
+    monkeypatch.setattr(
+        "parfum_finder.tui.search_screen.write_result",
+        lambda *a, **k: write_calls.append((a, k)),
+    )
+
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    db_path = tmp_path / "db.sqlite3"
+    conn = connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO sites (site_id, name, base_url, synced_at)"
+            " VALUES ('site-a', 'Site A', 'https://example.com', ?)",
+            ("2026-08-01T00:00:00Z",),
+        )
+        conn.commit()
+        record_snapshot(
+            conn,
+            site_id="site-a",
+            brand="dior",
+            name="sauvage",
+            concentration="EDP",
+            match_score=95,
+            variant=_variant(50, 25000),
+            fetched_at=_days_ago(21),
+        )
+    finally:
+        conn.close()
+    runner, asked = _counting_runner()
+
+    app = ParfumFinderApp(
+        sites_dir=sites_dir,
+        db_path=db_path,
+        runner=runner,
+        sheets_credentials=tmp_path / "creds.json",
+        sheets_spreadsheet="sheet-id",
+        sheets_worksheet="Wishlist",
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        table = await _wait_for_rows(pilot)
+
+        assert asked == []
+        table.focus()
+        await pilot.pause()
+
+        await pilot.press("w")
+        await pilot.pause()
+        assert write_calls == []
+        assert isinstance(app.screen, ConfirmScreen)
+        assert "3 hafta önce" in _rendered(app.screen.query_one(Static))
+        await pilot.press("n")
+        await pilot.pause()
+        assert write_calls == []
+
+        await pilot.press("w")
+        await pilot.pause()
+        await pilot.press("y")
+        await pilot.pause()
+        assert len(write_calls) == 1
+
+
 async def test_a_row_in_the_basket_is_painted_on_every_site_that_offers_it(
     tmp_path: Path,
 ) -> None:
