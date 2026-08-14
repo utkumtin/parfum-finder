@@ -168,6 +168,18 @@ class Match:
     without it a clone has nowhere of its own to be stored. None when there is no
     clone, and also when the leftover title is too short to name both a house and
     a perfume, which is the one case an imitation still cannot be stored at all.
+
+    `own_identity` is the same answer for a title that is not a clone but still
+    missed `confident`. A query with no brand or concentration matches every
+    title that mentions the brand, and "Layton" finding "Layton Exclusif" is
+    that working as intended, not a mistake to reject. But Exclusif is a
+    different bottle with its own price, and a low score is exactly the signal
+    that the leftover words might name one. Filing it under the searched
+    perfume's identity anyway would give the two one shared price history and
+    one shared basket line, so that a search for "Layton" pricing up "Layton
+    Exclusif" quietly prices "Layton" itself. None whenever the match is
+    confident, since a confident match is being treated as the searched
+    perfume on purpose.
     """
 
     score: int
@@ -175,6 +187,7 @@ class Match:
     confident: bool
     clone_of: str = ""
     clone_identity: PerfumeQuery | None = None
+    own_identity: PerfumeQuery | None = None
 
 
 def split_queries(text: str) -> list[str]:
@@ -330,11 +343,17 @@ def match_title(
     # this title points at the searched perfume, and the answer here is "surely,
     # as a copy of it". Leaving it confident would let the row be acted on as if
     # it were the real bottle.
+    #
+    # own_identity is cleared rather than kept: _match_text computed it, if at
+    # all, off the reference text, which is what the clone imitates and not
+    # what it is. clone_identity is the answer for a clone, own_identity means
+    # nothing here.
     return replace(
         match,
         confident=False,
         clone_of=reference,
         clone_identity=_own_identity(own_title),
+        own_identity=None,
     )
 
 
@@ -425,7 +444,19 @@ def _match_text(raw_title: str, query: PerfumeQuery, *, threshold: int) -> Match
     score = _similarity(
         _without(query_rest, brand_tokens), _without(title_rest, brand_tokens)
     )
-    return Match(score=score, concentration=found, confident=score >= threshold)
+    confident = score >= threshold
+    # A low score is filed under what the title itself says the bottle is, not
+    # under the searched perfume: the leftover words that cost it the score are
+    # exactly the words that might make it a different product ("Layton
+    # Exclusif" scoring low against "Layton"). A confident match stays under
+    # the searched identity on purpose, so typo- or wording-only differences
+    # still share one price history.
+    return Match(
+        score=score,
+        concentration=found,
+        confident=confident,
+        own_identity=None if confident else _own_identity(raw_title),
+    )
 
 
 def _tokenize(text: str) -> tuple[str, ...]:

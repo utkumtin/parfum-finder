@@ -24,6 +24,7 @@ from parfum_finder.store import (
     basket_lines,
     basket_prices,
     basket_sites,
+    cached_prices,
     connect,
     now_iso,
     price_history,
@@ -581,6 +582,76 @@ def test_snapshot_rows_stores_the_titles_own_concentration() -> None:
     assert rows[0].concentration == "EDT"
 
 
+def test_snapshot_rows_files_a_low_score_match_under_its_own_name() -> None:
+    """'Layton' finding 'Layton Exclusif' must not price the two as one bottle.
+
+    A site that only sells Exclusif would otherwise be stored under the plain
+    Layton searched for: same brand/name/concentration means same perfume_id,
+    which means one shared price history and one shared basket key. Adding
+    Layton to the basket would then also light up Exclusif's rows, and
+    Exclusif's price would show up on Layton's basket line as if that shop
+    sold Layton itself.
+    """
+    result = SiteResult(
+        site_id="ornek",
+        status="ok",
+        hits=(
+            SearchHit(
+                candidate=ProductCandidate(
+                    raw_title="Parfums De Marly Layton Exclusif", url="u"
+                ),
+                variants=(
+                    _variant(
+                        50, 54000, raw_title="Parfums De Marly Layton Exclusif 5 ml"
+                    ),
+                ),
+            ),
+        ),
+        detail="ok",
+    )
+    query = parse_query("Parfums de Marly Layton")
+
+    rows = snapshot_rows(result, query)
+
+    assert len(rows) == 1
+    assert rows[0].match_score < 85
+    assert rows[0].brand == "parfums"
+    assert rows[0].name == "de marly layton exclusif"
+    assert (rows[0].brand, rows[0].name) != (query.brand, query.name)
+
+
+def test_snapshot_rows_still_merges_a_confident_match_under_the_searched_name() -> None:
+    """A shop that just writes the same bottle differently must not fork it.
+
+    Filing every non-exact title under its own name would fragment one
+    product's price history across however many ways shops phrase its title.
+    The own-identity rule is for a low score only; a confident match stays
+    under the identity that was searched for.
+    """
+    result = SiteResult(
+        site_id="ornek",
+        status="ok",
+        hits=(
+            SearchHit(
+                candidate=ProductCandidate(
+                    raw_title="Parfums De Marly Layton Dekant", url="u"
+                ),
+                variants=(
+                    _variant(50, 40000, raw_title="Parfums De Marly Layton 5 ml"),
+                ),
+            ),
+        ),
+        detail="ok",
+    )
+    query = parse_query("Parfums de Marly Layton")
+
+    rows = snapshot_rows(result, query)
+
+    assert len(rows) == 1
+    assert rows[0].match_score >= 85
+    assert (rows[0].brand, rows[0].name) == (query.brand, query.name)
+
+
 def test_add_basket_item_bumps_qty_instead_of_resetting_it(
     conn: sqlite3.Connection,
 ) -> None:
@@ -688,6 +759,89 @@ def test_price_history_is_empty_for_an_unknown_variant(
         )
         == []
     )
+
+
+def test_cached_prices_serves_the_latest_reading_of_every_size(
+    conn: sqlite3.Connection,
+) -> None:
+    """The search screen's second search must be answered with today's numbers.
+
+    Two readings of the same size are two rows in price_snapshots, and the whole
+    point of repainting a table from storage is that it shows the last thing the
+    shop said. Serving the first reading would put a price on screen that a later
+    scan already knew was wrong.
+    """
+    _seed_site(conn)
+    _record(conn, _variant(50, 12500), fetched_at="2026-08-01T10:00:00Z")
+    _record(conn, _variant(50, 13900), fetched_at="2026-08-08T10:00:00Z")
+    _record(conn, _variant(100, 24000), fetched_at="2026-08-08T10:00:00Z")
+
+    cached = cached_prices(conn, brand="Dior", name="Sauvage")
+
+    assert {(c.size_ml_x10, c.price_kurus) for c in cached} == {
+        (50, 13900),
+        (100, 24000),
+    }
+    fresh = next(c for c in cached if c.size_ml_x10 == 50)
+    assert fresh.fetched_at == "2026-08-08T10:00:00Z"
+    assert (fresh.site_id, fresh.match_score, fresh.in_stock) == ("ornek", 95, True)
+    assert fresh.raw_title == "Sauvage EDT 5 ml dekant"
+
+
+def test_cached_prices_without_a_concentration_returns_every_one(
+    conn: sqlite3.Connection,
+) -> None:
+    """A search that named no concentration is asking for all of them.
+
+    "" means "any" on PerfumeQuery, and a live scan for it shows the EDT and the
+    EDP side by side. A cache that answered the same search with one of the two
+    would quietly drop half of what the table had before.
+    """
+    _seed_site(conn)
+    _record(conn, _variant(50, 12500), concentration="EDT")
+    _record(conn, _variant(50, 19900), concentration="EDP")
+
+    any_concentration = cached_prices(conn, brand="Dior", name="Sauvage")
+    just_edp = cached_prices(conn, brand="Dior", name="Sauvage", concentration="EDP")
+
+    assert {c.concentration for c in any_concentration} == {"EDT", "EDP"}
+    # Exact when it is given, because an EDT and an EDP are two products with
+    # two prices and answering with the cheaper one is answering another search.
+    assert [(c.concentration, c.price_kurus) for c in just_edp] == [("EDP", 19900)]
+
+
+def test_cached_prices_leaves_out_a_disabled_site(conn: sqlite3.Connection) -> None:
+    """A price nobody will scan again may not be offered as a result.
+
+    Refreshing is what makes a cached row trustworthy, and a disabled site is
+    never scanned, so its stored price can only get older. Showing it would put
+    a number on screen that [r] cannot do anything about.
+    """
+    _seed_site(conn, "kapali")
+    conn.execute("UPDATE sites SET enabled = 0 WHERE site_id = 'kapali'")
+    record_snapshot(
+        conn,
+        site_id="kapali",
+        brand="Dior",
+        name="Sauvage",
+        concentration="EDT",
+        match_score=95,
+        variant=_variant(50, 12500),
+    )
+
+    assert cached_prices(conn, brand="Dior", name="Sauvage") == []
+
+
+def test_cached_prices_is_empty_for_a_perfume_nobody_scanned(
+    conn: sqlite3.Connection,
+) -> None:
+    """Nothing on record is the state before a first search, not an error.
+
+    The search screen turns an empty answer here straight into a live scan, so
+    this returning [] rather than raising is what keeps a first search from
+    needing a keypress to produce prices.
+    """
+    assert cached_prices(conn, brand="dior", name="sauvage") == []
 
 
 def test_a_scanned_perfume_can_be_read_back_by_basket_and_history(

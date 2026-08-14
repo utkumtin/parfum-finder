@@ -260,6 +260,7 @@ büyük kısmı tam şişe, yani o isteklerin çoğu baştan boşa gider. Üç �
 | Aday ön filtresi (`keep_candidate`) | `engine.search_site` + `matcher.title_could_match` | Listeleme başlığı sorguyla uyuşmayan ürünün sayfası hiç açılmaz |
 | Ürün sayfası memo'su (`variants_cache`) | `engine._read_variants` | Aynı ürün iki parfümün sonuç sayfasında çıkarsa bir kez okunur |
 | Tek tarayıcı (`fetch.browser_session`) | `fetch` | Playwright gereken sitede sayfa başına chromium açmak yerine tarama boyunca bir tane |
+| Kayıttan cevap (`store.cached_prices`) | `tui.search_screen._read_cache` | Daha önce aranmış parfüm tekrar arandığında hiçbir site taranmaz; tablo `latest_prices`'tan doldurulur, `r` ile canlıya dönülür |
 
 Ön filtre `empty`/`suspect` ayrımını bozmamak için **kanarya** kullanır: hiçbir aday
 geçmezse ilk aday yine açılır, böylece "fiyat okuyamadı" kontrolü gerçek bir sayfa
@@ -379,6 +380,25 @@ TUI oradan geçtiği için tek nokta yeter. Aynı nedenle sepete de eklenemez.
 olanlar değil. `(Tester)` / `(100 ml)` zararsızdır (içerik zaten gürültü ya da ölçü),
 ama `Dior Sauvage (Elixir)` gibi bir başlıkta konsantrasyon referans yarısına düşerdi.
 Toplanan fixture'larda örneği yok.
+
+### Düşük skorlu eşleşme de kendi kimliğiyle yazılır
+
+Klon olmayan ama `confident` eşiğini geçemeyen bir eşleşme aynı sorunu farklı bir
+şekilde taşır. Marka ve konsantrasyon kontrolü ile bir "isim" filtresi yok — `Layton`
+araması `Layton Exclusif`'i düşük skorla (örn. 77) bulur, ve bu doğru davranıştır,
+çünkü hangi ekstra kelimelerin farklı bir şişe yaptığını sistem bilmez. Ama düşük skor
+tam olarak "bu kelimeler farklı bir ürünü işaret ediyor olabilir" sinyalidir. Bu satır
+aranan parfümün kimliği altına (`brand`/`name` sorgudan) yazılırsa, iki farklı şişe tek
+`perfume_id`'yi, tek fiyat geçmişini ve tek sepet satırını paylaşır: `Layton`'ı sepete
+eklemek `Layton Exclusif` satırlarını da dolu gösterir, ve sadece `Layton Exclusif`
+satan bir site sepette `Layton`'ın fiyatıymış gibi görünür.
+
+Çözüm klon satırıyla aynı mekanizma: `confident=False` olan (ve klon olmayan) bir
+eşleşme, kendi başlığından çıkarılan kimlik altına yazılır (`matcher.Match.own_identity`),
+sorgunun kimliği altına değil. `confident=True` olan eşleşmeler değişmez — bir dükkanın
+farklı yazdığı aynı ürün (yazım farkı, fazladan kelime) hâlâ tek fiyat geçmişinde
+birleşir; ayrım sadece skorun düşük olduğu, yani "belki farklı ürün" durumunda devreye
+girer. Baraj yine `store.snapshot_rows` içindedir.
 
 ### Görünürlük — zorunlu
 

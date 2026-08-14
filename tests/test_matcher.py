@@ -359,6 +359,35 @@ def test_a_clone_whose_own_title_names_one_word_has_no_identity_to_store() -> No
     assert match.clone_identity is None
 
 
+def test_a_low_score_non_clone_match_carries_its_own_identity() -> None:
+    # "Layton" finding "Layton Exclusif" is the matcher doing its job, not a
+    # bug: no concentration or clone parenthesis separates them, only a low
+    # score does. own_identity is what lets the caller file the two as
+    # different bottles instead of one shared price history.
+    match = match_title(
+        "Parfums De Marly Layton Exclusif", parse_query("Parfums de Marly Layton")
+    )
+
+    assert match is not None
+    assert not match.confident
+    assert not match.clone_of
+    assert match.own_identity == PerfumeQuery(
+        brand="parfums", name="de marly layton exclusif", concentration=""
+    )
+
+
+def test_a_confident_match_carries_no_own_identity() -> None:
+    # A confident match is being treated as the searched perfume on purpose,
+    # so there is nothing for the caller to file it under but the query.
+    match = match_title(
+        "Parfums De Marly Layton", parse_query("Parfums de Marly Layton")
+    )
+
+    assert match is not None
+    assert match.confident
+    assert match.own_identity is None
+
+
 def test_a_clones_own_name_is_scored_without_what_it_imitates() -> None:
     # Searching for the imitation itself. Before the split, the referenced
     # perfume's words counted against the name, and the right bottle scored 59

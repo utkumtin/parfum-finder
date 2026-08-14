@@ -11,6 +11,7 @@ import json
 import logging
 import sqlite3
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +79,12 @@ def _variant(
         price_kurus=price_kurus,
         in_stock=in_stock,
     )
+
+
+def _days_ago(days: int) -> str:
+    """A fetched_at that far back, in the one format the database accepts."""
+    stamp = datetime.now(UTC) - timedelta(days=days)
+    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _ok_result(site_id: str, *variants: Variant) -> SiteResult:
@@ -1982,7 +1989,7 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
 
     The columns are added once, at mount, now that they no longer depend on how
     many perfumes were typed. A second search that added them again would leave
-    twelve headings and shift every cell the keys read by six.
+    fourteen headings and shift every cell the keys read by seven.
     """
     sites_dir = tmp_path / "sites"
     _write_profile(sites_dir, "site-a", "Site A")
@@ -2001,7 +2008,7 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
         await _submit_query(pilot)
         table = await _wait_for_table(pilot)
         assert table.row_count == 1
-        assert len(table.columns) == 6
+        assert len(table.columns) == 7
 
         await _submit_query(pilot, "Chanel Bleu EDP")
         # Waited on by content, not by the scanning flag: one fake site finishes
@@ -2018,4 +2025,215 @@ async def test_a_second_search_replaces_the_first_and_not_its_columns(
         # The first search's row is gone, not sitting above the second's.
         assert table.row_count == 1
         assert table.get_row_at(0)[0] == "Chanel Bleu EDP Dekant 3 ml"
-        assert len(table.columns) == 6
+        assert len(table.columns) == 7
+
+
+def _counting_runner() -> tuple[Runner, list[str]]:
+    """Answer every site the same way, and record which perfume it was asked for."""
+    asked: list[str] = []
+
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
+        asked.append(query)
+        return _ok_result(str(profile["id"]), _variant(50, 25000))
+
+    return runner, asked
+
+
+async def _wait_for_rows(pilot: Any, timeout_s: float = 3.0) -> Any:
+    """Wait for rows to reach the table, however they got there.
+
+    _wait_for_table watches the scan counters, which stay at zero when every row
+    came off the price history, so a cache hit has to be waited on by content.
+    """
+    screen = pilot.app.screen
+    await _wait_until(lambda: bool(screen._visible_rows), pilot, timeout_s)
+    return screen.query_one("#results", DataTable)
+
+
+async def test_a_repeated_search_is_answered_without_asking_any_site(
+    tmp_path: Path,
+) -> None:
+    """The second search for one perfume must not cost a single request.
+
+    Every scan already writes what it read, so the prices are on record and
+    asking six shops again to be told the same numbers is the traffic this
+    avoids. The count is the assertion: a table that happens to look right while
+    the sites were scanned anyway has not cached anything.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    _write_profile(sites_dir, "site-b", "Site B")
+    runner, asked = _counting_runner()
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        table = await _wait_for_table(pilot)
+        assert table.row_count == 2
+        assert len(asked) == 2
+
+        await _submit_query(pilot)
+        table = await _wait_for_rows(pilot)
+
+        assert len(asked) == 2
+        assert table.row_count == 2
+        # A price written moments ago is today's price, so the age column says so
+        # rather than leaving the cell empty.
+        assert table.get_row_at(0)[6] == "bugün"
+        notices = _rendered(app.screen.query_one("#notices", Static))
+        assert "[r]" in notices
+
+
+async def test_r_asks_the_sites_again_after_a_cached_search(tmp_path: Path) -> None:
+    """[r] is the only way back to live prices, so it has to reach the runner.
+
+    Without this the cache would be a one-way door: a perfume searched once could
+    never be re-priced from the search screen at all.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner, asked = _counting_runner()
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        await _wait_for_table(pilot)
+        await _submit_query(pilot)
+        await _wait_for_rows(pilot)
+        assert len(asked) == 1
+
+        await pilot.press("r")
+        await _wait_until(lambda: len(asked) == 2, pilot)
+        table = await _wait_for_table(pilot)
+
+        assert table.row_count == 1
+        assert asked[-1] == QUERY_TEXT
+
+
+async def test_only_the_uncached_perfume_of_a_two_perfume_line_is_scanned(
+    tmp_path: Path,
+) -> None:
+    """One perfume on record must not buy the other one a free scan, or a skipped one.
+
+    A line asking for two perfumes where one has been searched before should cost
+    one perfume's worth of requests. Scanning both wastes a round of traffic;
+    scanning neither would leave the second perfume with no rows at all.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    runner, asked = _per_query_runner()
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        await _wait_for_table(pilot)
+        assert [query for _, query in asked] == [QUERY_TEXT]
+
+        await _submit_query(pilot, f"{QUERY_TEXT} - Chanel Bleu EDP")
+        table = await _wait_for_table(pilot)
+
+        # Only the perfume nothing was on record for went to the shop.
+        assert [query for _, query in asked[1:]] == ["Chanel Bleu EDP"]
+        # Both perfumes are in the table: one off the record, one off the site.
+        assert table.row_count == 2
+        assert {row.product for row in app.screen._visible_rows} == {  # type: ignore[attr-defined]
+            "Dior Sauvage EDP",
+            "Chanel Bleu EDP",
+        }
+
+
+async def test_a_cached_row_older_than_the_stale_limit_is_called_out(
+    tmp_path: Path,
+) -> None:
+    """An old price has to say it is old, in the column and above the table.
+
+    A row served from the record looks exactly like a freshly scanned one, and
+    the whole risk of showing it is that somebody acts on a number the shop has
+    had a month to change. The age column is what says which row, the warning is
+    what makes sure nobody has to go looking for it.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    db_path = tmp_path / "db.sqlite3"
+    conn = connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO sites (site_id, name, base_url, synced_at)"
+            " VALUES ('site-a', 'Site A', 'https://example.com', ?)",
+            ("2026-08-01T00:00:00Z",),
+        )
+        conn.commit()
+        record_snapshot(
+            conn,
+            site_id="site-a",
+            brand="dior",
+            name="sauvage",
+            concentration="EDP",
+            match_score=95,
+            variant=_variant(50, 25000),
+            fetched_at=_days_ago(30),
+        )
+    finally:
+        conn.close()
+    runner, asked = _counting_runner()
+
+    app = _app(sites_dir, db_path, runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        table = await _wait_for_rows(pilot)
+
+        assert asked == []
+        assert table.get_row_at(0)[6].plain == "4 hafta önce"
+        notices = _rendered(app.screen.query_one("#notices", Static))
+        assert "14 günden eski" in notices
+
+
+async def test_a_cached_search_whose_sizes_are_all_sold_out_says_so(
+    tmp_path: Path,
+) -> None:
+    """An empty table has to say which kind of empty it is.
+
+    Out-of-stock rows are hidden, and a record holding nothing but sold-out
+    sizes leaves the table blank. No site was asked, so the "eşleşme bulunamadı"
+    line a live scan would have printed never appears either, and the screen
+    would otherwise show a heading, a cache notice and nothing to explain the
+    gap between them.
+    """
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    db_path = tmp_path / "db.sqlite3"
+    conn = connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO sites (site_id, name, base_url, synced_at)"
+            " VALUES ('site-a', 'Site A', 'https://example.com', ?)",
+            ("2026-08-01T00:00:00Z",),
+        )
+        conn.commit()
+        record_snapshot(
+            conn,
+            site_id="site-a",
+            brand="dior",
+            name="sauvage",
+            concentration="EDP",
+            match_score=95,
+            variant=_variant(50, 25000, in_stock=False),
+        )
+    finally:
+        conn.close()
+    runner, asked = _counting_runner()
+
+    app = _app(sites_dir, db_path, runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        screen: Any = app.screen
+        await _wait_until(lambda: bool(screen._rows), pilot)
+
+        assert asked == []
+        assert screen.query_one("#results", DataTable).row_count == 0
+        assert "stok dışı" in _rendered(screen.query_one("#notices", Static))

@@ -205,7 +205,21 @@ def snapshot_rows(result: SiteResult, query: PerfumeQuery) -> list[SnapshotRow]:
         # query here would put an imitation's price into the searched perfume's
         # history, and the concentration would be wrong too: match.concentration
         # is the one read off the parenthesis, which belongs to the original.
-        identity = match.clone_identity if match.clone_of else None
+        #
+        # A non-clone match that missed `confident` gets the same treatment.
+        # "Layton" matching "Layton Exclusif" at a low score is the matcher
+        # working as intended, not a mistake, but the two are different bottles
+        # with different prices. Filing the low-score one under the searched
+        # perfume's identity would give both one shared price history and one
+        # shared basket line, so adding "Layton" to the basket would light up
+        # "Layton Exclusif" rows too and hand its price to "Layton".
+        identity = (
+            match.clone_identity
+            if match.clone_of
+            else match.own_identity
+            if not match.confident
+            else None
+        )
         rows.extend(
             SnapshotRow(
                 site_id=result.site_id,
@@ -493,6 +507,88 @@ def price_history(
         " LIMIT ?",
         (site_id, brand, name, concentration, size_ml_x10, limit),
     ).fetchall()
+
+
+@dataclass(frozen=True)
+class CachedPrice:
+    """One stored price for one size of one perfume on one site.
+
+    What the results table is repainted from when a perfume that has been
+    searched before is searched again. It carries the same facts a live scan
+    produces, plus the reading's own timestamp, since a price served from
+    storage has to be able to say how old it is.
+
+    Only priced sizes come back. A size whose price never read has no row in
+    price_snapshots at all, so it simply is not in the cache, and inventing a
+    priceless row here would put a "-" on screen that no reading produced.
+    """
+
+    site_id: str
+    brand: str
+    name: str
+    concentration: str
+    match_score: int
+    size_ml_x10: int
+    raw_title: str
+    product_url: str | None
+    price_kurus: int
+    in_stock: bool
+    fetched_at: str
+
+
+def cached_prices(
+    conn: sqlite3.Connection,
+    *,
+    brand: str,
+    name: str,
+    concentration: str = "",
+) -> list[CachedPrice]:
+    """Return the latest stored price of every size of this perfume, per site.
+
+    Brand and name are matched exactly, because they are written by parse_query
+    and read back with the same parse_query output: they are a database key, not
+    something anyone types twice by hand. Concentration is the one part a search
+    may leave out, and an empty string here means "any", the same thing it means
+    on PerfumeQuery. Matching it exactly when it is given matters, since an EDT
+    and an EDP are two products with two prices.
+
+    Disabled sites are left out. A price nobody is going to scan again is a
+    number that can only get older, and offering it as a result would invite a
+    refresh that will never touch it.
+
+    Empty for a perfume nobody has scanned yet, which is the normal state before
+    the first search rather than an error.
+    """
+    sql = (
+        "SELECT lp.site_id, pf.brand, pf.name, pf.concentration, lp.match_score,"
+        " lp.size_ml_x10, lp.raw_title, lp.product_url, lp.price_kurus,"
+        " lp.in_stock, lp.fetched_at"
+        " FROM latest_prices lp"
+        " JOIN perfumes pf ON pf.perfume_id = lp.perfume_id"
+        " JOIN sites    s  ON s.site_id     = lp.site_id"
+        " WHERE s.enabled = 1 AND pf.brand = ? AND pf.name = ?"
+    )
+    params: list[object] = [brand, name]
+    if concentration:
+        sql += " AND pf.concentration = ?"
+        params.append(concentration)
+    rows = conn.execute(sql, tuple(params)).fetchall()
+    return [
+        CachedPrice(
+            site_id=row["site_id"],
+            brand=row["brand"],
+            name=row["name"],
+            concentration=row["concentration"],
+            match_score=row["match_score"],
+            size_ml_x10=row["size_ml_x10"],
+            raw_title=row["raw_title"],
+            product_url=row["product_url"],
+            price_kurus=row["price_kurus"],
+            in_stock=bool(row["in_stock"]),
+            fetched_at=row["fetched_at"],
+        )
+        for row in rows
+    ]
 
 
 @dataclass(frozen=True)
