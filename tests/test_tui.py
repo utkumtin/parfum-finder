@@ -486,7 +486,10 @@ async def test_out_of_stock_rows_start_hidden_and_stay_hidden(
         table = screen.query_one("#results", DataTable)
         assert table.row_count == 1
         status = _rendered(screen.query_one("#status", Static))
-        assert "1 stoksuz" in status
+        # The hidden count stays tracked internally but is not shown to the
+        # user anymore.
+        assert screen._hidden_count == 1  # type: ignore[attr-defined]
+        assert "stoksuz" not in status
         # No key is offered to reveal it anymore.
         assert "[f]" not in status
 

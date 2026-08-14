@@ -904,11 +904,8 @@ class SearchScreen(Screen[None]):
             # The count is the only thing on screen about a failing site now, so
             # it says where the detail went.
             text += f" · {self._errors} hata ({LOG_FILE_NAME})"
-        if self._hidden_count:
-            # No key to point at anymore: the toggle that used to bring these
-            # back is not offered to the user, so the hint would name a key
-            # that does nothing.
-            text += f" · {self._hidden_count} stoksuz sonuç gizlendi"
+        # _hidden_count stays tracked as infrastructure but is no longer shown
+        # in the status line.
         self.query_one("#status", Static).update(text)
         # Driven from here rather than from its own call sites: every place the
         # counters move already calls this, and a bar updated from only some of

@@ -1,11 +1,11 @@
 # Graph Report - parfum-finder  (2026-08-11)
 
 ## Corpus Check
-- 70 files · ~258,866 words
+- 70 files · ~259,000 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1799 nodes · 4943 edges · 73 communities (71 shown, 2 thin omitted)
+- 1799 nodes · 4943 edges · 70 communities (68 shown, 2 thin omitted)
 - Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 214 edges (avg confidence: 0.57)
 - Token cost: 0 input · 0 output
 
@@ -52,13 +52,11 @@
 - Fetch Strategy Probing
 - Platform Field Mapping
 - Shipping Config Schema
-- Discovery Report Model
 - TUI Confirm Dialog
 - TUI App Shell
 - Fetch Backends
 - HTTP Request Schema
 - Fixture Fetcher (Tests)
-- Validation Reporting
 - Decant Variant Rules
 - Multi-Site Search Run
 - Offline Validation Fixtures
@@ -82,7 +80,6 @@
 - LogCaptureFixture
 - MonkeyPatch
 - Runner
-- format_age
 - Variant Pattern A
 - Project Root
 - ComposeResult
@@ -121,7 +118,7 @@
 - **İdeasoft Platform Sites and Endpoint** — docs_discovery_report_dekantparfum_site, docs_discovery_report_dekantdoktoru_site, docs_discovery_report_ideasoft_related_options_endpoint, platforms_readme_ideasoft_json [EXTRACTED 1.00]
 - **discover Command Output Artifacts (profile + fixtures + CI validation)** — architecture_md_discover_flow, sites_readme_sites_dir, fixtures_readme_fixtures_dir, github_workflows_ci_validate_profiles_step, architecture_md_validate_command [INFERRED 0.85]
 
-## Communities (73 total, 2 thin omitted)
+## Communities (70 total, 2 thin omitted)
 
 ### Community 0 - "TUI App & Screens"
 Cohesion: 0.10
@@ -133,7 +130,7 @@ Nodes (81): _check_hook_kinds(), deep_merge(), _load_json(), load_platform_templ
 
 ### Community 2 - "Title Matcher"
 Cohesion: 0.13
-Nodes (8): _Change, BasketScreen, Any, Path, The basket: the list on top, one scenario per site underneath., The three inputs basket.py's pure functions score: items, prices, shipping., _remove(), _set_qty()
+Nodes (9): _Change, BasketPrice, One site's latest price for one basket line, only when it has one.      Rows wit, BasketScreen, Any, Path, The basket: the list on top, one scenario per site underneath., _remove() (+1 more)
 
 ### Community 3 - "HTTP/Browser Fetching"
 Cohesion: 0.05
@@ -212,16 +209,16 @@ Cohesion: 0.09
 Nodes (22): now_iso(), Return the current UTC time as 'YYYY-MM-DDTHH:MM:SSZ'.      Every timestamp writ, conn(), Path, Tests for parfum_finder.store: the timestamp helper and the schema.  The one har, An update aimed at a row that isn't there means the caller is out of sync., A snapshot pointing at a variant that doesn't exist has to be rejected.      SQL, Reopening an existing database must not wipe or re-raise on its schema. (+14 more)
 
 ### Community 22 - "Basket Site Scenarios"
-Cohesion: 0.17
-Nodes (18): basket_lines(), basket_sites(), BasketLine, BasketPrice, BasketSite, One row of the basket: a size of a perfume, with the identity spelled out., One site's latest price for one basket line, only when it has one.      Rows wit, A site the basket screen is willing to show a column for.      Deliberately just (+10 more)
+Cohesion: 0.09
+Nodes (30): One site's share of a split basket: what to buy there and what it costs.      `s, What it would cost to buy some or all of the basket from one site.      `covered, SiteScenario, SplitLeg, format_price(), Format a price for display (comma-thousands, dot-decimal).      Decimal('1250'), basket_lines(), basket_sites() (+22 more)
 
 ### Community 23 - "Price/Size Normalization"
 Cohesion: 0.17
 Nodes (19): _classify_single_separator(), format_ml(), _parse_number(), parse_price(), parse_size_ml(), Decimal, Number parsing and formatting for prices and volumes, plus text folding.  This i, Decide whether a lone separator marks a fraction or a thousands group.      Retu (+11 more)
 
 ### Community 24 - "JSON Schema Primitives"
-Cohesion: 0.11
-Nodes (25): integer, null, string, properties, type, type, type, type (+17 more)
+Cohesion: 0.12
+Nodes (23): null, string, properties, type, type, type, additionalProperties, properties (+15 more)
 
 ### Community 25 - "SQLite Store"
 Cohesion: 0.22
@@ -244,8 +241,8 @@ Cohesion: 0.09
 Nodes (36): _choose_strategy(), DiscoveryReport, FieldConfidence, _flatten_defaults(), _format_choice(), _format_confidence(), _format_defaults(), _format_fingerprint() (+28 more)
 
 ### Community 30 - "Store Timestamp Tests"
-Cohesion: 0.12
-Nodes (15): _ClimbState, Basket scenario evaluation. A pure function, no network access, no sqlite.  Inpu, One site's share of a split basket: what to buy there and what it costs.      `s, The hill-climb's working assignment plus the running per-site figures.      `sub, One site's shipping terms, read once and reused for every scenario.      `free_s, What it would cost to buy some or all of the basket from one site.      `covered, ShippingConfig, SiteScenario (+7 more)
+Cohesion: 0.25
+Nodes (6): _ClimbState, Basket scenario evaluation. A pure function, no network access, no sqlite.  Inpu, The hill-climb's working assignment plus the running per-site figures.      `sub, One site's shipping terms, read once and reused for every scenario.      `free_s, ShippingConfig, The three inputs basket.py's pure functions score: items, prices, shipping.
 
 ### Community 31 - "Live Profile Validation"
 Cohesion: 0.09
@@ -268,19 +265,15 @@ Cohesion: 0.18
 Nodes (11): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+3 more)
 
 ### Community 36 - "Shipping Config Schema"
-Cohesion: 0.14
-Nodes (14): free_shipping_threshold_kurus, shipping_cost_kurus, minimum, type, free_shipping_threshold_kurus, notes, shipping, shipping_cost_kurus (+6 more)
-
-### Community 37 - "Discovery Report Model"
-Cohesion: 0.40
-Nodes (3): ComposeResult, ComposeResult, Static
+Cohesion: 0.12
+Nodes (16): free_shipping_threshold_kurus, integer, shipping_cost_kurus, minimum, type, type, free_shipping_threshold_kurus, notes (+8 more)
 
 ### Community 38 - "TUI Confirm Dialog"
 Cohesion: 0.15
 Nodes (23): One call has to leave a row the search table can read straight off.      The cal, The old price has to survive, and it must not become a second variant.      Appe, first_seen is what says how long a shop has carried a size., The title and URL are information, not identity.      A shop that rewords a list, EDT and EDP are different products at different prices.      Folding them into o, A sold-out size often shows no price at all, and 0 would mean free.      Writing, The column is 0/1, so the tri-state has to land somewhere on purpose.      Unkno, raw_title is the audit trail for a wrong match, so it cannot be blank.      A ro (+15 more)
 
 ### Community 39 - "TUI App Shell"
-Cohesion: 0.21
+Cohesion: 0.19
 Nodes (6): Decimal, Row, One priced size, exactly as the table shows it and as a keypress needs it., The default order: typed order, product, site, size.          The typed order co, The order once a column has been picked: the site layer drops out.          Aski, _ResultRow
 
 ### Community 40 - "Fetch Backends"
@@ -294,10 +287,6 @@ Nodes (17): GET, POST, additionalProperties, allOf, description, properties, typ
 ### Community 42 - "Fixture Fetcher (Tests)"
 Cohesion: 0.22
 Nodes (14): format_report(), Every site that has a profile, sorted so reports read the same way twice., Validate every site, or just the ones named.      Serial rather than concurrent:, Render the validations as the offline half of the report in APP_FLOW §6.      A, site_ids(), validate_all_offline(), _iso_days_ago(), A discovered_at stamp that lands a fixed number of days in the past.      Relati (+6 more)
-
-### Community 43 - "Validation Reporting"
-Cohesion: 0.17
-Nodes (4): HeaderSelected, Empty the table for a new scan.          The columns are the same every time now, What each site charges for the product a block is about.          One entry per, Submitted
 
 ### Community 44 - "Decant Variant Rules"
 Cohesion: 0.11
@@ -328,8 +317,8 @@ Cohesion: 0.19
 Nodes (17): format_live_report(), Run one site's profile against the real site.      Same contract as offline mode, Render offline and live results side by side, as APP_FLOW §6 shows them.      Bo, validate_live(), _DeadSite, _FakeSite, _fixture_site(), M5's own criterion: when a profile stops agreeing with its site's real markup, o (+9 more)
 
 ### Community 51 - "._refresh_table"
-Cohesion: 0.14
-Nodes (3): RowSelected, The initial screen: search bar, streaming results table, notices, footer., SearchScreen
+Cohesion: 0.12
+Nodes (5): HeaderSelected, RowSelected, The initial screen: search bar, streaming results table, notices, footer., What each site charges for the product a block is about.          One entry per, SearchScreen
 
 ### Community 52 - "._cells"
 Cohesion: 0.29
@@ -352,8 +341,8 @@ Cohesion: 0.18
 Nodes (10): _count_result_cards(), live_query(), _no_results_check(), Any, Path, The query this site's fixture was captured with, read back out of its URL., Why an empty results page is suspicious, or why it is not.      A full page that, How many result rows the profile's own selectors find on a search page. (+2 more)
 
 ### Community 57 - "_FixtureFetcher"
-Cohesion: 0.16
-Nodes (7): Changed, Any, CacheKey, VariantsRead, One perfume of a search, as typed and as parsed.      The index is the outermost, Scan one site for every perfume of this search, one at a time.          Serial i, _Search
+Cohesion: 0.12
+Nodes (9): Changed, Any, CacheKey, VariantsRead, One perfume of a search, as typed and as parsed.      The index is the outermost, Scan one site for every perfume of this search, one at a time.          Serial i, Empty the table for a new scan.          The columns are the same every time now, _Search (+1 more)
 
 ### Community 58 - "ComposeResult"
 Cohesion: 0.27
@@ -391,13 +380,9 @@ Nodes (4): rate_limit_ms, default, minimum, type
 Cohesion: 0.50
 Nodes (3): The template this site's profile would be based on, if any., Which of the matching templates gets applied, or None for none of them.      One, _resolve_platform()
 
-### Community 67 - "format_age"
-Cohesion: 0.50
-Nodes (4): format_age(), Turn a price age in days into the words the age column shows., The age column exists to be glanced at, so it is phrased, not printed., test_format_age_reads_as_words_not_a_timestamp()
-
 ### Community 72 - "ComposeResult"
-Cohesion: 0.18
-Nodes (4): Pressed, ConfirmScreen, Path, Asks before a low-confidence match is written to the basket.      The two answer
+Cohesion: 0.14
+Nodes (7): Pressed, ComposeResult, ConfirmScreen, ComposeResult, Path, Asks before a low-confidence match is written to the basket.      The two answer, Static
 
 ### Community 74 - "_NoRootParser"
 Cohesion: 0.22
