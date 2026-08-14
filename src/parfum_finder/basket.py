@@ -21,6 +21,11 @@ to double check.
 
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
+
+from parfum_finder.normalize import format_ml
+from parfum_finder.store import BasketLine, BasketPrice, BasketSite, snapshot_age_days
+from parfum_finder.viewmodels import BasketRow
 
 Prices = Mapping[tuple[int, str], int | None]
 
@@ -535,3 +540,101 @@ def optimize(
     legs.sort(key=lambda leg: (leg.scenario.total_kurus, leg.scenario.site_id))
 
     return SplitPlan(legs=tuple(legs), total_kurus=best_total, omitted_sites=omitted)
+
+
+def _label(line: BasketLine) -> str:
+    """Name one basket line the way a missing-item warning has to read it."""
+    perfume = f"{line.brand} {line.name} {line.concentration}".strip()
+    return f"{perfume} {format_ml(Decimal(line.size_ml_x10) / Decimal(10))}"
+
+
+def build_basket_rows(
+    lines: Sequence[BasketLine],
+    prices: Sequence[BasketPrice],
+    excluded: Collection[tuple[str, int]] = (),
+) -> list[BasketRow]:
+    """Turn basket lines and their site prices into what the table shows.
+
+    Out of stock is missing, not cheap. So is a (site, line) pair a refresh
+    excluded after an error or a suspect read. Both are dropped here rather
+    than carried into the totals as a real offer.
+
+    A row's age is its stalest cell, not its newest: showing the newest would
+    hide a column nobody has checked in a month behind one just scanned.
+    """
+    by_item: dict[int, dict[str, BasketPrice]] = {}
+    for price in prices:
+        if not price.in_stock or (price.site_id, price.basket_item_id) in excluded:
+            continue
+        by_item.setdefault(price.basket_item_id, {})[price.site_id] = price
+    rows: list[BasketRow] = []
+    for line in lines:
+        found = by_item.get(line.basket_item_id, {})
+        ages = [snapshot_age_days(p.fetched_at) for p in found.values()]
+        rows.append(
+            BasketRow(
+                line=line,
+                label=_label(line),
+                prices={site_id: p.price_kurus for site_id, p in found.items()},
+                age_days=max(ages) if ages else None,
+            )
+        )
+    return rows
+
+
+def basket_inputs(
+    rows: Sequence[BasketRow], sites: Sequence[BasketSite]
+) -> tuple[list[BasketItem], Prices, list[ShippingConfig]]:
+    """The three inputs site_scenario/optimize score: items, prices, shipping.
+
+    Built once from the same rows the table shows, so the single-site report
+    and the split search always see the same basket instead of two
+    independently assembled copies that could drift apart.
+    """
+    items = [
+        BasketItem(item_id=row.line.basket_item_id, label=row.label, qty=row.line.qty)
+        for row in rows
+    ]
+    prices: dict[tuple[int, str], int | None] = {
+        (row.line.basket_item_id, site_id): price
+        for row in rows
+        for site_id, price in row.prices.items()
+    }
+    shipping = [
+        ShippingConfig(
+            site_id=site.site_id,
+            name=site.name,
+            free_shipping_threshold_kurus=site.free_shipping_threshold_kurus,
+            shipping_cost_kurus=site.shipping_cost_kurus,
+            notes=site.notes,
+        )
+        for site in sites
+    ]
+    return items, prices, shipping
+
+
+@dataclass(frozen=True)
+class SplitVerdict:
+    """Whether a split plan beats the best full-coverage single site.
+
+    `best_full` is None when no site covers the whole basket, which means
+    there is nothing to compare the split against. `diff_kurus` is
+    `plan.total_kurus - best_full.total_kurus`: negative means the split is
+    cheaper, positive means it costs more, zero means no difference.
+    """
+
+    best_full: SiteScenario | None
+    diff_kurus: int | None
+
+
+def compare_split_to_best_full(plan: SplitPlan, report: BasketReport) -> SplitVerdict:
+    """Score a split plan against the cheapest full-coverage single site.
+
+    Only the best full site is ever compared, not the runner-ups: a cheaper
+    partial site left something out, and comparing the split against it would
+    credit the split for beating a total that never bought the whole basket.
+    """
+    if not report.full:
+        return SplitVerdict(best_full=None, diff_kurus=None)
+    best = report.full[0]
+    return SplitVerdict(best_full=best, diff_kurus=plan.total_kurus - best.total_kurus)

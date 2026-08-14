@@ -64,6 +64,17 @@ def format_ml(v: Decimal) -> str:
     return f"{v.normalize():f} ml"
 
 
+def format_age(age_days: int | None) -> str:
+    """Turn a price age in days into the words the age column shows."""
+    if age_days is None:
+        return "—"
+    if age_days <= 0:
+        return "bugün"
+    if age_days < 7:
+        return f"{age_days} gün önce"
+    return f"{age_days // 7} hafta önce"
+
+
 def _parse_number(raw: str) -> Decimal:
     """Pull the numeric value out of a string that may carry a currency or unit label.
 

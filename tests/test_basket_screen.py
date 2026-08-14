@@ -23,11 +23,7 @@ from parfum_finder.profiles import load_site_profile, sync_to_db
 from parfum_finder.store import add_basket_item, connect, now_iso, record_snapshot
 from parfum_finder.tui import basket_screen as basket_screen_module
 from parfum_finder.tui.app import ParfumFinderApp
-from parfum_finder.tui.basket_screen import (
-    STALE_PRICE_STYLE,
-    BasketScreen,
-    format_age,
-)
+from parfum_finder.tui.basket_screen import STALE_PRICE_STYLE, BasketScreen
 from parfum_finder.tui.search_screen import SearchScreen
 
 # Keyword-tolerant: the search screen hands its runner a browser session and a
@@ -392,14 +388,6 @@ async def test_the_cell_shows_the_unit_price_while_the_total_counts_the_quantity
 
 
 # -- age -------------------------------------------------------------------
-
-
-def test_format_age_reads_as_words_not_a_timestamp() -> None:
-    """The age column exists to be glanced at, so it is phrased, not printed."""
-    assert format_age(0) == "bugün"
-    assert format_age(2) == "2 gün önce"
-    assert format_age(21) == "3 hafta önce"
-    assert format_age(None) == "—"
 
 
 async def test_a_rows_age_is_its_stalest_cell(tmp_path: Path) -> None:

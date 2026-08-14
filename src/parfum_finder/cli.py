@@ -31,11 +31,11 @@ from typing import Any, get_args
 
 from dotenv import load_dotenv
 
+from parfum_finder import paths
 from parfum_finder.discover import discover
 from parfum_finder.discover import format_report as format_discovery_report
 from parfum_finder.engine import (
     CacheKey,
-    CandidateFilter,
     SiteResult,
     VariantsRead,
     run_sites,
@@ -45,9 +45,9 @@ from parfum_finder.logging_setup import setup_logging
 from parfum_finder.matcher import (
     MAX_QUERIES,
     PerfumeQuery,
+    listing_filter,
     parse_query,
     split_queries,
-    title_could_match,
 )
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.probe import probe
@@ -61,12 +61,10 @@ from parfum_finder.validate import (
 )
 from parfum_finder.validate import format_report as format_validation_report
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-
 # Golden fixtures live outside the installed package, next to sites/ and
 # platforms/, because they are project data a person edits and reviews.
-FIXTURES_DIR = _PROJECT_ROOT / "fixtures"
-SITES_DIR = _PROJECT_ROOT / "sites"
+FIXTURES_DIR = paths.fixtures_dir()
+SITES_DIR = paths.sites_dir()
 
 STRATEGIES = get_args(Strategy)
 
@@ -189,22 +187,13 @@ async def _scan_all(
                 profiles,
                 text,
                 fetcher=fetcher,
-                keep_candidate=_listing_filter(query),
+                keep_candidate=listing_filter(query),
                 variants_cache=cache,
             )
             for result in results:
                 written += _store_site_result(conn, result, query)
                 print(_report_line(result))
     return written
-
-
-def _listing_filter(query: PerfumeQuery) -> CandidateFilter:
-    """Decide, from a search result's own title, whether to open its page."""
-
-    def keep(raw_title: str | None) -> bool:
-        return title_could_match(raw_title, query)
-
-    return keep
 
 
 def _store_site_result(

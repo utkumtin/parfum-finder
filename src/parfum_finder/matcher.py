@@ -40,6 +40,7 @@ product is, the reference only decides what it imitates.
 """
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 from rapidfuzz import fuzz
@@ -404,6 +405,20 @@ def title_could_match(
         return True
     match = match_title(raw_title, query, threshold=threshold)
     return match is not None and match.score >= threshold
+
+
+def listing_filter(query: PerfumeQuery) -> Callable[[str | None], bool]:
+    """Decide, from a search result's own title, whether to open its page.
+
+    Structurally the same shape as engine.CandidateFilter, without importing
+    it: the matcher stays outside the engine, and one notion of "is this that
+    perfume" keeps living in one place.
+    """
+
+    def keep(raw_title: str | None) -> bool:
+        return title_could_match(raw_title, query)
+
+    return keep
 
 
 def _split_clone_reference(raw_title: str) -> tuple[str, str]:

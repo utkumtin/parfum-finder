@@ -11,11 +11,13 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from parfum_finder import paths
+
 LOG_FILE_NAME = "parfum-finder.log"
 """Shown next to the error count, so the name is needed before any setup runs."""
 
-DEFAULT_LOG_PATH = Path(LOG_FILE_NAME)
-"""Relative to the working directory, same as DEFAULT_DB_PATH."""
+DEFAULT_LOG_PATH = paths.default_log_path()
+"""Same directory as DEFAULT_DB_PATH."""
 
 _MAX_BYTES = 1_000_000
 _BACKUP_COUNT = 3
@@ -39,6 +41,7 @@ def setup_logging(path: Path = DEFAULT_LOG_PATH) -> Path:
     # delay=True so the file appears only once something is actually logged. A
     # clean run leaves no file behind, which also keeps a stray log out of the
     # repo when the tests call main().
+    path.parent.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(
         path,
         maxBytes=_MAX_BYTES,

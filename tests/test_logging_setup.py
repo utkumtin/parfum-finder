@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from parfum_finder import paths
 from parfum_finder.logging_setup import DEFAULT_LOG_PATH, setup_logging
 
 
@@ -57,7 +58,9 @@ def test_setting_up_twice_does_not_double_the_lines(tmp_path: Path) -> None:
     assert path.read_text(encoding="utf-8").count("once") == 1
 
 
-def test_the_default_path_is_project_relative() -> None:
-    # Same shape as DEFAULT_DB_PATH: whatever directory the app was started in.
-    assert DEFAULT_LOG_PATH == Path("parfum-finder.log")
-    assert not DEFAULT_LOG_PATH.is_absolute()
+def test_the_default_path_matches_paths_module() -> None:
+    # Same shape as DEFAULT_DB_PATH: resolved through paths.py, not a bare
+    # CWD-relative name, so a frozen build writes next to user data instead of
+    # into its (unwritable) install directory.
+    assert DEFAULT_LOG_PATH == paths.default_log_path()
+    assert DEFAULT_LOG_PATH.name == "parfum-finder.log"

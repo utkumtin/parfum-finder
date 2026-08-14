@@ -27,10 +27,11 @@ from typing import Any
 
 import jsonschema
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-SCHEMA_DIR = _REPO_ROOT / "schema"
-DEFAULT_PLATFORMS_DIR = _REPO_ROOT / "platforms"
-DEFAULT_HOOKS_DIR = _REPO_ROOT / "hooks"
+from parfum_finder import paths
+
+SCHEMA_DIR = paths.schema_dir()
+DEFAULT_PLATFORMS_DIR = paths.platforms_dir()
+DEFAULT_HOOKS_DIR = paths.hooks_dir()
 
 # The only three names a hook file may define. Anything else public in there is
 # rejected rather than ignored, which is what makes a typo visible.

@@ -40,11 +40,11 @@ import asyncio
 import json
 import re
 import time
-from collections.abc import Callable, Mapping, MutableMapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 from urllib.parse import quote, urljoin
 
 from selectolax.parser import HTMLParser, Node
@@ -338,6 +338,27 @@ def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
             )
 
     return paced
+
+
+class SiteRunner(Protocol):
+    """What a caller needs of run_site, as a type callers can stand a fake in for.
+
+    A protocol rather than a plain callable alias because a scan hands the
+    runner more than a query: the browser session it owns, the filter that
+    keeps a listing from being opened for nothing, and the product cache the
+    perfumes of one scan share. A stand-in that cannot take them is a type
+    error at the call site instead of a surprise mid-scan.
+    """
+
+    def __call__(
+        self,
+        profile: dict[str, Any],
+        query: str,
+        *,
+        fetcher: Fetcher = ...,
+        keep_candidate: CandidateFilter | None = ...,
+        variants_cache: MutableMapping[CacheKey, VariantsRead] | None = ...,
+    ) -> Awaitable[SiteResult]: ...
 
 
 async def run_site(

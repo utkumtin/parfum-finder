@@ -39,11 +39,9 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 import webbrowser
-from collections.abc import Awaitable, MutableMapping
-from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 from rich.text import Text
 from textual import work
@@ -52,20 +50,22 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, DataTable, Footer, Input, ProgressBar, Static
 
-from parfum_finder.engine import CacheKey, CandidateFilter, SiteResult, VariantsRead
-from parfum_finder.fetch import Fetcher, browser_session
-from parfum_finder.logging_setup import LOG_FILE_NAME, logger
-from parfum_finder.matcher import (
-    DEFAULT_THRESHOLD,
-    MAX_QUERIES,
-    PerfumeQuery,
-    parse_query,
-    product_label,
-    split_queries,
-    title_could_match,
-)
-from parfum_finder.normalize import format_ml, format_price
+from parfum_finder import ranking
+from parfum_finder.engine import SiteRunner
+from parfum_finder.logging_setup import LOG_FILE_NAME
+from parfum_finder.matcher import MAX_QUERIES, PerfumeQuery, parse_query, split_queries
+from parfum_finder.normalize import format_age, format_ml, format_price
 from parfum_finder.profiles import load_site_profile, sync_to_db
+from parfum_finder.services.scan import (
+    CacheHit,
+    RowsReady,
+    ScanEvent,
+    ScanStarted,
+    Search,
+    SiteFinished,
+    WriteFailed,
+    run_scan,
+)
 from parfum_finder.sheets import (
     SheetsError,
     WishlistRow,
@@ -77,53 +77,19 @@ from parfum_finder.sheets import (
 )
 from parfum_finder.store import (
     DEFAULT_DB_PATH,
-    CachedPrice,
-    SnapshotRow,
+    STALE_PRICE_DAYS,
     add_basket_item,
     basket_lines,
-    cached_prices,
     connect,
     now_iso,
     price_history,
-    snapshot_rows,
-    write_snapshots,
 )
-from parfum_finder.tui.basket_screen import (
-    STALE_PRICE_DAYS,
-    STALE_PRICE_STYLE,
-    BasketScreen,
-    format_age,
-    snapshot_age_days,
-)
-from parfum_finder.validate import (
-    DEFAULT_SITES_DIR,
-    STALE_PROFILE_DAYS,
-    profile_age_days,
-)
+from parfum_finder.tui.basket_screen import BasketScreen
+from parfum_finder.validate import DEFAULT_SITES_DIR
+from parfum_finder.viewmodels import ResultRow
 
 if TYPE_CHECKING:
     import gspread
-
-
-class SiteRunner(Protocol):
-    """What this screen needs of engine.run_site.
-
-    A protocol rather than a plain callable alias because the scan hands the
-    runner more than a query now: the browser session it owns, the filter that
-    keeps a listing from being opened for nothing, and the product cache the
-    perfumes of one scan share. A stand-in that cannot take them is a type
-    error here instead of a surprise mid-scan.
-    """
-
-    def __call__(
-        self,
-        profile: dict[str, Any],
-        query: str,
-        *,
-        fetcher: Fetcher = ...,
-        keep_candidate: CandidateFilter | None = ...,
-        variants_cache: MutableMapping[CacheKey, VariantsRead] | None = ...,
-    ) -> Awaitable[SiteResult]: ...
 
 
 # Clicking one of these headers sorts by it, the same three sorts the number
@@ -139,7 +105,7 @@ _SORT_BY_COLUMN = {0: "ml", 1: "price", 2: "per_ml"}
 #
 # No "Stok" column: out-of-stock sizes are already hidden by default, so a
 # column repeating that on every visible row added little. row.in_stock stays
-# on _ResultRow, since the hide/show filter still needs it.
+# on ResultRow, since the hide/show filter still needs it.
 #
 # "Güncellik" is last, after the sortable block, because _FIRST_SORTABLE and the
 # header-click offsets are counted from "ml" and a column inserted before it
@@ -181,120 +147,15 @@ _LOW_CONFIDENCE_STYLE = "#cf9145"
 # being able to see the picked rows while scrolling past the rest.
 _IN_BASKET_STYLE = "#4fbf7a"
 
+# Soft dusty red for the stale age cell. Plain "red" shouts louder than an old
+# price deserves, and it is an alarm colour the rest of the screen does not use.
+# This hex is xterm colour 174 exactly, so a terminal without truecolor gets the
+# same tone instead of a nearest guess. Same value as basket_screen's own copy,
+# kept separate because it is presentation, not shared domain logic.
+STALE_PRICE_STYLE = "bold #d78787"
+
 # Where the sortable columns start.
 _FIRST_SORTABLE = _COLUMNS.index("ml")
-
-# The sizes a decant buyer actually chooses between. Site blocks are ordered by
-# the cheapest ₺/ml a site offers inside this band, so a shop whose smallest
-# bottle is 10 ml cannot take the top of the list on the structural ₺/ml
-# advantage a bigger bottle always has.
-_BAND_MAX_ML_X10 = 30
-
-# Where a site with nothing in the band goes: after every site that has one,
-# ordered among themselves by their own cheapest ₺/ml. Comparing a 10 ml-only
-# shop against the band would be comparing two different purchases.
-_OUT_OF_BAND = 1
-
-# And where a site whose every price failed to read goes: last, since there is
-# no number to place it by at all.
-_UNPRICED: tuple[int, Decimal] = (2, Decimal(0))
-
-
-def _listing_filter(query: PerfumeQuery) -> CandidateFilter:
-    """Decide, from a search result's own title, whether to open its page."""
-
-    def keep(raw_title: str | None) -> bool:
-        return title_could_match(raw_title, query)
-
-    return keep
-
-
-@dataclass(frozen=True)
-class _Search:
-    """One perfume of a search, as typed and as parsed.
-
-    The index is the outermost sort key of the results table and the only part
-    of the typed line that survives into it. Three perfumes sorted into one ₺/ml
-    list interleave into something nobody can read, so the order they were asked
-    for is what the blocks come out in. The blocks themselves are headed by the
-    product each row is about, not by this.
-    """
-
-    index: int
-    text: str
-    query: PerfumeQuery
-
-
-@dataclass(frozen=True)
-class _ResultRow:
-    """One priced size, exactly as the table shows it and as a keypress needs it.
-
-    `product` is what the site's own title reduces to, and it is both the block
-    heading and the second sort layer. It is not the search text: a search for
-    "Parfums de Marly Layton" also finds "Layton Exclusif", and those two are
-    different bottles that must not share a block.
-
-    `age_days` is how old the reading behind the row is. It defaults to 0, which
-    is what a row this scan just fetched is, so only the rows repainted from
-    storage have to fill it in.
-    """
-
-    site_id: str
-    site_label: str
-    raw_title: str
-    size_ml_x10: int
-    price_kurus: int | None
-    in_stock: bool | None
-    match_score: int
-    confident: bool
-    brand: str
-    name: str
-    concentration: str
-    product_url: str | None
-    query_index: int = 0
-    product: str = ""
-    clone_of: str = ""
-    own_identity: bool = True
-    age_days: int = 0
-
-    @property
-    def price_per_ml_kurus(self) -> Decimal | None:
-        # Decimal, not floor division: latest_prices computes this as a real
-        # division too, and truncating to an int here would round two rows
-        # that actually differ into a tie and quietly change the sort order.
-        if self.price_kurus is None:
-            return None
-        return Decimal(self.price_kurus * 10) / Decimal(self.size_ml_x10)
-
-
-def _cached_result_row(
-    price: CachedPrice, site_label: str, search: _Search
-) -> _ResultRow:
-    """Turn one stored price back into the row the table shows.
-
-    Everything the table paints is either stored or derived from the stored
-    title, with two exceptions. `clone_of` is empty and `own_identity` is True,
-    which is the truth rather than a default standing in for one: a clone is
-    filed under its own house and name, so it never comes back from a search for
-    the perfume it imitates.
-    """
-    return _ResultRow(
-        site_id=price.site_id,
-        site_label=site_label,
-        query_index=search.index,
-        product=product_label(price.raw_title) or price.raw_title,
-        raw_title=price.raw_title,
-        size_ml_x10=price.size_ml_x10,
-        price_kurus=price.price_kurus,
-        in_stock=price.in_stock,
-        match_score=price.match_score,
-        confident=price.match_score >= DEFAULT_THRESHOLD,
-        brand=price.brand,
-        name=price.name,
-        concentration=price.concentration,
-        product_url=price.product_url,
-        age_days=snapshot_age_days(price.fetched_at),
-    )
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -425,10 +286,11 @@ class SearchScreen(Screen[None]):
         self._bootstrapped = asyncio.Event()
         # What the current results are about. Empty until the first search, and
         # what decides whether the table needs a perfume column at all.
-        self._searches: list[_Search] = []
+        self._searches: list[Search] = []
+        self._searches_by_index: dict[int, Search] = {}
         self._limit_notice = ""
-        self._rows: list[_ResultRow] = []
-        self._visible_rows: list[_ResultRow] = []
+        self._rows: list[ResultRow] = []
+        self._visible_rows: list[ResultRow] = []
         # Which perfume/size pairs are in the basket, by the same four fields the
         # basket itself is keyed on. Site is not among them on purpose: a basket
         # line is a bottle to buy, not a shop to buy it from, so every site's row
@@ -558,7 +420,7 @@ class SearchScreen(Screen[None]):
 
     @work(exclusive=True, group="scan-setup")
     async def _start_search(self, text: str) -> None:
-        searches: list[_Search] = []
+        searches: list[Search] = []
         rejected: list[str] = []
         for part in split_queries(text):
             try:
@@ -569,30 +431,12 @@ class SearchScreen(Screen[None]):
                 # right, and the line below says which one was not.
                 rejected.append(str(e))
                 continue
-            searches.append(_Search(index=len(searches), text=part, query=query))
+            searches.append(Search(index=len(searches), text=part, query=query))
         if not searches:
             self._end_empty_search(rejected)
             return
         await self._bootstrapped.wait()
-        # Storage is asked before any shop is. A perfume that has been searched
-        # before already has a price on record for every site that carried it,
-        # and spending a full round of requests to find out it is still 540 TL is
-        # the cost this exists to skip. [r] is what asks the shops again.
-        try:
-            cached = await asyncio.to_thread(self._read_cache, searches)
-        except Exception:
-            # Falling back to a live scan, which is what this screen did before
-            # there was a record to read. An exception escaping here would kill
-            # the worker and leave the user with no table at all, and a slow
-            # answer beats none.
-            logger.exception("kayıttaki fiyatlar okunamadı")
-            cached = []
-        answered = {row.query_index for row in cached}
-        # Per perfume, not per search line. Two perfumes typed together where one
-        # has been seen before and the other has not should cost one perfume's
-        # worth of requests, not two.
-        to_scan = [s for s in searches if s.index not in answered]
-        await self._scan(searches, rejected, cached, to_scan)
+        await self._scan(searches, rejected)
 
     def action_refresh(self) -> None:
         # Nothing to refresh before the first search, and a second [r] mid-scan
@@ -607,7 +451,7 @@ class SearchScreen(Screen[None]):
         # Every perfume goes to the shops, cache or no cache: [r] means "ask
         # again", and refreshing only the rows that happened to be old would
         # leave the table a mix of two different moments.
-        await self._scan(searches, [], [], searches)
+        await self._scan(searches, [], force=True)
 
     def _end_empty_search(self, rejected: list[str]) -> None:
         """Close out a submit that named no perfume anyone could look for."""
@@ -626,208 +470,88 @@ class SearchScreen(Screen[None]):
         self._update_status()
 
     async def _scan(
-        self,
-        searches: list[_Search],
-        rejected: list[str],
-        cached: list[_ResultRow],
-        to_scan: list[_Search],
+        self, searches: list[Search], rejected: list[str], *, force: bool = False
     ) -> None:
         """Show what storage already knows, then go to the shops for the rest.
 
-        `cached` is already-built rows and `to_scan` is the perfumes storage had
-        nothing for, so a run where the two are swapped in full is either a pure
-        cache hit (nothing scanned) or a plain scan (nothing cached). Both are
-        this one path, so the table is assembled the same way whichever it was.
+        `force=True` is a refresh: every perfume goes to the shops regardless
+        of what is cached. Both are services.scan.run_scan, consumed the same
+        way here -- an event stream this screen paints as it arrives.
         """
         self._generation += 1
         generation = self._generation
         self._searches = searches
-        self._rows = list(cached)
-        self._notices = rejected + self._cache_notices(searches, cached)
+        self._searches_by_index = {s.index: s for s in searches}
+        self._rows = []
+        self._notices = list(rejected)
         self._done = 0
         self._errors = 0
-        profiles = [p for p in self._profiles if p.get("enabled", True)]
-        self._total = len(to_scan) * len(profiles)
-        self._scanning = bool(to_scan)
+        self._total = 0
+        self._scanning = True
         self._reset_table()
         self._set_notices()
         self._update_status()
-        if to_scan:
-            # One product read per URL for the whole scan. Two perfumes searched
-            # at one shop routinely list the same product, and the second read
-            # costs a request and a rate-limit wait to learn what is already
-            # known.
-            cache: dict[CacheKey, VariantsRead] = {}
-            # The browser, if any site needs one, is started once and kept for
-            # the whole scan instead of per page. Nothing is launched when no
-            # profile asks for playwright.
-            async with browser_session() as fetcher:
-                async with asyncio.TaskGroup() as group:
-                    for profile in profiles:
-                        group.create_task(
-                            self._scan_site(
-                                profile, to_scan, generation, fetcher, cache
-                            ),
-                            name=f"scan:{profile['id']}",
-                        )
-        # The one place the table is filled. A newer search may have started
-        # while this one was finishing, and painting these rows over its empty
-        # table would put the answer to the old question under the new one.
+        async for event in run_scan(
+            searches,
+            self._profiles,
+            runner=self.runner,
+            db_path=self.db_path,
+            write_lock=self._write_lock,
+            force=force,
+        ):
+            # A newer search may have started while this one was still
+            # in flight, and painting its rows over the new one's empty
+            # table would put the answer to the old question under the new
+            # one. run_scan has no notion of this itself -- cancelling it is
+            # this loop's job, not the service's, and it is done just by
+            # stopping here.
+            if generation != self._generation:
+                return
+            self._apply_scan_event(event)
         if generation != self._generation:
             return
         self._scanning = False
         self._refresh_table()
         self._update_status()
 
-    def _cache_notices(
-        self, searches: list[_Search], cached: list[_ResultRow]
-    ) -> list[str]:
-        """Say which perfumes came off the record instead of off the shops.
+    def _apply_scan_event(self, event: ScanEvent) -> None:
+        if isinstance(event, ScanStarted):
+            self._total = event.total_sites * event.total_perfumes
+            self._scanning = event.total_perfumes > 0 and event.total_sites > 0
+            self._update_status()
+        elif isinstance(event, CacheHit):
+            self._notices.append(
+                self._cache_notice(self._searches_by_index[event.query_index])
+            )
+            self._set_notices()
+        elif isinstance(event, RowsReady):
+            self._rows.extend(event.rows)
+        elif isinstance(event, SiteFinished):
+            self._done += 1
+            if event.status in ("ok", "empty") and not event.has_rows:
+                search = self._searches_by_index[event.query_index]
+                about = (
+                    f"{event.site_id} · {search.text}" if self._multi else event.site_id
+                )
+                self._note(f"{about} — eşleşme bulunamadı")
+            elif event.status in ("suspect", "error"):
+                self._errors += 1
+            self._update_status()
+        elif isinstance(event, WriteFailed):
+            self._errors += 1
+            self._update_status()
+        # SiteStarted and ScanFinished carry nothing this screen paints.
+
+    def _cache_notice(self, search: Search) -> str:
+        """Say a perfume came off the record instead of off the shops.
 
         Without this the table looks like a scan that finished impossibly fast,
         and the one thing a reader has to know about these rows is that pressing
         [r] is what turns them into today's prices.
         """
-        answered = {row.query_index for row in cached}
-        if not answered:
-            return []
-        if len(searches) == 1:
-            return [r"kayıttan geldi — \[r] ile tazeleyin"]
-        return [
-            rf"{s.text} — kayıttan geldi, \[r] ile tazeleyin"
-            for s in searches
-            if s.index in answered
-        ]
-
-    def _read_cache(self, searches: list[_Search]) -> list[_ResultRow]:
-        """Rebuild the table's rows for every searched perfume already on record.
-
-        Sites whose profile is gone or switched off are dropped rather than shown
-        under their bare id: the label comes from the profile, and a row nobody
-        can refresh is not an offer this screen should be making.
-        """
-        labels = {
-            str(profile["id"]): self._site_label(profile)
-            for profile in self._profiles
-            if profile.get("enabled", True)
-        }
-        conn = connect(self.db_path)
-        try:
-            rows: list[_ResultRow] = []
-            for search in searches:
-                for price in cached_prices(
-                    conn,
-                    brand=search.query.brand,
-                    name=search.query.name,
-                    concentration=search.query.concentration,
-                ):
-                    label = labels.get(price.site_id)
-                    if label is None:
-                        continue
-                    rows.append(_cached_result_row(price, label, search))
-            return rows
-        finally:
-            conn.close()
-
-    async def _scan_site(
-        self,
-        profile: dict[str, Any],
-        searches: list[_Search],
-        generation: int,
-        fetcher: Fetcher,
-        cache: dict[CacheKey, VariantsRead],
-    ) -> None:
-        """Scan one site for every perfume of this search, one at a time.
-
-        Serial inside the site, and one of these per site. A site's requests are
-        paced from one place per call, so running its perfumes side by side would
-        put every gap in parallel and hand a small shop the burst the pacing
-        exists to prevent.
-
-        Nothing raises out of here. These run in a TaskGroup, where one escaping
-        exception cancels every other site, which is the opposite of what a
-        results table filling in site by site is for.
-        """
-        for search in searches:
-            # Checked before each perfume, not once at the top. A search that has
-            # been replaced would otherwise go on spending requests on every
-            # remaining perfume before noticing.
-            if generation != self._generation:
-                return
-            try:
-                result = await self.runner(
-                    profile,
-                    search.text,
-                    fetcher=fetcher,
-                    keep_candidate=_listing_filter(search.query),
-                    variants_cache=cache,
-                )
-            except Exception as e:
-                result = SiteResult(
-                    str(profile["id"]), "error", (), f"{type(e).__name__}: {e}"
-                )
-            if generation != self._generation:
-                return
-            try:
-                rows = snapshot_rows(result, search.query)
-            except Exception:
-                logger.exception("%s — sonuç okunamadı", profile["id"])
-                self._errors += 1
-                self._done += 1
-                self._update_status()
-                continue
-            # The screen is updated before the database is touched. The table
-            # needs nothing from sqlite, so a write that fails must not be able
-            # to hide a site that answered, or leave the footer counter stuck
-            # below the total with no sign of why.
-            self._apply_result(profile, search, result, rows)
-            try:
-                async with self._write_lock:
-                    await asyncio.to_thread(self._write_snapshots, rows)
-            except Exception:
-                if generation != self._generation:
-                    return
-                logger.exception("%s — fiyatlar kaydedilemedi", result.site_id)
-                self._errors += 1
-                self._update_status()
-
-    def _write_snapshots(self, rows: list[SnapshotRow]) -> None:
-        conn = connect(self.db_path)
-        try:
-            write_snapshots(conn, rows)
-        finally:
-            conn.close()
-
-    def _apply_result(
-        self,
-        profile: dict[str, Any],
-        search: _Search,
-        result: SiteResult,
-        rows: list[SnapshotRow],
-    ) -> None:
-        self._done += 1
-        site_label = self._site_label(profile)
-        # Which perfume a line is about, when there is more than one in flight.
-        # "site-a — eşleşme bulunamadı" three times over says nothing about which
-        # of the three searches it failed.
-        about = f"{result.site_id} · {search.text}" if self._multi else result.site_id
-        if result.status in ("ok", "empty"):
-            if rows:
-                self._rows.extend(self._to_result_rows(site_label, search, rows))
-            else:
-                self._note(f"{about} — eşleşme bulunamadı")
-        elif result.status == "suspect":
-            self._errors += 1
-            logger.error(
-                "%s — profil bozulmuş olabilir: %s", about, self._detail(result)
-            )
-        else:  # error
-            self._errors += 1
-            logger.error("%s — bağlantı hatası: %s", about, self._detail(result))
-        # No table refresh here on purpose. Rows are collected all through the
-        # scan and painted once at the end, so nothing moves under a reader.
-        self._set_notices()
-        self._update_status()
+        if len(self._searches) == 1:
+            return r"kayıttan geldi — \[r] ile tazeleyin"
+        return rf"{search.text} — kayıttan geldi, \[r] ile tazeleyin"
 
     def _note(self, message: str) -> None:
         # A site that fails on every perfume of a search would otherwise print
@@ -836,52 +560,6 @@ class SearchScreen(Screen[None]):
         if message not in self._notices:
             self._notices.append(message)
         self._set_notices()
-
-    @staticmethod
-    def _detail(result: SiteResult) -> str:
-        # Every ExtractionFailed/exception message already opens with
-        # "<site_id>: ", so it is stripped here rather than shown twice next
-        # to the site id this notice line already names.
-        detail = result.detail or ""
-        return detail.removeprefix(f"{result.site_id}: ")
-
-    def _site_label(self, profile: dict[str, Any]) -> str:
-        name = str(profile["name"])
-        age = profile_age_days(str(profile["discovered_at"]))
-        if age >= STALE_PROFILE_DAYS:
-            return f"{name} ⏳ {age} gün önce keşfedildi"
-        return name
-
-    @staticmethod
-    def _to_result_rows(
-        site_label: str, search: _Search, rows: list[SnapshotRow]
-    ) -> list[_ResultRow]:
-        return [
-            _ResultRow(
-                site_id=row.site_id,
-                site_label=site_label,
-                query_index=search.index,
-                # The raw title stands in when there is nothing left to derive a
-                # product name from. An empty block heading would be worse than
-                # a messy one: it names nothing and merges every such row into
-                # one block.
-                product=product_label(row.variant.raw_title or "")
-                or (row.variant.raw_title or ""),
-                raw_title=row.variant.raw_title or "",
-                size_ml_x10=row.variant.size_ml_x10,
-                price_kurus=row.variant.price_kurus,
-                in_stock=row.variant.in_stock,
-                match_score=row.match_score,
-                confident=row.match_score >= DEFAULT_THRESHOLD,
-                brand=row.brand,
-                name=row.name,
-                concentration=row.concentration,
-                product_url=row.variant.product_url,
-                clone_of=row.clone_of,
-                own_identity=row.own_identity,
-            )
-            for row in rows
-        ]
 
     # -- table: rebuilt on every change, small enough not to matter ----------
 
@@ -923,10 +601,10 @@ class SearchScreen(Screen[None]):
             # Built from every row, not the visible ones, so that hiding and
             # showing the out-of-stock sizes cannot reshuffle the site blocks
             # under someone who was reading them.
-            ranks = self._site_ranks()
-            visible.sort(key=lambda row: self._grouped_value(row, ranks))
+            ranks = ranking.site_ranks(self._rows)
+            visible.sort(key=lambda row: ranking.grouped_value(row, ranks))
         else:
-            visible.sort(key=self._sorted_value)
+            visible.sort(key=lambda row: ranking.sorted_value(row, self._sort_key))
         self._visible_rows = visible
         table.clear()
         for row in visible:
@@ -938,79 +616,7 @@ class SearchScreen(Screen[None]):
         # table actually holds.
         self._set_notices()
 
-    def _site_ranks(self) -> dict[tuple[int, str, str], tuple[int, Decimal]]:
-        """What each site charges for the product a block is about.
-
-        One entry per site per product block, not per site: a shop that is
-        cheapest on one bottle is not automatically cheapest on the next, and
-        ranking it once for the whole scan would let its bargain on one perfume
-        carry it to the top of a block where it is the dearest.
-
-        Only rows whose price could be read count. A size with no price says
-        nothing about what a shop charges, and letting it in would make the
-        block order depend on which rows happen to be on screen.
-        """
-        band: dict[tuple[int, str, str], Decimal] = {}
-        overall: dict[tuple[int, str, str], Decimal] = {}
-        for row in self._rows:
-            per_ml = row.price_per_ml_kurus
-            if per_ml is None:
-                continue
-            key = (row.query_index, row.product, row.site_id)
-            overall[key] = min(overall.get(key, per_ml), per_ml)
-            if row.size_ml_x10 <= _BAND_MAX_ML_X10:
-                band[key] = min(band.get(key, per_ml), per_ml)
-        return {
-            key: (0, band[key]) if key in band else (_OUT_OF_BAND, cheapest)
-            for key, cheapest in overall.items()
-        }
-
-    def _grouped_value(
-        self, row: _ResultRow, ranks: dict[tuple[int, str, str], tuple[int, Decimal]]
-    ) -> tuple[int, str, int, Decimal, str, Decimal]:
-        """The default order: typed order, product, site, size.
-
-        The typed order comes first and is never shown. Sorting several perfumes
-        into one ₺/ml list interleaves them, and a table where consecutive rows
-        are different bottles cannot be read as a comparison of anything.
-
-        Sizes go up inside a site's block, every block the same way, so the eye
-        can move down a column instead of re-reading each one.
-        """
-        band, cheapest = ranks.get(
-            (row.query_index, row.product, row.site_id), _UNPRICED
-        )
-        return (
-            row.query_index,
-            row.product,
-            band,
-            cheapest,
-            row.site_label,
-            Decimal(row.size_ml_x10),
-        )
-
-    def _sorted_value(self, row: _ResultRow) -> tuple[int, str, bool, Decimal]:
-        """The order once a column has been picked: the site layer drops out.
-
-        Asking for the cheapest ₺/ml and getting an answer still cut into site
-        blocks is not an answer. The product blocks stay, for the same reason
-        they always do.
-        """
-        return (row.query_index, row.product, *self._within_query(row))
-
-    def _within_query(self, row: _ResultRow) -> tuple[bool, Decimal]:
-        if self._sort_key == "ml":
-            return (False, Decimal(row.size_ml_x10))
-        if self._sort_key == "price":
-            return (row.price_kurus is None, Decimal(row.price_kurus or 0))
-        return (
-            row.price_per_ml_kurus is None,
-            row.price_per_ml_kurus
-            if row.price_per_ml_kurus is not None
-            else Decimal(0),
-        )
-
-    def _cells(self, row: _ResultRow) -> tuple[object, ...]:
+    def _cells(self, row: ResultRow) -> tuple[object, ...]:
         ml = format_ml(Decimal(row.size_ml_x10) / Decimal(10))
         if row.price_kurus is None:
             price = "-"
@@ -1111,7 +717,7 @@ class SearchScreen(Screen[None]):
         if self._scanning:
             bar.update(total=self._total, progress=self._done)
 
-    def _selected_row(self) -> _ResultRow | None:
+    def _selected_row(self) -> ResultRow | None:
         table = self.query_one("#results", DataTable)
         if not self._visible_rows:
             return None
@@ -1153,7 +759,7 @@ class SearchScreen(Screen[None]):
         self._write_to_sheet(row)
 
     @work(exclusive=True, group="add-basket")
-    async def _add_to_basket(self, row: _ResultRow) -> None:
+    async def _add_to_basket(self, row: ResultRow) -> None:
         # push_screen(..., wait_for_dismiss=True) only works from inside a
         # worker, which is why the confirmation dialog and the write both
         # live in this @work method instead of directly in the action.
@@ -1199,7 +805,7 @@ class SearchScreen(Screen[None]):
         self._refresh_table()
 
     @staticmethod
-    def _basket_key(row: _ResultRow) -> tuple[str, str, str, int]:
+    def _basket_key(row: ResultRow) -> tuple[str, str, str, int]:
         return (row.brand, row.name, row.concentration, row.size_ml_x10)
 
     @work(exclusive=True, group="basket-keys")
@@ -1217,7 +823,7 @@ class SearchScreen(Screen[None]):
         finally:
             conn.close()
 
-    def _add_basket_item(self, row: _ResultRow) -> None:
+    def _add_basket_item(self, row: ResultRow) -> None:
         conn = connect(self.db_path)
         try:
             add_basket_item(
@@ -1231,7 +837,7 @@ class SearchScreen(Screen[None]):
             conn.close()
 
     @work(exclusive=True, group="write-sheet")
-    async def _write_to_sheet(self, row: _ResultRow) -> None:
+    async def _write_to_sheet(self, row: ResultRow) -> None:
         # Same reasoning as _add_to_basket: the confirmation dialog needs to
         # be awaited from inside a worker, so the whole flow lives here.
         sheets_configured = bool(
@@ -1346,14 +952,14 @@ class SearchScreen(Screen[None]):
         self._load_history(row)
 
     @work(exclusive=True, group="history")
-    async def _load_history(self, row: _ResultRow) -> None:
+    async def _load_history(self, row: ResultRow) -> None:
         rows = await asyncio.to_thread(self._read_history, row)
         panel = self.query_one("#history-panel", Static)
         panel.update(self._history_text(row, rows))
         panel.display = True
 
     @staticmethod
-    def _history_text(row: _ResultRow, rows: list[sqlite3.Row]) -> str:
+    def _history_text(row: ResultRow, rows: list[sqlite3.Row]) -> str:
         # Named up front: a panel left open while the cursor moves to another
         # row would otherwise show the old site/title's history under a new
         # selection with nothing to say it is stale.
@@ -1410,7 +1016,7 @@ class SearchScreen(Screen[None]):
             )
         return "\n".join(lines)
 
-    def _read_history(self, row: _ResultRow) -> list[sqlite3.Row]:
+    def _read_history(self, row: ResultRow) -> list[sqlite3.Row]:
         conn = connect(self.db_path)
         try:
             return price_history(

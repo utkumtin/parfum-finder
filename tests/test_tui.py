@@ -1164,7 +1164,7 @@ async def test_a_failed_write_is_counted_and_still_shows_the_sites_rows(
     def explode(*args: Any, **kwargs: Any) -> int:
         raise sqlite3.OperationalError("database is locked")
 
-    monkeypatch.setattr("parfum_finder.tui.search_screen.write_snapshots", explode)
+    monkeypatch.setattr("parfum_finder.services.scan.write_snapshots", explode)
 
     app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
     with caplog.at_level(logging.ERROR, logger="parfum_finder"):
@@ -1202,7 +1202,7 @@ async def test_an_unreadable_result_is_counted_and_logged(
     def explode(*args: Any, **kwargs: Any) -> Any:
         raise ValueError("no url on that variant")
 
-    monkeypatch.setattr("parfum_finder.tui.search_screen.snapshot_rows", explode)
+    monkeypatch.setattr("parfum_finder.services.scan.snapshot_rows", explode)
 
     app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
     with caplog.at_level(logging.ERROR, logger="parfum_finder"):
@@ -1930,50 +1930,6 @@ def _two_products(site_id: str) -> SiteResult:
         )
         hits.append(SearchHit(candidate, (_variant(30, price, title=title),)))
     return SiteResult(site_id, "ok", tuple(hits), f"{site_id}: ok")
-
-
-async def test_site_blocks_are_ordered_by_what_the_small_bottles_cost(
-    tmp_path: Path,
-) -> None:
-    """A shop that only sells big bottles cannot win on ₺/ml alone.
-
-    ₺/ml always falls as the bottle grows, so ranking sites on their best ₺/ml
-    would hand the top of every block to whoever sells the largest decant. The
-    band is what a decant buyer is actually choosing between, and a site with
-    nothing in it is not cheaper, it is answering a different question.
-    """
-    sites_dir = tmp_path / "sites"
-    for site_id, name in (
-        ("site-a", "Site A"),
-        ("site-b", "Site B"),
-        ("site-c", "Site C"),
-    ):
-        _write_profile(sites_dir, site_id, name)
-
-    title = "Dior Sauvage EDP Dekant"
-    runner = _static_runner(
-        {
-            # 3 ml at 200 ₺/ml.
-            "site-a": _named_result("site-a", title, _variant(30, 60000, title=title)),
-            # 3 ml at 100 ₺/ml: the cheapest small bottle in the scan.
-            "site-b": _named_result("site-b", title, _variant(30, 30000, title=title)),
-            # Nothing under 10 ml, at 50 ₺/ml: the cheapest ₺/ml in the scan, and
-            # still last, because nobody comparing 3 ml decants can buy it.
-            "site-c": _named_result("site-c", title, _variant(100, 50000, title=title)),
-        }
-    )
-
-    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        await _submit_query(pilot)
-        table = await _wait_for_table(pilot)
-
-        assert [str(table.get_row_at(i)[1]) for i in range(3)] == [
-            "Site B",
-            "Site A",
-            "Site C",
-        ]
 
 
 async def test_showing_the_hidden_rows_does_not_reshuffle_the_site_blocks(

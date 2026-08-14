@@ -19,10 +19,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from parfum_finder import paths
 from parfum_finder.engine import SiteResult, Variant
 from parfum_finder.matcher import PerfumeQuery, match_title
 
-DEFAULT_DB_PATH = Path("parfum-finder.db")
+DEFAULT_DB_PATH = paths.default_db_path()
 
 # Transcribed from the schema doc. Money is INTEGER kurus and volume is INTEGER
 # tenths of a ml on purpose: the basket matrix joins on size and compares totals
@@ -150,6 +151,25 @@ def now_iso() -> str:
     make "most recent" silently wrong.
     """
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# A price older than this is called out to whoever is reading it. It is not
+# the profile staleness number: a profile that was described three months ago
+# can still be reading the site correctly, while a two week old price is
+# simply a price the shop has had plenty of time to change.
+STALE_PRICE_DAYS = 14
+
+
+def snapshot_age_days(fetched_at: str, now: datetime | None = None) -> int:
+    """Whole days between a price snapshot and now.
+
+    Only the one UTC format now_iso() writes is accepted. Being lenient would
+    let a row carrying a local time report an age that is quietly a few hours
+    wrong, and the whole point of this number is that somebody trusts it enough
+    to skip a refresh.
+    """
+    stamp = datetime.strptime(fetched_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    return ((now or datetime.now(UTC)) - stamp).days
 
 
 @dataclass(frozen=True)

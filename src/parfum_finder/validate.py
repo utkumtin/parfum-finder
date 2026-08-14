@@ -41,6 +41,7 @@ from urllib.parse import unquote, unquote_plus, urljoin, urlparse
 
 from selectolax.parser import HTMLParser
 
+from parfum_finder import paths
 from parfum_finder.engine import ExtractionFailed, apply_variant_rules, search_site
 from parfum_finder.extract import (
     EXTRACTION_LAYERS,
@@ -65,9 +66,8 @@ from parfum_finder.profiles import (
     load_site_profile,
 )
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_SITES_DIR = _REPO_ROOT / "sites"
-DEFAULT_FIXTURES_DIR = _REPO_ROOT / "fixtures"
+DEFAULT_SITES_DIR = paths.sites_dir()
+DEFAULT_FIXTURES_DIR = paths.fixtures_dir()
 
 # The query offline mode searches for. The fixture router answers every search
 # URL with the same saved page, so the word itself never reaches a site and only

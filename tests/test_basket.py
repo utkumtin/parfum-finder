@@ -6,13 +6,29 @@ stays exact -- a float anywhere in this path would make a total that looks
 right print wrong by one kurus, and nobody would notice until a receipt did.
 """
 
+from datetime import UTC, datetime, timedelta
+
 from parfum_finder.basket import (
     MAX_PAIR_MOVE_ITEMS,
     BasketItem,
+    BasketReport,
     ShippingConfig,
+    SiteScenario,
+    SplitLeg,
+    SplitPlan,
+    basket_inputs,
+    build_basket_rows,
+    compare_split_to_best_full,
     optimize,
     single_site_scenarios,
     site_scenario,
+)
+from parfum_finder.store import (
+    BasketLine,
+    BasketPrice,
+    BasketSite,
+    now_iso,
+    snapshot_age_days,
 )
 
 _A = BasketItem(item_id=1, label="Dior Sauvage EDP 5.0 ml", qty=1)
@@ -452,3 +468,142 @@ def test_optimize_omits_low_ranked_sites_past_the_enumeration_cap() -> None:
     assert plan is not None
     assert plan.omitted_sites == ("p8", "p9")
     assert plan.total_kurus == 1100
+
+
+# -- build_basket_rows / basket_inputs --------------------------------------
+
+
+def _line(basket_item_id: int, *, size_ml_x10: int = 50, qty: int = 1) -> BasketLine:
+    return BasketLine(
+        basket_item_id=basket_item_id,
+        perfume_id=1,
+        brand="dior",
+        name="sauvage",
+        concentration="EDP",
+        size_ml_x10=size_ml_x10,
+        qty=qty,
+        added_at="2026-08-01T00:00:00Z",
+    )
+
+
+def _days_ago(days: int) -> str:
+    stamp = datetime.now(UTC) - timedelta(days=days, hours=1)
+    return stamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _basket_price(
+    basket_item_id: int,
+    site_id: str,
+    price_kurus: int,
+    *,
+    in_stock: bool = True,
+    fetched_at: str = "2026-08-01T00:00:00Z",
+) -> BasketPrice:
+    return BasketPrice(
+        basket_item_id=basket_item_id,
+        site_id=site_id,
+        price_kurus=price_kurus,
+        in_stock=in_stock,
+        fetched_at=fetched_at,
+    )
+
+
+def test_build_basket_rows_drops_out_of_stock_and_excluded_prices() -> None:
+    line = _line(1)
+    prices = [
+        _basket_price(1, "site-a", 25000, in_stock=False),
+        _basket_price(1, "site-b", 26000),
+        _basket_price(1, "site-c", 27000),
+    ]
+
+    rows = build_basket_rows([line], prices, excluded={("site-c", 1)})
+
+    assert rows[0].prices == {"site-b": 26000}
+
+
+def test_a_rows_age_is_its_stalest_cell() -> None:
+    """A row is only as fresh as the oldest price it is comparing.
+
+    Reporting the newest would let one just-scanned column hide a column that
+    has not been checked in weeks, which is precisely the state the refresh
+    warning in the basket screen is supposed to catch.
+    """
+    line = _line(1)
+    fresh = _basket_price(1, "site-a", 25000, fetched_at=now_iso())
+    stale = _basket_price(1, "site-b", 26000, fetched_at=_days_ago(20))
+
+    rows = build_basket_rows([line], [fresh, stale])
+
+    assert rows[0].age_days == snapshot_age_days(stale.fetched_at)
+
+
+def test_basket_inputs_builds_the_price_matrix_from_row_data() -> None:
+    line = _line(1, size_ml_x10=50, qty=2)
+    rows = build_basket_rows([line], [_basket_price(1, "site-a", 25000)])
+    sites = [
+        BasketSite(
+            site_id="site-a",
+            name="Site A",
+            free_shipping_threshold_kurus=None,
+            shipping_cost_kurus=3000,
+            notes=None,
+        )
+    ]
+
+    items, prices, shipping = basket_inputs(rows, sites)
+
+    assert items == [BasketItem(item_id=1, label=rows[0].label, qty=2)]
+    assert prices == {(1, "site-a"): 25000}
+    assert shipping == [
+        ShippingConfig(
+            site_id="site-a",
+            name="Site A",
+            free_shipping_threshold_kurus=None,
+            shipping_cost_kurus=3000,
+            notes=None,
+        )
+    ]
+
+
+# -- compare_split_to_best_full ----------------------------------------------
+
+
+def _full_scenario(site_id: str, total_kurus: int) -> SiteScenario:
+    return SiteScenario(
+        site_id=site_id,
+        name=site_id,
+        subtotal_kurus=total_kurus,
+        shipping_kurus=0,
+        total_kurus=total_kurus,
+        covered=1,
+        total_items=1,
+        missing=(),
+        free_shipping_gap_kurus=None,
+        free_shipping_met=True,
+        notes=None,
+    )
+
+
+def _plan(total_kurus: int) -> SplitPlan:
+    scenario = _full_scenario("site-a", total_kurus)
+    leg = SplitLeg(scenario=scenario, item_ids=(1,))
+    return SplitPlan(legs=(leg,), total_kurus=total_kurus, omitted_sites=())
+
+
+def test_compare_split_to_best_full_reports_the_cheaper_side() -> None:
+    best = _full_scenario("site-b", 30000)
+    report = BasketReport(full=(best,), partial=(), unavailable=())
+
+    verdict = compare_split_to_best_full(_plan(25000), report)
+
+    assert verdict.best_full == best
+    assert verdict.diff_kurus == -5000
+
+
+def test_compare_split_to_best_full_with_no_full_coverage_site() -> None:
+    report = BasketReport(full=(), partial=(), unavailable=())
+
+    verdict = compare_split_to_best_full(_plan(25000), report)
+
+    assert verdict.best_full is None
+    assert verdict.diff_kurus is None

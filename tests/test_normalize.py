@@ -11,6 +11,7 @@ from decimal import Decimal
 import pytest
 
 from parfum_finder.normalize import (
+    format_age,
     format_ml,
     format_price,
     parse_price,
@@ -60,3 +61,10 @@ def test_format_ml() -> None:
     assert format_ml(Decimal("1.5")) == "1.5 ml"
     assert format_ml(Decimal("5")) == "5 ml"
     assert format_ml(Decimal("0.50")) == "0.5 ml"
+
+
+def test_format_age_reads_as_words_not_a_timestamp() -> None:
+    assert format_age(0) == "bugün"
+    assert format_age(2) == "2 gün önce"
+    assert format_age(21) == "3 hafta önce"
+    assert format_age(None) == "—"

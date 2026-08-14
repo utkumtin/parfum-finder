@@ -13,9 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
-from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from collections.abc import Callable, Sequence
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -29,53 +27,52 @@ from textual.widgets import DataTable, Footer, Static
 from parfum_finder.basket import (
     BasketItem,
     BasketReport,
-    ShippingConfig,
+    Prices,
     SiteScenario,
     SplitLeg,
     SplitPlan,
+    basket_inputs,
+    build_basket_rows,
+    compare_split_to_best_full,
     optimize,
     single_site_scenarios,
 )
-from parfum_finder.engine import SiteResult
-from parfum_finder.matcher import PerfumeQuery
-from parfum_finder.normalize import format_ml, format_price
+from parfum_finder.engine import SiteRunner
+from parfum_finder.normalize import format_age, format_ml, format_price
 from parfum_finder.profiles import load_site_profile
+from parfum_finder.services.scan import (
+    BasketPriceExcluded,
+    BasketRefreshEvent,
+    BasketRefreshStarted,
+    BasketRowFinished,
+    BasketWriteFailed,
+    run_basket_refresh,
+)
 from parfum_finder.store import (
     DEFAULT_DB_PATH,
+    STALE_PRICE_DAYS,
     BasketLine,
     BasketPrice,
     BasketSite,
-    SnapshotRow,
     basket_lines,
     basket_prices,
     basket_sites,
     connect,
     remove_basket_item,
     set_basket_qty,
-    snapshot_rows,
-    write_snapshots,
 )
 from parfum_finder.validate import DEFAULT_SITES_DIR
-
-SiteRunner = Callable[[dict[str, Any], str], Awaitable[SiteResult]]
+from parfum_finder.viewmodels import BasketRow
 
 # One edit to the basket, handed to the worker that owns the write lock so the
 # three key bindings do not each need their own copy of the connect/close dance.
 _Change = Callable[[sqlite3.Connection], None]
-
-# A price older than this is called out at the top of the screen. It is not the
-# profile staleness number: a profile that was described three months ago can
-# still be reading the site correctly, while a two week old price is simply a
-# price the shop has had plenty of time to change.
-STALE_PRICE_DAYS = 14
 
 # Soft dusty red for the stale age cell. Plain "red" shouts louder than an old
 # price deserves, and it is an alarm colour the rest of the screen does not use.
 # This hex is xterm colour 174 exactly, so a terminal without truecolor gets the
 # same tone instead of a nearest guess.
 STALE_PRICE_STYLE = "bold #d78787"
-
-_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 _EMPTY = "—"
 
@@ -84,42 +81,8 @@ _Scored = tuple[
     BasketReport,
     SplitPlan | None,
     list[BasketItem],
-    dict[tuple[int, str], int | None],
+    Prices,
 ]
-
-
-@dataclass(frozen=True)
-class _BasketRow:
-    """One basket line as the table shows it, with the keys a keypress needs."""
-
-    line: BasketLine
-    label: str
-    # Unit price per site, only for the sites that can actually supply this line.
-    prices: dict[str, int]
-    age_days: int | None
-
-
-def snapshot_age_days(fetched_at: str, now: datetime | None = None) -> int:
-    """Whole days between a price snapshot and now.
-
-    Only the one UTC format the database writes is accepted. Being lenient would
-    let a row carrying a local time report an age that is quietly a few hours
-    wrong, and the whole point of this number is that somebody trusts it enough
-    to skip a refresh.
-    """
-    stamp = datetime.strptime(fetched_at, _TIMESTAMP_FORMAT).replace(tzinfo=UTC)
-    return ((now or datetime.now(UTC)) - stamp).days
-
-
-def format_age(age_days: int | None) -> str:
-    """Turn a price age in days into the words the age column shows."""
-    if age_days is None:
-        return _EMPTY
-    if age_days <= 0:
-        return "bugün"
-    if age_days < 7:
-        return f"{age_days} gün önce"
-    return f"{age_days // 7} hafta önce"
 
 
 class BasketScreen(Screen[None]):
@@ -159,7 +122,7 @@ class BasketScreen(Screen[None]):
         self.sites_dir = sites_dir
         self.db_path = db_path
         self.runner = runner
-        self._rows: list[_BasketRow] = []
+        self._rows: list[BasketRow] = []
         self._sites: list[BasketSite] = []
         self._notices: list[str] = []
         # (site, basket line) pairs this session's refresh could not price,
@@ -208,7 +171,7 @@ class BasketScreen(Screen[None]):
     async def _reload(self) -> None:
         lines, prices, sites = await asyncio.to_thread(self._read)
         self._sites = sites
-        self._rows = self._build_rows(lines, prices)
+        self._rows = build_basket_rows(lines, prices, self._excluded)
         self._render_all()
 
     def _read(self) -> tuple[list[BasketLine], list[BasketPrice], list[BasketSite]]:
@@ -221,43 +184,11 @@ class BasketScreen(Screen[None]):
         finally:
             conn.close()
 
-    def _build_rows(
-        self, lines: list[BasketLine], prices: list[BasketPrice]
-    ) -> list[_BasketRow]:
-        by_item: dict[int, dict[str, BasketPrice]] = {}
-        for price in prices:
-            # Out of stock is missing, not cheap. So is a site this session
-            # could not price. Both are dropped here rather than carried into
-            # the totals as a real offer.
-            if (
-                not price.in_stock
-                or (price.site_id, price.basket_item_id) in self._excluded
-            ):
-                continue
-            by_item.setdefault(price.basket_item_id, {})[price.site_id] = price
-        rows: list[_BasketRow] = []
-        for line in lines:
-            found = by_item.get(line.basket_item_id, {})
-            # The oldest reading on the row, not the newest. A row is only as
-            # fresh as its stalest cell, and showing the newest would hide a
-            # column that has not been checked in a month behind one that was
-            # scanned an hour ago.
-            ages = [snapshot_age_days(p.fetched_at) for p in found.values()]
-            rows.append(
-                _BasketRow(
-                    line=line,
-                    label=_label(line),
-                    prices={site_id: p.price_kurus for site_id, p in found.items()},
-                    age_days=max(ages) if ages else None,
-                )
-            )
-        return rows
-
     # -- rendering ------------------------------------------------------------
 
     def _render_all(self) -> None:
         self._render_table()
-        items, prices, shipping = self._inputs()
+        items, prices, shipping = basket_inputs(self._rows, self._sites)
         report = single_site_scenarios(items, prices, shipping)
         # optimize() is only worth asking on a basket that has rows: an empty
         # basket has nothing to split, and this also keeps an empty screen from
@@ -282,7 +213,7 @@ class BasketScreen(Screen[None]):
             if selected.line.basket_item_id in ids:
                 table.move_cursor(row=ids.index(selected.line.basket_item_id))
 
-    def _cells(self, row: _BasketRow) -> tuple[object, ...]:
+    def _cells(self, row: BasketRow) -> tuple[object, ...]:
         ml = format_ml(Decimal(row.line.size_ml_x10) / Decimal(10))
         # The unit price, not the line total. The quantity has its own column,
         # and multiplying it in here would make two rows of the same perfume
@@ -306,40 +237,6 @@ class BasketScreen(Screen[None]):
         else:
             cells.append(age)
         return tuple(cells)
-
-    def _inputs(
-        self,
-    ) -> tuple[
-        list[BasketItem], dict[tuple[int, str], int | None], list[ShippingConfig]
-    ]:
-        """The three inputs basket.py's pure functions score: items, prices, shipping.
-
-        Built once here so the single-site report and the split search always
-        see the same basket instead of two independently assembled copies that
-        could drift apart.
-        """
-        items = [
-            BasketItem(
-                item_id=row.line.basket_item_id, label=row.label, qty=row.line.qty
-            )
-            for row in self._rows
-        ]
-        prices: dict[tuple[int, str], int | None] = {
-            (row.line.basket_item_id, site_id): price
-            for row in self._rows
-            for site_id, price in row.prices.items()
-        }
-        shipping = [
-            ShippingConfig(
-                site_id=site.site_id,
-                name=site.name,
-                free_shipping_threshold_kurus=site.free_shipping_threshold_kurus,
-                shipping_cost_kurus=site.shipping_cost_kurus,
-                notes=site.notes,
-            )
-            for site in self._sites
-        ]
-        return items, prices, shipping
 
     def _render_notices(self, report: BasketReport) -> None:
         notices = list(self._notices)
@@ -368,7 +265,7 @@ class BasketScreen(Screen[None]):
         report: BasketReport,
         plan: SplitPlan | None,
         items: Sequence[BasketItem],
-        prices: dict[tuple[int, str], int | None],
+        prices: Prices,
     ) -> None:
         # With no full-coverage site there is no cheapest-shop-versus-split
         # decision to open on, and the notice above the table sends the reader
@@ -405,7 +302,7 @@ class BasketScreen(Screen[None]):
             text = f"Sepet ({len(self._rows)} ürün)"
         self.query_one("#basket-status", Static).update(text)
 
-    def _selected_row(self) -> _BasketRow | None:
+    def _selected_row(self) -> BasketRow | None:
         table = self.query_one("#basket", DataTable)
         index = table.cursor_row
         if not (0 <= index < len(self._rows)):
@@ -467,17 +364,17 @@ class BasketScreen(Screen[None]):
         self._notices = []
         self._excluded = set()
         self._scanned = 0
-        self._scans = len(profiles) * len(rows)
+        self._scans = 0
         self._update_status()
         try:
-            # One task per site, and inside each task the perfumes go one after
-            # the other. run_site builds its own pacer per call, so firing a
-            # site's whole basket at once would put every rate_limit_ms gap in
-            # parallel with the others and hand a small shop the request burst
-            # this project exists not to send.
-            async with asyncio.TaskGroup() as group:
-                for profile in profiles:
-                    group.create_task(self._refresh_site(profile, rows))
+            async for event in run_basket_refresh(
+                rows,
+                profiles,
+                runner=self.runner,
+                db_path=self.db_path,
+                write_lock=self._write_lock,
+            ):
+                self._apply_refresh_event(event)
         finally:
             # Cleared even when a task blew up. The refresh key is gated on this
             # flag, and leaving it set would make [r] dead for as long as the
@@ -491,70 +388,26 @@ class BasketScreen(Screen[None]):
         ]
         return [p for p in profiles if p.get("enabled", True)]
 
-    async def _refresh_site(
-        self, profile: dict[str, Any], rows: list[_BasketRow]
-    ) -> None:
-        site_id = str(profile["id"])
-        for row in rows:
-            # Built from the stored identity parts instead of re-parsing a
-            # sentence, because those parts are what the basket line is keyed on
-            # and a round trip through the text parser could come back split
-            # differently and file the refreshed price under another perfume.
-            query = PerfumeQuery(
-                brand=row.line.brand,
-                name=row.line.name,
-                concentration=row.line.concentration,
-            )
-            # The size is left out of the search text on purpose. The shop is
-            # asked for the perfume and answers with every size it sells; the
-            # basket picks its own size back out of that by the integer join.
-            text = f"{row.line.brand} {row.line.name} {row.line.concentration}".strip()
-            try:
-                result = await self.runner(profile, text)
-            except Exception as e:
-                result = SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
-            if result.status in ("error", "suspect"):
-                self._excluded.add((site_id, row.line.basket_item_id))
-                self._note(f"⚠ {site_id} tazelenemedi")
-            elif result.status == "empty":
-                # The shop answered and does not have it. No notice, because
-                # that is not a failure, but the old price still has to go:
-                # leaving it would show a number for a decant the shop just
-                # said it no longer sells. That is worse than the broken case,
-                # since here there is positive evidence it is gone.
-                self._excluded.add((site_id, row.line.basket_item_id))
-            else:
-                await self._store(site_id, snapshot_rows(result, query))
+    def _apply_refresh_event(self, event: BasketRefreshEvent) -> None:
+        if isinstance(event, BasketRefreshStarted):
+            self._scans = event.total
+            self._update_status()
+        elif isinstance(event, BasketPriceExcluded):
+            self._excluded.add((event.site_id, event.basket_item_id))
+            if event.notice is not None:
+                self._note(event.notice)
+        elif isinstance(event, BasketWriteFailed):
+            self._note(event.notice)
+        elif isinstance(event, BasketRowFinished):
             self._scanned += 1
             self._update_status()
-
-    async def _store(self, site_id: str, rows: list[SnapshotRow]) -> None:
-        try:
-            async with self._write_lock:
-                await asyncio.to_thread(self._write, rows)
-        except Exception as e:
-            self._note(
-                f"⚠ {site_id} — fiyatlar kaydedilemedi ({type(e).__name__}: {e})"
-            )
-
-    def _write(self, rows: list[SnapshotRow]) -> None:
-        conn = connect(self.db_path)
-        try:
-            write_snapshots(conn, rows)
-        finally:
-            conn.close()
+        # BasketRefreshFinished carries nothing this screen paints.
 
     def _note(self, message: str) -> None:
         # A site that fails on every perfume in the basket would otherwise print
         # the same line once per row.
         if message not in self._notices:
             self._notices.append(message)
-
-
-def _label(line: BasketLine) -> str:
-    """Name one basket line the way a missing-item warning has to read it."""
-    perfume = f"{line.brand} {line.name} {line.concentration}".strip()
-    return f"{perfume} {format_ml(Decimal(line.size_ml_x10) / Decimal(10))}"
 
 
 def _remove(basket_item_id: int) -> _Change:
@@ -618,7 +471,7 @@ def _scenario_block(scenario: SiteScenario, mark: str) -> list[str]:
 def _leg_block(
     leg: SplitLeg,
     items: Sequence[BasketItem],
-    prices: dict[tuple[int, str], int | None],
+    prices: Prices,
     *,
     is_split: bool,
 ) -> list[str]:
@@ -647,7 +500,7 @@ def _split_block(
     plan: SplitPlan,
     report: BasketReport,
     items: Sequence[BasketItem],
-    prices: dict[tuple[int, str], int | None],
+    prices: Prices,
 ) -> list[str]:
     """The best-combination block: its legs, grand total, and its honesty checks."""
     # The caveat is worded as advice, not as a disclaimer. "matematiksel optimal
@@ -664,19 +517,17 @@ def _split_block(
         lines.extend(_leg_block(leg, items, prices, is_split=is_split))
     total = format_price(Decimal(plan.total_kurus) / Decimal(100))
     lines.append(f"GENEL TOPLAM {total}")
-    if report.full:
-        # Only ever the best full-coverage site: a cheaper partial site left
-        # something out, and comparing a full split against it would credit
-        # the split for beating a total that never bought the whole basket.
-        best = report.full[0]
-        best_total = format_price(Decimal(best.total_kurus) / Decimal(100))
-        lines.append(f"ⓘ En iyi tam kapsamlı tek site ({best.name}) {best_total}")
-        diff = plan.total_kurus - best.total_kurus
-        if diff < 0:
-            cheaper = format_price(Decimal(-diff) / Decimal(100))
+    verdict = compare_split_to_best_full(plan, report)
+    if verdict.best_full is not None and verdict.diff_kurus is not None:
+        best_total = format_price(Decimal(verdict.best_full.total_kurus) / Decimal(100))
+        lines.append(
+            f"ⓘ En iyi tam kapsamlı tek site ({verdict.best_full.name}) {best_total}"
+        )
+        if verdict.diff_kurus < 0:
+            cheaper = format_price(Decimal(-verdict.diff_kurus) / Decimal(100))
             lines.append(f"→ bölmek {cheaper} DAHA UCUZ")
-        elif diff > 0:
-            costlier = format_price(Decimal(diff) / Decimal(100))
+        elif verdict.diff_kurus > 0:
+            costlier = format_price(Decimal(verdict.diff_kurus) / Decimal(100))
             lines.append(f"→ bölmek {costlier} DAHA PAHALI")
         else:
             lines.append("→ bölmek bir fark yaratmıyor")
