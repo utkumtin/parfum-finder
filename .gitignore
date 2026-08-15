@@ -27,3 +27,10 @@ node_modules/
 ui/node_modules/
 ui/dist/
 ui/.env.local
+
+# PyInstaller build output (packaging/parfum-finder.spec)
+/build/
+/build-wine/
+/dist/
+/dist-wine/
+packaging/Output/
