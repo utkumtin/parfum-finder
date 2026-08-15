@@ -27,6 +27,11 @@ browser = [
 sheets = [
     "gspread>=6.1.0",
 ]
+gui = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pywebview>=5.3",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.18,<0.12.0"]
