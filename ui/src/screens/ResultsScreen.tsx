@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api/client";
 import { refusalReason, useEventStream } from "../api/ws";
+import { AddButton } from "../components/AddButton";
 import { Badge } from "../components/Badge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ProgressBar } from "../components/ProgressBar";
@@ -209,7 +210,7 @@ export function ResultsScreen({
   const blocks = useMemo(() => toBlocks(rows), [rows]);
 
   const addToBasket = useCallback(
-    async (row: ResultRow, confirmed: boolean) => {
+    async (row: ResultRow, confirmed: boolean): Promise<boolean> => {
       try {
         await api.addBasketItem({
           brand: row.brand,
@@ -225,16 +226,18 @@ export function ResultsScreen({
         setConfirming(null);
         notify(`${row.brand} ${row.name} sepete eklendi`, "info");
         onBasketChanged();
+        return true;
       } catch (e) {
         if (e instanceof ApiError && e.status === 409) {
           // The server refuses a clone or a weak match that has not been
           // acknowledged. It does so whether or not this screen asked first,
           // so the modal explains the refusal rather than guarding it.
           setConfirming(row);
-          return;
+          return false;
         }
         setConfirming(null);
         notify(e instanceof ApiError ? e.message : String(e), "error");
+        return false;
       }
     },
     [notify, onBasketChanged],
@@ -353,16 +356,7 @@ export function ResultsScreen({
                               )}
                             </td>
                             <td className="add-cell">
-                              <button
-                                type="button"
-                                className="button quiet"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void addToBasket(row, false);
-                                }}
-                              >
-                                + sepet
-                              </button>
+                              <AddButton onAdd={() => addToBasket(row, false)} />
                             </td>
                           </tr>
                       ))}

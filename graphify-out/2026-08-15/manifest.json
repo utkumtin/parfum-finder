@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "pyproject.toml": {
-    "mtime": 1786796678.483276,
-    "ast_hash": "d0a3bfc2f52a02bc260180616b5d0480",
+    "mtime": 1786821570.5837152,
+    "ast_hash": "9bcfb29ce9fc0380687b8cd184dcc72a",
     "semantic_hash": ""
   },
   "schema/platform.schema.json": {
@@ -150,8 +150,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/profiles.py": {
-    "mtime": 1786713217.1617606,
-    "ast_hash": "30006eecd8dec3bacf51cca1f8cf2da6",
+    "mtime": 1786821930.29734,
+    "ast_hash": "7e48271cff6f23903440d54cb74ec57a",
     "semantic_hash": ""
   },
   "src/parfum_finder/store.py": {
@@ -275,8 +275,8 @@
     "semantic_hash": "e4903f6b9e14dde5eae73fa33cfc43f5"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1786437348.2464662,
-    "ast_hash": "1bc74c55d71d909c94a70335ec770a23",
+    "mtime": 1786799527.4118013,
+    "ast_hash": "067e35f92d3de9e8e6d7a7bf7147dce2",
     "semantic_hash": ""
   },
   "ARCHITECTURE.md": {
@@ -570,8 +570,8 @@
     "semantic_hash": ""
   },
   "packaging/entrypoint.py": {
-    "mtime": 1786796651.7046564,
-    "ast_hash": "53585d5ded608b48e00e28745ae4ec85",
+    "mtime": 1786815292.5704226,
+    "ast_hash": "2fc4cde3b28d42f55d7545cc0527087f",
     "semantic_hash": ""
   },
   "src/parfum_finder/gui.py": {
@@ -585,8 +585,13 @@
     "semantic_hash": ""
   },
   ".github/workflows/build-windows.yml": {
-    "mtime": 1786796707.7453325,
-    "ast_hash": "41c75fdd3811042ac66c6abd253caabf",
+    "mtime": 1786821567.3552134,
+    "ast_hash": "9051706b3ec02857953030889b227e8e",
+    "semantic_hash": ""
+  },
+  "playwright-error.jpeg": {
+    "mtime": 1786820675.3025198,
+    "ast_hash": "5c6402c8c73b33bd180d6804d967776d",
     "semantic_hash": ""
   }
 }

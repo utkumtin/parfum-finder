@@ -411,6 +411,41 @@ table.rows tbody tr.clickable:active {
   white-space: nowrap;
 }
 
+.add-button {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-button.done {
+  color: var(--good);
+}
+
+.add-icon {
+  display: inline-block;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.add-button.done .add-icon {
+  animation: add-icon-pop 0.2s ease;
+}
+
+@keyframes add-icon-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* -- badges and notices --------------------------------------------------- */
 
 .badge {

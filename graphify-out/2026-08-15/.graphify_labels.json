@@ -78,5 +78,7 @@
   "76": "Protocol",
   "77": "test_snapshot_rows_still_merges_a_confident_match_under_the_searched_name",
   "78": "vite.config.ts",
-  "79": "Strategy"
+  "79": "Strategy",
+  "80": "Connection",
+  "81": "Path"
 }
