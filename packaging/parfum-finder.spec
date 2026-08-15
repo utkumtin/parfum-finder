@@ -5,10 +5,16 @@ Run from the repo root: `uv run pyinstaller packaging/parfum-finder.spec`.
 `ui/dist/` must already exist (`npm run build` inside `ui/`) -- this spec
 packages what's already built, it doesn't build the frontend itself.
 
-`excludes` drops playwright (not used by any shipped site profile, and its
-Node driver alone is ~132MB) and textual/rich (the TUI, not part of this
-build). Both are lazily imported inside `cli.py`'s subcommand branches, so
-PyInstaller's static analysis never reaches them from this entry point.
+`excludes` drops textual/rich (the TUI, not part of this build) -- lazily
+imported inside `cli.py`'s subcommand branches, so PyInstaller's static
+analysis never reaches them from this entry point.
+
+playwright ships because decantall's search page needs it (see
+`sites/decantall.json` -> `search.strategy`). Its own PyInstaller hook
+(`playwright._impl.__pyinstaller`) pulls in the Node driver automatically --
+no manual `datas`/`hiddenimports` entry needed. On Windows `fetch.py` launches
+it via `channel="msedge"`, the Edge build every Windows 10/11 machine already
+ships, so this does not also pull in a Chromium download.
 """
 
 from pathlib import Path
@@ -32,7 +38,7 @@ a = Analysis(
     datas=datas,
     hiddenimports=[],
     hookspath=[],
-    excludes=["playwright", "textual", "rich"],
+    excludes=["textual", "rich"],
     noarchive=False,
 )
 

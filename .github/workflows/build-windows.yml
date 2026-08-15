@@ -34,7 +34,12 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --locked --extra gui
+        # --extra browser pulls in playwright: decantall's search page needs
+        # it, and packaging/parfum-finder.spec no longer excludes it from the
+        # build. No `playwright install chromium` step here -- fetch.py
+        # launches it via channel="msedge" on Windows, using the Edge build
+        # already on the machine instead of downloading a separate browser.
+        run: uv sync --locked --extra gui --extra browser
 
       # Windows Defender's real-time scanner has a long-standing history of
       # flagging freshly-built, unsigned PyInstaller bootloaders as a generic
@@ -62,6 +67,16 @@ jobs:
           $exePath = ".\dist\parfum-finder\parfum-finder.exe"
           if (-not (Test-Path $exePath)) {
             throw "$exePath is missing after the PyInstaller build (quarantined by antivirus?)."
+          }
+          # Bundling playwright depends on its own PyInstaller hook firing
+          # (see packaging/parfum-finder.spec) rather than an explicit datas
+          # entry here, so nothing else catches it silently going missing --
+          # e.g. from lock drift or the exclude being reintroduced -- and
+          # decantall's search would start failing at runtime with no signal
+          # until a user hits it.
+          $driverPath = ".\dist\parfum-finder\_internal\playwright\driver"
+          if (-not (Test-Path $driverPath)) {
+            throw "$driverPath is missing -- playwright didn't get bundled, decantall search will fail at runtime."
           }
           # console=False in the spec makes this a GUI-subsystem exe: it has
           # no console attached at all, so an unhandled Python traceback
