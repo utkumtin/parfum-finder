@@ -25,8 +25,11 @@ jobs:
       # needed for type checking.
       # The sheets extra is installed for the same reason, and so
       # tests/test_sheets.py doesn't fail on a missing gspread import.
+      # The gui extra is installed so mypy can resolve fastapi/uvicorn/
+      # pywebview in api/app.py, gui.py, and tests/test_api.py instead of
+      # failing with "Cannot find implementation or library stub".
       - name: Install dependencies
-        run: uv sync --locked --extra browser --extra sheets
+        run: uv sync --locked --extra browser --extra sheets --extra gui
 
       - name: Lint
         run: uv run ruff check .
