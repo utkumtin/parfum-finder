@@ -13,6 +13,7 @@ import type {
   AppConfig,
   BasketRefreshEvent,
   BasketResponse,
+  BasketRow,
   SiteScenario,
 } from "../types";
 
@@ -31,6 +32,22 @@ function cheapestSite(prices: Record<string, number>, columns: string[]): string
     if (best === null || price < prices[best]!) best = id;
   }
   return best;
+}
+
+/** The circular arrow the row refresh button spins. */
+function RefreshIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path d="M13.5 1.8v3.2h-3.2z" fill="currentColor" />
+    </svg>
+  );
 }
 
 function Scenario({
@@ -85,6 +102,15 @@ export function BasketScreen({
   const [refreshDone, setRefreshDone] = useState(0);
   const [refreshNotices, setRefreshNotices] = useState<string[]>([]);
   const [reloads, setReloads] = useState(0);
+  // Which line the running refresh is for, or null when it is the whole
+  // basket. Both go through the same session, so this is what tells the row
+  // button to spin instead of the bar across the top.
+  const [refreshItem, setRefreshItem] = useState<number | null>(null);
+  // Lines asked about since this screen was opened. A row whose stalest shop
+  // is unreachable never reports an age of zero no matter how often it is
+  // refreshed, so age alone would leave its button live forever.
+  const [justRefreshed, setJustRefreshed] = useState<Set<number>>(new Set());
+  const [undo, setUndo] = useState<BasketRow | null>(null);
 
   const siteName = useCallback(
     (id: string) => siteNames[id] ?? id,
@@ -128,12 +154,17 @@ export function BasketScreen({
           setRefreshDone((d) => d + 1);
           break;
         case "refresh_finished":
+          if (refreshItem !== null) {
+            const item = refreshItem;
+            setJustRefreshed((seen) => new Set(seen).add(item));
+          }
           setRefreshId(null);
+          setRefreshItem(null);
           reload();
           break;
       }
     },
-    [reload, siteName],
+    [refreshItem, reload, siteName],
   );
 
   useEventStream<BasketRefreshEvent>(
@@ -146,38 +177,64 @@ export function BasketScreen({
         const reason = refusalReason(code);
         if (reason === null) return;
         setRefreshId(null);
+        setRefreshItem(null);
         notify(`Fiyat tazeleme başlamadı: ${reason}`, "error");
       },
       [notify],
     ),
   );
 
-  const startRefresh = async () => {
+  const startRefresh = async (itemId?: number) => {
     setRefreshNotices([]);
     setRefreshDone(0);
     setRefreshTotal(0);
+    setRefreshItem(itemId ?? null);
     try {
-      const start = await api.startBasketRefresh();
+      const start = await api.startBasketRefresh(itemId);
       setRefreshTotal(start.total_rows);
       setRefreshId(start.refresh_id);
     } catch (e) {
+      setRefreshItem(null);
       notify(e instanceof ApiError ? e.message : String(e), "error");
     }
   };
 
-  const changeQty = async (itemId: number, qty: number) => {
+  // Dropping below one is what removes a line now that the row has no delete
+  // button of its own. The step down from 1 is the destructive one, so it is
+  // the press that arms the undo.
+  const changeQty = async (row: BasketRow, qty: number) => {
     try {
-      if (qty <= 0) await api.removeBasketItem(itemId);
-      else await api.setBasketQty(itemId, qty);
+      if (qty <= 0) {
+        await api.removeBasketItem(row.basket_item_id);
+        setUndo(row);
+      } else {
+        await api.setBasketQty(row.basket_item_id, qty);
+      }
       reload();
     } catch (e) {
       notify(e instanceof ApiError ? e.message : String(e), "error");
     }
   };
 
-  const remove = async (itemId: number) => {
+  // Putting the line back rather than un-deleting it: the prices are stored
+  // against the perfume and its size, not against the basket row, so a line
+  // added again comes back with everything the table was showing. It lands at
+  // the end of the basket, since what it gets back is a fresh added_at.
+  const undoRemove = async (row: BasketRow) => {
     try {
-      await api.removeBasketItem(itemId);
+      await api.addBasketItem({
+        brand: row.brand,
+        name: row.name,
+        concentration: row.concentration,
+        size_ml_x10: row.size_ml_x10,
+        qty: row.qty,
+        own_identity: true,
+        clone_of: "",
+        confident: true,
+        // Already confirmed once, when it was added the first time.
+        confirmed: true,
+      });
+      setUndo(null);
       reload();
     } catch (e) {
       notify(e instanceof ApiError ? e.message : String(e), "error");
@@ -212,12 +269,32 @@ export function BasketScreen({
     return totals;
   }, [data, siteColumns]);
 
+  // A line nobody could usefully re-price right now: either every shop that
+  // stocks it answered today, or we asked them all a moment ago. Greying the
+  // button out here is what stops the same question being sent twice.
+  const isFresh = (row: BasketRow) =>
+    row.age_days === 0 || justRefreshed.has(row.basket_item_id);
+
+  const undoBar = undo !== null && (
+    <div className="notice undo">
+      <span>{undo.label} sepetten çıkarıldı.</span>
+      <button type="button" className="link" onClick={() => void undoRemove(undo)}>
+        Geri al
+      </button>
+    </div>
+  );
+
   if (data === null) {
     return <div className="page empty">Sepet okunuyor…</div>;
   }
 
   if (data.rows.length === 0) {
-    return <div className="page empty">Sepet boş.</div>;
+    return (
+      <div className="page">
+        {undoBar}
+        <div className="empty">Sepet boş.</div>
+      </div>
+    );
   }
 
   const best = data.best_combination;
@@ -231,7 +308,10 @@ export function BasketScreen({
 
   return (
     <>
-      {refreshId !== null && (
+      {/* Only for the whole basket. One row announces itself by spinning in
+          its own cell, and a bar across the window for a single line reads as
+          more work than it is. */}
+      {refreshId !== null && refreshItem === null && (
         <ProgressBar value={refreshTotal === 0 ? 0 : refreshDone / refreshTotal} />
       )}
       <div className="page">
@@ -246,6 +326,8 @@ export function BasketScreen({
             {refreshId !== null ? "Fiyatlar yenileniyor…" : "Fiyatları yenile"}
           </button>
         </div>
+
+        {undoBar}
 
         {refreshNotices.map((notice, i) => (
           <div key={i} className="notice warn">
@@ -340,7 +422,7 @@ export function BasketScreen({
               {siteColumns.map((id) => (
                 <col key={id} />
               ))}
-              <col className="c-remove" />
+              <col className="c-refresh" />
             </colgroup>
             <thead>
               <tr>
@@ -381,10 +463,14 @@ export function BasketScreen({
                     </td>
                     <td className="num">
                       <span className="qty">
+                        {/* At one, this is the delete: the row has no button
+                            of its own for that any more. Saying so in the
+                            label is the only warning a screen reader gets. */}
                         <button
                           type="button"
-                          aria-label="azalt"
-                          onClick={() => void changeQty(row.basket_item_id, row.qty - 1)}
+                          aria-label={row.qty === 1 ? "sepetten çıkar" : "azalt"}
+                          title={row.qty === 1 ? "Sepetten çıkar" : undefined}
+                          onClick={() => void changeQty(row, row.qty - 1)}
                         >
                           −
                         </button>
@@ -392,7 +478,7 @@ export function BasketScreen({
                         <button
                           type="button"
                           aria-label="artır"
-                          onClick={() => void changeQty(row.basket_item_id, row.qty + 1)}
+                          onClick={() => void changeQty(row, row.qty + 1)}
                         >
                           +
                         </button>
@@ -411,14 +497,27 @@ export function BasketScreen({
                       </td>
                     ))}
                     <td>
-                      <button
-                        type="button"
-                        className="remove-button"
-                        aria-label={`${row.label} sepetten çıkarılsın`}
-                        onClick={() => void remove(row.basket_item_id)}
-                      >
-                        ×
-                      </button>
+                      {(() => {
+                        const spinning =
+                          refreshId !== null && refreshItem === row.basket_item_id;
+                        const fresh = isFresh(row);
+                        return (
+                          <button
+                            type="button"
+                            className={`refresh-button${spinning ? " spinning" : ""}`}
+                            disabled={refreshId !== null || fresh}
+                            aria-label={`${row.label} fiyatları yenilensin`}
+                            title={
+                              fresh
+                                ? "Fiyatlar güncel"
+                                : "Bu satırın fiyatlarını yenile"
+                            }
+                            onClick={() => void startRefresh(row.basket_item_id)}
+                          >
+                            <RefreshIcon />
+                          </button>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );

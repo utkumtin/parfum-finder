@@ -603,6 +603,22 @@ table.rows tbody tr.clickable:active {
   background: var(--danger-dim);
 }
 
+/* One slot, not a stack: only the last removal can be taken back, and a
+   second removal replacing this line is the honest way to say so. */
+.notice.undo {
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+}
+
+.link {
+  color: var(--accent);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 .empty {
   padding: 4rem 0;
   text-align: center;
@@ -1036,7 +1052,7 @@ table.matrix col.c-qty {
   width: 5.25rem;
 }
 
-table.matrix col.c-remove {
+table.matrix col.c-refresh {
   width: 2.25rem;
 }
 
@@ -1097,20 +1113,60 @@ table.matrix tfoot td.full {
   color: var(--text-faint);
 }
 
-.remove-button {
+/* Re-price one line. Disabled means the prices are already today's, which is
+   most of the reason this control can sit next to a row without being one
+   press away from a wasted scan. */
+.refresh-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: var(--radius-sm);
-  color: var(--text-faint);
+  /* Dimmer than the prices it sits beside, but a step above faint: passive is
+     a state this button spends most of its life in, so live has to read as
+     different from across the table. */
+  color: var(--text-dim);
   line-height: 1;
 }
 
-.remove-button:hover {
-  color: var(--danger);
-  background: var(--danger-dim);
+.refresh-button svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.refresh-button:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.refresh-button:disabled {
+  color: var(--text-faint);
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The spin is the only progress this row gets, so it keeps its full colour
+   while it turns even though the button is disabled meanwhile. */
+.refresh-button.spinning {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.refresh-button.spinning svg {
+  animation: refresh-spin 0.9s linear infinite;
+}
+
+@keyframes refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refresh-button.spinning svg {
+    animation: none;
+  }
 }
 
 /* -- purchase plans ---------------------------------------------------------

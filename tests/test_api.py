@@ -573,3 +573,64 @@ def test_basket_refresh_streams_events(sites_dir: Path, db_path: Path) -> None:
         types = [e["type"] for e in events]
         assert types[0] == "refresh_started"
         assert types[-1] == "refresh_finished"
+
+
+def test_basket_refresh_can_be_narrowed_to_one_line(
+    sites_dir: Path, db_path: Path
+) -> None:
+    """Asking for one row's price must not re-scan the rest of the basket.
+
+    The whole point of the per-row refresh is that a shop is asked about one
+    perfume instead of every perfume someone happens to have saved, so a
+    filter that quietly widened back to the full basket would be the feature
+    failing while still looking like it worked.
+    """
+    _seed_priced_perfume(sites_dir, db_path)
+    runner = _static_runner({"site-a": _ok_result("site-a")})
+    for c, token in _client(sites_dir, db_path, runner):
+        first = _scan_then_add(c, token).json()["basket_item_id"]
+        second = c.post(
+            "/api/basket/items",
+            headers=_auth(token),
+            json={
+                "brand": "dior",
+                "name": "sauvage",
+                "concentration": "EDP",
+                "size_ml_x10": 100,
+                "own_identity": True,
+                "clone_of": "",
+                "confident": True,
+                "confirmed": False,
+            },
+        ).json()["basket_item_id"]
+        assert first != second
+
+        started = c.post(
+            "/api/basket/refresh",
+            headers=_auth(token),
+            json={"basket_item_id": second},
+        )
+        assert started.status_code == 200
+        assert started.json()["total_rows"] == 1
+
+        with c.websocket_connect(
+            f"/api/basket/refresh/{started.json()['refresh_id']}?token={token}"
+        ) as ws:
+            touched = set()
+            while True:
+                event = ws.receive_json()
+                if "basket_item_id" in event:
+                    touched.add(event["basket_item_id"])
+                if event["type"] == "refresh_finished":
+                    break
+        assert touched == {second}
+
+
+def test_basket_refresh_404s_for_an_unknown_line(
+    client: tuple[TestClient, str],
+) -> None:
+    c, token = client
+    response = c.post(
+        "/api/basket/refresh", headers=_auth(token), json={"basket_item_id": 999999}
+    )
+    assert response.status_code == 404

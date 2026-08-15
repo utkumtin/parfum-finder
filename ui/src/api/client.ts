@@ -114,6 +114,11 @@ export const api = {
   removeBasketItem: (itemId: number) =>
     request<void>(`/api/basket/items/${itemId}`, { method: "DELETE" }),
 
-  startBasketRefresh: () =>
-    request<RefreshStart>("/api/basket/refresh", { method: "POST" }),
+  // Without an item id every basket line is re-priced. With one, the same
+  // walk over the enabled sites runs for that line alone.
+  startBasketRefresh: (itemId?: number) =>
+    request<RefreshStart>("/api/basket/refresh", {
+      method: "POST",
+      json: { basket_item_id: itemId ?? null },
+    }),
 };

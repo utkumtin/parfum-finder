@@ -159,6 +159,13 @@ class BasketQtyRequest(BaseModel):
     qty: int = Field(ge=1)
 
 
+class RefreshRequest(BaseModel):
+    # Which basket line to re-price, or every line when it is left out. One
+    # row is the same walk over the enabled sites with a shorter list of rows,
+    # so nothing downstream has to know a refresh was narrowed.
+    basket_item_id: int | None = None
+
+
 class RefreshStartResponse(BaseModel):
     refresh_id: str
     total_rows: int
@@ -454,10 +461,16 @@ def create_app(
         }
 
     @app.post("/api/basket/refresh", dependencies=[auth])
-    async def start_basket_refresh(request: Request) -> RefreshStartResponse:
+    async def start_basket_refresh(
+        request: Request, body: RefreshRequest | None = None
+    ) -> RefreshStartResponse:
         app_state = get_state(request)
         lines, prices, _sites = await asyncio.to_thread(_read_basket, app_state.db_path)
         rows = build_basket_rows(lines, prices)
+        if body is not None and body.basket_item_id is not None:
+            rows = [r for r in rows if r.line.basket_item_id == body.basket_item_id]
+            if not rows:
+                raise HTTPException(status_code=404, detail="no such basket item")
         refresh_id = uuid4().hex
         app_state.refresh_sessions[refresh_id] = BasketRefreshSession(
             id=refresh_id, rows=rows
