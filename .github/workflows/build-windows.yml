@@ -9,6 +9,12 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    # The default GITHUB_TOKEN is read-only unless a workflow asks for more;
+    # "Attach installer to the release" below needs to upload a release
+    # asset, which is a write. This overrides the repo's default workflow
+    # permission setting regardless of what it's currently set to.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
