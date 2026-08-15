@@ -17,6 +17,7 @@ AppPublisher=Utku Metin
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
+SetupIconFile=icon.ico
 ; No admin prompt and no Program Files write: the install lives entirely
 ; under the current user's own LOCALAPPDATA, matching where the app itself
 ; keeps its writable data (see paths.user_data_dir()).

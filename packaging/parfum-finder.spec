@@ -48,9 +48,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
-    # TODO: no icon asset exists in the repo yet. Drop packaging/icon.ico in
-    # and pass icon=str(REPO_ROOT / "packaging" / "icon.ico") once it does --
-    # until then this builds with PyInstaller's default icon.
+    icon=str(REPO_ROOT / "packaging" / "icon.ico"),
 )
 
 coll = COLLECT(
