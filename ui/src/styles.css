@@ -447,6 +447,11 @@ table.rows th[aria-sort]:not([aria-sort="none"]) {
   color: var(--accent);
 }
 
+table.rows .sort-arrow {
+  margin-left: 0.25rem;
+  font-size: 0.65em;
+}
+
 table.rows td {
   padding: 0.4375rem 0.5rem;
   border-top: 1px solid var(--line);

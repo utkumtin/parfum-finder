@@ -288,6 +288,7 @@ export function ResultsScreen({
                           onClick={() => toggleSort(key)}
                         >
                           {label}
+                          {sort === key && <span className="sort-arrow" aria-hidden="true">▲</span>}
                         </th>
                       ))}
                       <th className="num">%</th>

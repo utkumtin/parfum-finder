@@ -79,5 +79,7 @@
   "77": "field_map",
   "78": "vite.config.ts",
   "79": "exclude_keywords",
-  "80": "_trial"
+  "80": "_trial",
+  "81": ".on_button_pressed",
+  "82": "ConfirmDialog.tsx"
 }
