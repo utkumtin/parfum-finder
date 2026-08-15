@@ -19,8 +19,15 @@ from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketDisconnect
 
 from parfum_finder.api.app import create_app
-from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
-from parfum_finder.store import now_iso
+from parfum_finder.engine import (
+    ProductCandidate,
+    SearchHit,
+    SiteResult,
+    SiteRunner,
+    Variant,
+)
+from parfum_finder.matcher import MAX_QUERIES, QUERY_SEPARATOR_PATTERN
+from parfum_finder.store import STALE_PRICE_DAYS, now_iso
 
 _PROFILE_TEMPLATE: dict[str, Any] = {
     "schema_version": 1,
@@ -69,7 +76,7 @@ def _ok_result(
     return SiteResult(site_id, "ok", (hit,), f"{site_id}: ok")
 
 
-def _static_runner(results: dict[str, SiteResult]):
+def _static_runner(results: dict[str, SiteResult]) -> SiteRunner:
     async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         return results[profile["id"]]
 
@@ -121,6 +128,56 @@ def test_wrong_token_is_rejected(client: tuple[TestClient, str]) -> None:
     assert response.status_code == 401
 
 
+def test_an_explicit_token_is_the_one_that_works(
+    sites_dir: Path, db_path: Path
+) -> None:
+    app = create_app(
+        sites_dir=sites_dir,
+        db_path=db_path,
+        runner=_static_runner({}),
+        auth_token="chosen-by-the-caller",
+    )
+    with TestClient(app) as c:
+        assert (
+            c.get("/api/sites", headers=_auth("chosen-by-the-caller")).status_code
+            == 200
+        )
+
+
+def test_the_token_env_var_is_read_when_no_token_is_passed(
+    sites_dir: Path, db_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The development path: uvicorn and the Vite dev server are two processes
+    # that only share an environment.
+    monkeypatch.setenv("PARFUM_FINDER_TOKEN", "from-the-environment")
+    app = create_app(sites_dir=sites_dir, db_path=db_path, runner=_static_runner({}))
+    with TestClient(app) as c:
+        assert (
+            c.get("/api/sites", headers=_auth("from-the-environment")).status_code
+            == 200
+        )
+
+
+# -- config ---------------------------------------------------------------
+
+
+def test_config_publishes_the_constants_a_client_would_otherwise_copy(
+    client: tuple[TestClient, str],
+) -> None:
+    # Every value here has a Python definition the display layer must agree
+    # with. A frontend hardcoding any of them is the drift this endpoint exists
+    # to prevent, so the test asserts against the imported constants, not
+    # against numbers typed here a second time.
+    c, token = client
+    response = c.get("/api/config", headers=_auth(token))
+    assert response.status_code == 200
+    assert response.json() == {
+        "stale_price_days": STALE_PRICE_DAYS,
+        "max_queries": MAX_QUERIES,
+        "query_separator_pattern": QUERY_SEPARATOR_PATTERN,
+    }
+
+
 # -- sites ----------------------------------------------------------------
 
 
@@ -157,6 +214,26 @@ def test_search_rejects_more_than_max_queries(client: tuple[TestClient, str]) ->
     query = " - ".join(f"Brand{i} Perfume{i}" for i in range(11))
     response = c.post("/api/search", json={"query": query}, headers=_auth(token))
     assert response.status_code == 422
+
+
+def test_search_names_the_perfume_behind_each_query_index(
+    client: tuple[TestClient, str],
+) -> None:
+    # The scan events only ever carry query_index, so this list is the only
+    # thing that lets a warning say which perfume it is about. A rejected part
+    # shifts the indexes, which is why the index is sent rather than implied by
+    # position in the typed line.
+    c, token = client
+    response = c.post(
+        "/api/search",
+        json={"query": "### - Dior Sauvage EDP - Creed Aventus"},
+        headers=_auth(token),
+    )
+    assert response.status_code == 200
+    assert response.json()["searches"] == [
+        {"index": 0, "text": "Dior Sauvage EDP"},
+        {"index": 1, "text": "Creed Aventus"},
+    ]
 
 
 def test_search_streams_events_and_results_are_readable_after(

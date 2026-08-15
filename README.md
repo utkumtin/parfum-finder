@@ -86,6 +86,23 @@ Sepet ekranı:
   olması: sitenin cevabı okunamadığında bir rakam uydurmak yerine o site o
   turda hesaba katılmaz.
 
+## Masaüstü arayüz (geliştirme)
+
+Arka uç ve arayüz iki ayrı süreç olarak çalışır; ikisi de aynı token'ı görmek zorunda.
+Vite, `/api` isteklerini (WebSocket dahil) arka uca yönlendirir, yani tarayıcı
+tarafında her şey tek origin'dedir.
+
+```bash
+uv sync --extra gui
+cp ui/.env.local.example ui/.env.local     # VITE_AUTH_TOKEN
+PARFUM_FINDER_TOKEN=dev-token uv run uvicorn parfum_finder.api:app --port 8000
+
+cd ui && npm install && npm run dev        # http://localhost:5173
+```
+
+Token verilmezse süreç başına rastgele bir tane üretilir — paketlenmiş uygulamanın
+davranışı budur, orada token pencereye enjekte edilir.
+
 ## Geliştirme ortamı
 
 ```bash

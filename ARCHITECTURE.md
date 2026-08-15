@@ -36,6 +36,7 @@
 ```
 src/parfum_finder/
 ├── normalize.py      # sayı/ml parse + format
+├── paths.py          # yol çözümü: kaynaktan mı, donmuş exe'den mi çalışıyoruz
 ├── profiles.py       # profil yükleme, jsonschema doğrulama, platform şablonu merge
 ├── fetch.py          # httpx / curl_cffi / playwright — tek arayüz
 ├── probe.py          # strateji ölçümü: her stratejiyi dener, kanıtlı rapor üretir
@@ -44,19 +45,32 @@ src/parfum_finder/
 ├── matcher.py        # marka+konsantrasyon zorunlu + fuzzy isim
 ├── store.py          # SQLite
 ├── basket.py         # sepet optimizasyonu (saf fonksiyon)
+├── ranking.py        # sonuç tablosunun sıralama/gruplama kuralları (saf fonksiyon)
+├── viewmodels.py     # ResultRow / BasketRow — ekrandan bağımsız satır modelleri
 ├── discover.py       # keşif script'i
 ├── validate.py       # profil doğrulama komutu
 ├── cli.py            # komut girişi
+├── services/
+│   └── scan.py       # tarama ve sepet tazeleme orkestrasyonu, olay akışı olarak
+├── api/              # FastAPI + WebSocket, servislerin üstünde ince bir kabuk
+│   ├── app.py
+│   ├── serialize.py
+│   └── sessions.py
 └── tui/
     ├── app.py
     ├── search_screen.py
     └── basket_screen.py
 
+ui/                    # Vite + React masaüstü arayüzü — proje kökünde, src/ dışında
 sites/<id>.json        # site profilleri (kullanıcı düzenler) — proje kökünde, src/ dışında
 platforms/<name>.json  # platform şablonları (proje ile gelir) — proje kökünde
 hooks/<id>.py          # opsiyonel Python override — proje kökünde
 fixtures/<id>/         # golden HTML örnekleri — proje kökünde
 ```
+
+İki arayüz aynı çekirdeği kullanır: `tui/` ve `api/`, ikisi de `services/scan.py`'ın
+yaydığı olay akışını tüketir. İş mantığı ikisinin de içinde değil, altında yaşar —
+mantık bir ekranın içine kaçarsa ikinci arayüz onun kopyasını yazmak zorunda kalır.
 
 **Not:** paket `src/parfum_finder/` altında (src-layout) — `uv init --package` ile kurulan
 proje iskeletiyle örtüşsün ve editable-install sırasında proje kökünün yanlışlıkla

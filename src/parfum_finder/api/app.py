@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import secrets
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
@@ -53,7 +54,12 @@ from parfum_finder.basket import (
     single_site_scenarios,
 )
 from parfum_finder.engine import SiteRunner, run_site
-from parfum_finder.matcher import MAX_QUERIES, parse_query, split_queries
+from parfum_finder.matcher import (
+    MAX_QUERIES,
+    QUERY_SEPARATOR_PATTERN,
+    parse_query,
+    split_queries,
+)
 from parfum_finder.profiles import load_site_profile, sync_to_db
 from parfum_finder.services.scan import (
     BasketRefreshEvent,
@@ -65,6 +71,7 @@ from parfum_finder.services.scan import (
 )
 from parfum_finder.store import (
     DEFAULT_DB_PATH,
+    STALE_PRICE_DAYS,
     BasketLine,
     BasketPrice,
     BasketSite,
@@ -90,6 +97,8 @@ _SORT_KEYS = ("ml", "price", "per_ml")
 
 _token_header = APIKeyHeader(name="X-Auth-Token", auto_error=False)
 
+_TOKEN_ENV_VAR = "PARFUM_FINDER_TOKEN"
+
 
 # Request/response models live at module scope, not inside create_app(): with
 # `from __future__ import annotations` in effect, FastAPI resolves a route's
@@ -105,9 +114,19 @@ class SearchRequest(BaseModel):
     force: bool = False
 
 
+class AcceptedSearch(BaseModel):
+    index: int
+    text: str
+
+
 class SearchStartResponse(BaseModel):
     search_id: str
     rejected: list[str]
+    # What each query_index in the event stream is about. Every scan event
+    # names its perfume by index only, and a client that could not resolve one
+    # would have to warn about "the second perfume" instead of about the
+    # perfume, which is a warning nobody acts on.
+    searches: list[AcceptedSearch]
 
 
 class BasketAddRequest(BaseModel):
@@ -163,12 +182,19 @@ def create_app(
     sites_dir: Path = DEFAULT_SITES_DIR,
     db_path: Path = DEFAULT_DB_PATH,
     runner: SiteRunner = run_site,
+    auth_token: str | None = None,
 ) -> FastAPI:
     state = _AppState(
         sites_dir=sites_dir,
         db_path=db_path,
         runner=runner,
-        auth_token=secrets.token_urlsafe(32),
+        # A fresh random token per process is what ships: the window gets it
+        # injected and nothing else can guess it. The override exists for
+        # development, where the Vite dev server is a separate process that
+        # has no way to be handed a token nobody printed.
+        auth_token=(
+            auth_token or os.environ.get(_TOKEN_ENV_VAR) or secrets.token_urlsafe(32)
+        ),
         write_lock=asyncio.Lock(),
     )
 
@@ -196,6 +222,24 @@ def create_app(
 
     def get_state(request: Request) -> _AppState:
         return request.app.state.parfum
+
+    # -- config ------------------------------------------------------------
+
+    @app.get("/api/config", dependencies=[auth])
+    async def get_config() -> dict[str, Any]:
+        """The domain constants a client has to agree with us on.
+
+        Sent rather than duplicated: a stale badge drawn against a threshold
+        the display layer keeps its own copy of is a badge that stops meaning
+        what the storage layer means the day one of the two changes.
+        """
+        return {
+            "stale_price_days": STALE_PRICE_DAYS,
+            "max_queries": MAX_QUERIES,
+            # A regular expression source, not a literal separator: the same
+            # spacing rule that keeps "Jean-Paul Gaultier" one perfume.
+            "query_separator_pattern": QUERY_SEPARATOR_PATTERN,
+        }
 
     # -- sites -------------------------------------------------------------
 
@@ -240,7 +284,11 @@ def create_app(
         app_state.scan_sessions[search_id] = ScanSession(
             id=search_id, searches=searches, rejected=rejected, force=body.force
         )
-        return SearchStartResponse(search_id=search_id, rejected=rejected)
+        return SearchStartResponse(
+            search_id=search_id,
+            rejected=rejected,
+            searches=[AcceptedSearch(index=s.index, text=s.text) for s in searches],
+        )
 
     @app.websocket("/api/search/{search_id}")
     async def stream_search(websocket: WebSocket, search_id: str) -> None:

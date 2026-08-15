@@ -72,5 +72,8 @@
   "70": "Project Root",
   "71": "exclude_keywords",
   "72": "ComposeResult",
-  "74": "format_age"
+  "73": "_LayerUnavailable",
+  "74": "format_age",
+  "75": "BasketRefreshEvent",
+  "76": "ScanEvent"
 }

@@ -16,7 +16,13 @@ from typing import Any
 import pytest
 
 from parfum_finder.basket import build_basket_rows
-from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
+from parfum_finder.engine import (
+    ProductCandidate,
+    SearchHit,
+    SiteResult,
+    SiteRunner,
+    Variant,
+)
 from parfum_finder.matcher import PerfumeQuery
 from parfum_finder.profiles import sync_to_db
 from parfum_finder.services.scan import (
@@ -95,7 +101,7 @@ def _ok_result(site_id: str) -> SiteResult:
     return SiteResult(site_id, "ok", (hit,), f"{site_id}: ok")
 
 
-def _static_runner(results: dict[str, SiteResult]):
+def _static_runner(results: dict[str, SiteResult]) -> SiteRunner:
     async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
         return results[profile["id"]]
 

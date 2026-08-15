@@ -65,8 +65,11 @@ _SIZE_SPAN = re.compile(r"\d+(?:[.,]\d+)?\s*(?:ml|cc)")
 _PARENTHESIS = re.compile(r"\(([^()]*)\)")
 
 # What separates one perfume from the next in a typed line. Whitespace on both
-# sides is required, so a hyphenated word stays one word.
-_QUERY_SEPARATOR = re.compile(r"\s+-\s+")
+# sides is required, so a hyphenated word stays one word. The pattern is public
+# as a string because a client that counts the perfumes in a half-typed line
+# has to split it the same way, and a second spelling of the rule would drift.
+QUERY_SEPARATOR_PATTERN = r"\s+-\s+"
+_QUERY_SEPARATOR = re.compile(QUERY_SEPARATOR_PATTERN)
 
 # The concentration a title names, in the spellings sites actually use. Longer
 # forms come first so "eau de parfum" is read as EDP instead of leaving "eau de"
