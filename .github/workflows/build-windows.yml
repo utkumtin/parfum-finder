@@ -30,6 +30,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra gui
 
+      # Windows Defender's real-time scanner has a long-standing history of
+      # flagging freshly-built, unsigned PyInstaller bootloaders as a generic
+      # trojan and quarantining them before they ever run. The runner is
+      # thrown away after this job, so excluding the checkout from scanning
+      # costs nothing and keeps that false positive out of the way.
+      - name: Exclude the workspace from Windows Defender
+        run: Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+
       - name: Build exe
         run: uv run pyinstaller packaging/parfum-finder.spec
 
@@ -39,7 +47,11 @@ jobs:
       # opens a blank window for the first real user.
       - name: Smoke test the frozen exe
         run: |
-          .\dist\parfum-finder\parfum-finder.exe --selftest
+          $exePath = ".\dist\parfum-finder\parfum-finder.exe"
+          if (-not (Test-Path $exePath)) {
+            throw "$exePath is missing after the PyInstaller build (quarantined by antivirus?)."
+          }
+          & $exePath --selftest
           if ($LASTEXITCODE -ne 0) {
             throw "parfum-finder.exe --selftest failed with exit code $LASTEXITCODE"
           }
