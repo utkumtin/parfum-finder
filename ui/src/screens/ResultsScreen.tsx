@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, api } from "../api/client";
 import { refusalReason, useEventStream } from "../api/ws";
 import { AddButton } from "../components/AddButton";
 import { Badge } from "../components/Badge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { ProgressBar } from "../components/ProgressBar";
+import { ScanStatus } from "../components/ScanStatus";
 import { formatAge, formatMl, formatPerMl, formatPrice } from "../lib/format";
 import type {
   AcceptedSearch,
@@ -79,32 +79,13 @@ export function ResultsScreen({
   const [confirming, setConfirming] = useState<ResultRow | null>(null);
   const [streamRefusal, setStreamRefusal] = useState<string | null>(null);
 
-  const timerRef = useRef<number | null>(null);
-
-  // Rows arrive site by site, and each arrival can change which site a block
-  // leads with -- that order is computed over every row at once by ranking.py
-  // and cannot be reproduced from a stream. So the table is re-read from the
-  // server instead, coalesced to a quarter second so a fast scan does not turn
-  // into one request per request.
-  const scheduleRefresh = useCallback((immediate = false) => {
-    if (immediate) {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-      setRevision((r) => r + 1);
-      return;
-    }
-    if (timerRef.current !== null) return;
-    timerRef.current = window.setTimeout(() => {
-      timerRef.current = null;
-      setRevision((r) => r + 1);
-    }, 250);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    };
-  }, []);
+  // Rows land once, all together, when the scan is done -- the same table
+  // the TUI paints in one go rather than one site at a time. A block's
+  // ordering is computed over every row at once by ranking.py and cannot be
+  // reproduced from a stream, and a table reshuffling under a reader as
+  // sites trickle in cannot be read: the cheapest row keeps changing, and
+  // the row someone is looking at keeps moving out from under them.
+  const refresh = useCallback(() => setRevision((r) => r + 1), []);
 
   const addNotice = useCallback((queryIndex: number, notice: Notice) => {
     setNotices((current) => ({
@@ -126,10 +107,8 @@ export function ResultsScreen({
             kind: "info",
             text: `Kayıttan geldi, ${formatAge(event.age_days)} okundu. Yeniden taramak için aramayı "kayıttakileri de yeniden tara" ile başlatın.`,
           });
-          scheduleRefresh();
           break;
         case "rows_ready":
-          scheduleRefresh();
           break;
         case "site_finished":
           setDone((d) => d + 1);
@@ -171,11 +150,11 @@ export function ResultsScreen({
           break;
         case "scan_finished":
           setErrorCount(event.error_count);
-          scheduleRefresh(true);
+          refresh();
           break;
       }
     },
-    [addNotice, scheduleRefresh],
+    [addNotice, refresh],
   );
 
   const onStreamClosed = useCallback((code: number) => {
@@ -244,13 +223,11 @@ export function ResultsScreen({
   );
 
   const totalUnits = totals.sites * totals.perfumes;
-  const progress = totalUnits === 0 ? (finished ? 1 : 0) : Math.min(1, done / totalUnits);
 
   const toggleSort = (key: SortKey) => setSort((current) => (current === key ? null : key));
 
   return (
     <>
-      {!finished && <ProgressBar value={progress} />}
       <div className="page">
         {rejected.length > 0 && (
           <div className="notice error">
@@ -259,6 +236,9 @@ export function ResultsScreen({
         )}
         {streamRefusal !== null && (
           <div className="notice error">Tarama başlamadı: {streamRefusal}</div>
+        )}
+        {!finished && (
+          <ScanStatus done={done} total={totalUnits} errorCount={errorCount} />
         )}
         {finished && errorCount > 0 && (
           <div className="notice warn">{errorCount} hata ile bitti</div>

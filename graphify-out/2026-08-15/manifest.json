@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1786794855.908183,
-    "ast_hash": "8860fbaeba5b8867d0c8d64fb88566ff",
+    "mtime": 1786822364.6010904,
+    "ast_hash": "d6c2ed185bcd4394bc5e8f27790e12ac",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -592,6 +592,11 @@
   "playwright-error.jpeg": {
     "mtime": 1786820675.3025198,
     "ast_hash": "5c6402c8c73b33bd180d6804d967776d",
+    "semantic_hash": ""
+  },
+  "ui/src/components/AddButton.tsx": {
+    "mtime": 1786822350.813761,
+    "ast_hash": "ffaf95910b1fa1c8fe2b8f3d0ad483d1",
     "semantic_hash": ""
   }
 }
