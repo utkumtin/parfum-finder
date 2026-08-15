@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "pyproject.toml": {
-    "mtime": 1786796678.483276,
-    "ast_hash": "d0a3bfc2f52a02bc260180616b5d0480",
+    "mtime": 1786821570.5837152,
+    "ast_hash": "9bcfb29ce9fc0380687b8cd184dcc72a",
     "semantic_hash": ""
   },
   "schema/platform.schema.json": {
@@ -585,8 +585,13 @@
     "semantic_hash": ""
   },
   ".github/workflows/build-windows.yml": {
-    "mtime": 1786801376.4916408,
-    "ast_hash": "28c6f0610b3b4612cfc7821a4735ee9b",
+    "mtime": 1786821567.3552134,
+    "ast_hash": "9051706b3ec02857953030889b227e8e",
+    "semantic_hash": ""
+  },
+  "playwright-error.jpeg": {
+    "mtime": 1786820675.3025198,
+    "ast_hash": "5c6402c8c73b33bd180d6804d967776d",
     "semantic_hash": ""
   }
 }

@@ -274,14 +274,14 @@ def _check_hook_kinds(hooks: SiteHooks, path: Path) -> None:
 
 def _load_json(path: Path) -> dict[str, Any]:
     try:
-        data: Any = json.loads(path.read_text())
+        data: Any = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         raise ValueError(f"{path}: invalid JSON ({e})") from e
     return data
 
 
 def _validate(profile: dict[str, Any], schema_filename: str, source: Path) -> None:
-    schema = json.loads((SCHEMA_DIR / schema_filename).read_text())
+    schema = json.loads((SCHEMA_DIR / schema_filename).read_text(encoding="utf-8"))
     validator = jsonschema.Draft202012Validator(schema)
     try:
         validator.validate(profile)
