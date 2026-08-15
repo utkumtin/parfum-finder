@@ -35,8 +35,14 @@ jobs:
       # trojan and quarantining them before they ever run. The runner is
       # thrown away after this job, so excluding the checkout from scanning
       # costs nothing and keeps that false positive out of the way.
+      # %LOCALAPPDATA%\parfum-finder is also excluded: --selftest below makes
+      # ensure_user_data() seed sites/platforms/hooks there, and it doesn't
+      # exist yet at this point in the job -- Defender accepts exclusion
+      # paths for files that don't exist yet and applies once they appear.
       - name: Exclude the workspace from Windows Defender
-        run: Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+        run: |
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\parfum-finder"
 
       - name: Build exe
         run: uv run pyinstaller packaging/parfum-finder.spec
@@ -51,9 +57,23 @@ jobs:
           if (-not (Test-Path $exePath)) {
             throw "$exePath is missing after the PyInstaller build (quarantined by antivirus?)."
           }
-          & $exePath --selftest
-          if ($LASTEXITCODE -ne 0) {
-            throw "parfum-finder.exe --selftest failed with exit code $LASTEXITCODE"
+          # console=False in the spec makes this a GUI-subsystem exe: it has
+          # no console attached at all, so an unhandled Python traceback
+          # normally has nowhere to go and vanishes silently. Redirecting
+          # stdout/stderr gives Python real handles to write to and gets the
+          # actual failure into this log instead of just a bare exit code.
+          # Start-Process -Wait -PassThru is also more reliable than reading
+          # $LASTEXITCODE directly for a GUI-subsystem process.
+          $stdout = Join-Path $env:RUNNER_TEMP "selftest-stdout.txt"
+          $stderr = Join-Path $env:RUNNER_TEMP "selftest-stderr.txt"
+          $proc = Start-Process -FilePath $exePath -ArgumentList "--selftest" -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          Write-Host "---- stdout ----"
+          Get-Content $stdout -ErrorAction SilentlyContinue
+          Write-Host "---- stderr ----"
+          Get-Content $stderr -ErrorAction SilentlyContinue
+          if ($proc.ExitCode -ne 0) {
+            throw "parfum-finder.exe --selftest failed with exit code $($proc.ExitCode)"
           }
 
       - name: Install Inno Setup
