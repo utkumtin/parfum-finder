@@ -3,22 +3,32 @@
    150% scales the layout instead of breaking it. */
 
 :root {
-  --bg: #0b0b0c;
-  --surface: #141416;
-  --surface-2: #1b1b1f;
-  --line: rgba(255, 255, 255, 0.09);
-  --line-strong: rgba(255, 255, 255, 0.16);
-  --text: #f2f2f3;
-  --text-dim: #9a9aa1;
-  --text-faint: #6b6b73;
+  /* The neutrals carry a slight warm bias rather than being pure grey, so the
+     ground reads as chosen rather than as the absence of a colour. */
+  --bg: #0e0d0c;
+  --surface: #191715;
+  --surface-2: #221f1c;
+  --surface-3: #2b2723;
+  --line: rgba(255, 246, 235, 0.08);
+  --line-strong: rgba(255, 246, 235, 0.16);
+  --text: #f4f1ec;
+  --text-dim: #a39c93;
+  --text-faint: #6f6862;
 
-  /* One accent. Colour carries hierarchy here, never decoration. */
-  --accent: #7f9cf5;
-  --accent-dim: rgba(127, 156, 245, 0.16);
-  --warn: #e0a458;
-  --warn-dim: rgba(224, 164, 88, 0.14);
-  --danger: #ef7a6a;
-  --good: #6fcf97;
+  /* One accent, and it means one thing: this is the good value. It marks the
+     cheapest price per ml and nothing else, which is why the stale badge
+     below had to leave the accent hue rather than share it. */
+  --accent: #b58cf0;
+  --accent-dim: rgba(181, 140, 240, 0.18);
+  --accent-line: rgba(181, 140, 240, 0.36);
+  --on-accent: #140f1c;
+
+  --warn: #cf7f6b;
+  --warn-dim: rgba(207, 127, 107, 0.13);
+  --danger: #e2685a;
+  --danger-dim: rgba(226, 104, 90, 0.13);
+  --good: #4fbf85;
+  --good-dim: rgba(79, 191, 133, 0.14);
 
   --radius: 0.625rem;
   --radius-sm: 0.375rem;
@@ -92,7 +102,7 @@ input {
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1.5rem;
-  background: rgba(20, 20, 22, 0.72);
+  background: rgba(25, 23, 21, 0.72);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
@@ -162,7 +172,9 @@ input {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  padding-top: 12vh;
+  /* Enough to keep the input off the toolbar, not so much that the recents
+     list below it falls out of the window. */
+  padding-top: 7vh;
 }
 
 .search-heading {
@@ -231,7 +243,7 @@ input {
 
 .chip.rejected {
   color: var(--danger);
-  background: rgba(239, 122, 106, 0.12);
+  background: var(--danger-dim);
 }
 
 .search-actions {
@@ -248,7 +260,7 @@ input {
 }
 
 .button:hover:not(:disabled) {
-  background: #26262b;
+  background: var(--surface-3);
 }
 
 .button:active:not(:disabled) {
@@ -262,12 +274,12 @@ input {
 
 .button.primary {
   background: var(--accent);
-  color: #0b0b0c;
-  font-weight: 550;
+  color: var(--on-accent);
+  font-weight: 600;
 }
 
 .button.primary:hover:not(:disabled) {
-  background: #93acf7;
+  filter: brightness(1.08);
 }
 
 .button.quiet {
@@ -371,7 +383,7 @@ input {
 .scan-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent) 0%, #a9bdf8 100%);
+  background: var(--accent);
 }
 
 .scan-status-errors {
@@ -475,9 +487,25 @@ table.rows tbody tr.clickable:active {
 
 .title-cell {
   max-width: 22rem;
+}
+
+/* Inside the cell rather than on it: a td set to display:flex stops being a
+   table cell, and the row's rule breaks where the column ends. This lays the
+   parts out so the badges keep their width and only the title gives ground. */
+.title-inner {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+}
+
+.title-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.title-cell .badge {
+  flex: none;
 }
 
 .site-cell {
@@ -545,13 +573,13 @@ table.rows tbody tr.clickable:active {
 }
 
 .badge.clone {
-  color: var(--accent);
-  background: var(--accent-dim);
+  color: var(--text-dim);
+  background: var(--surface-2);
 }
 
 .badge.weak {
   color: var(--danger);
-  background: rgba(239, 122, 106, 0.12);
+  background: var(--danger-dim);
 }
 
 .notice {
@@ -572,7 +600,7 @@ table.rows tbody tr.clickable:active {
 
 .notice.error {
   color: var(--danger);
-  background: rgba(239, 122, 106, 0.12);
+  background: var(--danger-dim);
 }
 
 .empty {
@@ -623,7 +651,7 @@ table.rows tbody tr.clickable:active {
 }
 
 .qty button:hover {
-  background: #26262b;
+  background: var(--surface-3);
 }
 
 .qty button:active {
@@ -741,4 +769,422 @@ details.more[open] summary::before {
 
 .toast.error {
   color: var(--danger);
+}
+
+/* -- recents ----------------------------------------------------------------
+   Under an empty input, because re-running yesterday's line is the second
+   most common thing to do on this screen after typing a new one. */
+
+.recents {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 1rem;
+}
+
+.recents-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.recent {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.4375rem 0.625rem;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  color: var(--text-dim);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.recent:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.recent-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-when {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* -- chips ------------------------------------------------------------------
+   A chip drops its own perfume, so narrowing a search no longer means
+   re-editing a line by hand to find the right separator. */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  /* Tighter on the right than the left: the remove button carries its own
+     hit area, and equal padding would leave it floating off the edge. */
+  padding: 0.25rem 0.375rem 0.25rem 0.5rem;
+  color: var(--text);
+}
+
+.chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.25rem;
+  color: var(--text-faint);
+  line-height: 1;
+}
+
+.chip-remove:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+/* -- verdicts ---------------------------------------------------------------
+   A decant is bought for one of two reasons: the rate is good, or it is the
+   least money that answers "what does this smell like". Those are rarely the
+   same row, so the screen states both before the table backs them up. */
+
+.verdicts {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 0.625rem;
+  margin-bottom: 0.875rem;
+}
+
+.verdicts.alone {
+  grid-template-columns: 1fr;
+}
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8125rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.verdict.rate {
+  background: linear-gradient(
+    100deg,
+    var(--accent-dim) 0%,
+    rgba(255, 255, 255, 0.012) 70%
+  );
+  border-color: var(--accent-line);
+}
+
+.verdict-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.verdict-kicker {
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.verdict.rate .verdict-kicker {
+  color: var(--accent);
+}
+
+.verdict-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.verdict-figure b {
+  font-size: 1.625rem;
+  font-weight: 650;
+}
+
+.verdict.rate .verdict-figure b {
+  color: var(--accent);
+}
+
+.verdict-figure span {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+.verdict-where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+.verdict-note {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+.button.small {
+  padding: 0.3125rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* -- price per ml -----------------------------------------------------------
+   The number the whole tool exists to compare, so it carries a bar sized
+   against the cheapest row in its block. Reading the column becomes reading
+   a shape instead of comparing four-digit numbers down a line. */
+
+.perml {
+  position: relative;
+}
+
+.perml-bar {
+  position: absolute;
+  inset: 0.1875rem 0.25rem 0.1875rem auto;
+  border-radius: 0.1875rem;
+  /* Barely there on purpose. Sizes inside one block cluster close together,
+     so six bars at a readable strength stack up as six boxes rather than a
+     chart. Faint keeps them a background gradient and leaves the cheapest
+     row, which alone is outlined, as the thing the eye lands on. */
+  background: rgba(181, 140, 240, 0.06);
+}
+
+/* A clone is cheaper per ml than the real thing and always will be. Leaving
+   it on the value axis would let it win a comparison it is not in. */
+.perml-bar.clone-bar {
+  background: rgba(255, 246, 235, 0.05);
+}
+
+.perml-value {
+  position: relative;
+}
+
+table.rows tbody tr.cheapest .perml-bar {
+  background: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+table.rows tbody tr.cheapest .perml-value {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+table.rows tbody tr.cheapest .site-cell {
+  color: var(--text);
+}
+
+.badge.value {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.badge.good {
+  color: var(--good);
+  background: var(--good-dim);
+}
+
+/* -- basket matrix ----------------------------------------------------------
+   Eleven columns at the packaged window's 1280 only fit if each earns its
+   width: kurus digits go, freshness moves under the product name, and remove
+   becomes an icon. Fixed layout so one long shop name cannot push the table
+   sideways and bring back the horizontal scrollbar. */
+
+table.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
+}
+
+table.matrix th {
+  padding: 0.375rem 0.4375rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  vertical-align: bottom;
+  line-height: 1.25;
+}
+
+table.matrix th.num,
+table.matrix td.num {
+  text-align: right;
+}
+
+table.matrix col.c-item {
+  width: 20rem;
+}
+
+table.matrix col.c-qty {
+  width: 5.25rem;
+}
+
+table.matrix col.c-remove {
+  width: 2.25rem;
+}
+
+table.matrix td {
+  padding: 0.5rem 0.4375rem;
+  border-top: 1px solid var(--line);
+}
+
+table.matrix tbody tr:hover {
+  background: var(--surface);
+}
+
+.matrix-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matrix-sub {
+  display: block;
+  margin-top: 0.0625rem;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+
+/* The cheapest cell in a row is the one fact this table has always held and
+   never said out loud. */
+table.matrix td.cheap {
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--accent-dim);
+  box-shadow:
+    inset 1px 0 0 var(--accent-line),
+    inset -1px 0 0 var(--accent-line);
+}
+
+table.matrix tfoot td {
+  padding: 0.5rem 0.4375rem;
+  border-top: 1px solid var(--line-strong);
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+table.matrix tfoot td.full {
+  color: var(--text);
+}
+
+.matrix-cover {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+}
+
+.matrix-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+}
+
+.remove-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  line-height: 1;
+}
+
+.remove-button:hover {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+/* -- purchase plans ---------------------------------------------------------
+   One site or two is the basket's only question, and its two halves used to
+   sit in separate sections with the matrix between them. */
+
+.plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.plans.alone {
+  grid-template-columns: 1fr;
+}
+
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.125rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.plan-card.win {
+  border-color: rgba(79, 191, 133, 0.35);
+  background: linear-gradient(180deg, var(--good-dim) 0%, var(--surface) 55%);
+}
+
+.plan-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.plan-card-head h3 {
+  font-size: 0.9375rem;
+  font-weight: 550;
+}
+
+.plan-total {
+  margin-left: auto;
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-card.win .plan-total {
+  color: var(--good);
+}
+
+.plan-leg {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+.plan-leg-total {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-faint);
+}
+
+.plan-note.gap {
+  color: var(--warn);
 }

@@ -28,6 +28,8 @@ from parfum_finder.store import (
     connect,
     now_iso,
     price_history,
+    recent_searches,
+    record_search,
     record_snapshot,
     remove_basket_item,
     set_basket_qty,
@@ -1244,3 +1246,31 @@ def test_write_snapshots_never_records_a_row_without_its_own_identity(
         " ORDER BY s.price_kurus"
     ).fetchall()
     assert [tuple(row) for row in rows] == [("armaf", 4900), ("maison", 62000)]
+
+
+def test_rerunning_a_search_moves_it_up_instead_of_adding_a_second_copy(
+    conn: sqlite3.Connection,
+) -> None:
+    """The recents list has five slots, so a repeat must not consume two.
+
+    Someone who searches the same two perfumes every morning would otherwise
+    push everything else out with copies of one line.
+    """
+    record_search(conn, "dior sauvage edp", "2026-08-10T09:00:00Z")
+    record_search(conn, "creed aventus", "2026-08-11T09:00:00Z")
+    record_search(conn, "dior sauvage edp", "2026-08-12T09:00:00Z")
+
+    assert recent_searches(conn) == [
+        ("dior sauvage edp", "2026-08-12T09:00:00Z"),
+        ("creed aventus", "2026-08-11T09:00:00Z"),
+    ]
+
+
+def test_recent_searches_stops_at_the_limit(conn: sqlite3.Connection) -> None:
+    for i in range(8):
+        record_search(conn, f"parfum {i}", f"2026-08-{10 + i:02d}T09:00:00Z")
+
+    recent = recent_searches(conn, limit=5)
+
+    assert len(recent) == 5
+    assert [text for text, _ in recent] == [f"parfum {i}" for i in (7, 6, 5, 4, 3)]

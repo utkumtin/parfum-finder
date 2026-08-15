@@ -3,13 +3,35 @@ import { ApiError, api } from "../api/client";
 import { refusalReason, useEventStream } from "../api/ws";
 import { Badge } from "../components/Badge";
 import { ProgressBar } from "../components/ProgressBar";
-import { formatAge, formatMl, formatPrice } from "../lib/format";
+import {
+  formatAge,
+  formatMl,
+  formatPrice,
+  formatPriceWhole,
+} from "../lib/format";
 import type {
   AppConfig,
   BasketRefreshEvent,
   BasketResponse,
   SiteScenario,
 } from "../types";
+
+/**
+ * The cheapest site for one basket line, or null when nothing prices it.
+ *
+ * Ties keep the first site in column order rather than picking arbitrarily:
+ * two shops at the same price are the same answer, and highlighting whichever
+ * one a Set happened to yield would move the mark between reloads.
+ */
+function cheapestSite(prices: Record<string, number>, columns: string[]): string | null {
+  let best: string | null = null;
+  for (const id of columns) {
+    const price = prices[id];
+    if (price === undefined) continue;
+    if (best === null || price < prices[best]!) best = id;
+  }
+  return best;
+}
 
 function Scenario({
   scenario,
@@ -172,6 +194,24 @@ export function BasketScreen({
     return [...ids].sort((a, b) => siteName(a).localeCompare(siteName(b), "tr"));
   }, [data, siteName]);
 
+  // What each column would cost on its own, at the quantities in the basket.
+  // Shipping is deliberately not in here: this is the arithmetic of the cells
+  // directly above it, and a total nobody can add up by eye is a total that
+  // reads as a different number than the one the plan cards quote.
+  const siteTotals = useMemo(() => {
+    const totals: Record<string, { subtotal: number; covered: number }> = {};
+    for (const id of siteColumns) totals[id] = { subtotal: 0, covered: 0 };
+    for (const row of data?.rows ?? []) {
+      for (const id of siteColumns) {
+        const price = row.prices[id];
+        if (price === undefined) continue;
+        totals[id]!.subtotal += price * row.qty;
+        totals[id]!.covered += 1;
+      }
+    }
+    return totals;
+  }, [data, siteColumns]);
+
   if (data === null) {
     return <div className="page empty">Sepet okunuyor…</div>;
   }
@@ -182,6 +222,12 @@ export function BasketScreen({
 
   const best = data.best_combination;
   const bestFull = data.report.full[0] ?? null;
+  // A one-leg combination is the single-site plan under another name, and two
+  // cards saying the same thing is not a comparison.
+  const split = best !== null && best.legs.length > 1 ? best : null;
+  // Ties go to the single-site plan: one parcel from one shop for the same
+  // money is the easier order, so the split has to actually be cheaper to win.
+  const splitWins = split !== null && split.diff_kurus !== null && split.diff_kurus < 0;
 
   return (
     <>
@@ -207,8 +253,95 @@ export function BasketScreen({
           </div>
         ))}
 
-        <div className="matrix-wrap section">
-          <table className="rows">
+        {/* One site or two is this screen's only question, so its two answers
+            sit side by side above the evidence instead of in two sections
+            with the matrix between them. */}
+        <div className={`plans${split === null || bestFull === null ? " alone" : ""}`}>
+          {split !== null && (
+            <div className={`plan-card${splitWins ? " win" : ""}`}>
+              <div className="plan-card-head">
+                {/* Never "en ucuz": this is a heuristic search's best find, and
+                    claiming optimality would be claiming a proof we do not
+                    have. */}
+                <h3>Bulunan en iyi kombinasyon</h3>
+                {splitWins && split.diff_kurus !== null && (
+                  <Badge kind="good">{formatPrice(-split.diff_kurus)} daha ucuz</Badge>
+                )}
+                <span className="plan-total">{formatPrice(split.total_kurus)}</span>
+              </div>
+              {split.legs.map((leg) => (
+                <div key={leg.scenario.site_id} className="plan-leg">
+                  <span>{siteName(leg.scenario.site_id)}</span>
+                  <span className="dim">{leg.scenario.covered} ürün</span>
+                  <span className="plan-leg-total">
+                    {formatPrice(leg.scenario.total_kurus)}
+                  </span>
+                </div>
+              ))}
+              {split.omitted_sites.length > 0 && (
+                <p className="plan-note">
+                  Aramaya girmeyen siteler: {split.omitted_sites.map(siteName).join(", ")}
+                </p>
+              )}
+            </div>
+          )}
+
+          {bestFull === null ? (
+            <div className="plan-card">
+              <div className="plan-card-head">
+                <h3>Tek siteden</h3>
+              </div>
+              <p className="plan-note">
+                Sepetin tamamını tek başına karşılayan site yok.
+              </p>
+            </div>
+          ) : (
+            <div className={`plan-card${splitWins ? "" : " win"}`}>
+              <div className="plan-card-head">
+                <h3>Tek siteden</h3>
+                <span className="dim">{siteName(bestFull.site_id)}</span>
+                <span className="plan-total">{formatPrice(bestFull.total_kurus)}</span>
+              </div>
+              <div className="plan-leg">
+                <span>Ara toplam</span>
+                <span className="plan-leg-total">
+                  {formatPrice(bestFull.subtotal_kurus)}
+                </span>
+              </div>
+              <div className="plan-leg">
+                <span>Kargo</span>
+                <span className="plan-leg-total">
+                  {formatPrice(bestFull.shipping_kurus)}
+                </span>
+              </div>
+              {bestFull.free_shipping_gap_kurus !== null &&
+                !bestFull.free_shipping_met && (
+                  <p className="plan-note gap">
+                    {formatPrice(bestFull.free_shipping_gap_kurus)} daha eklerseniz
+                    kargo bedava.
+                  </p>
+                )}
+              {bestFull.notes && <p className="plan-note">{bestFull.notes}</p>}
+            </div>
+          )}
+        </div>
+
+        {data.report.unavailable.length > 0 && (
+          <div className="notice warn">
+            Hiçbir sitede bulunamayan: {data.report.unavailable.join(", ")}
+          </div>
+        )}
+
+        <div className="section">
+          <table className="matrix">
+            <colgroup>
+              <col className="c-item" />
+              <col className="c-qty" />
+              {siteColumns.map((id) => (
+                <col key={id} />
+              ))}
+              <col className="c-remove" />
+            </colgroup>
             <thead>
               <tr>
                 <th>Ürün</th>
@@ -218,121 +351,104 @@ export function BasketScreen({
                     {siteName(id)}
                   </th>
                 ))}
-                <th>Güncellik</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((row) => (
-                <tr key={row.basket_item_id}>
-                  <td className="title-cell" title={row.label}>
-                    {row.brand} {row.name} {row.concentration}{" "}
-                    <span className="dim">{formatMl(row.size_ml_x10)}</span>
-                  </td>
-                  <td className="num">
-                    <span className="qty">
-                      <button
-                        type="button"
-                        aria-label="azalt"
-                        onClick={() => void changeQty(row.basket_item_id, row.qty - 1)}
-                      >
-                        −
-                      </button>
-                      <span className="qty-value">{row.qty}</span>
-                      <button
-                        type="button"
-                        aria-label="artır"
-                        onClick={() => void changeQty(row.basket_item_id, row.qty + 1)}
-                      >
-                        +
-                      </button>
-                    </span>
-                  </td>
-                  {siteColumns.map((id) => (
-                    <td key={id} className="num">
-                      {row.prices[id] === undefined ? (
-                        <span className="dim">—</span>
-                      ) : (
-                        formatPrice(row.prices[id] ?? null)
-                      )}
+              {data.rows.map((row) => {
+                const cheapest = cheapestSite(row.prices, siteColumns);
+                return (
+                  <tr key={row.basket_item_id}>
+                    <td title={row.label}>
+                      <span className="matrix-name">
+                        {row.brand} {row.name} {row.concentration} ·{" "}
+                        {formatMl(row.size_ml_x10)}
+                      </span>
+                      {/* A row is only as fresh as its stalest cell, which is
+                          what the service already reduced these prices to.
+                          Under the name rather than in a column of its own:
+                          seven shops need every column the window has. */}
+                      <span className="matrix-sub">
+                        {row.age_days !== null &&
+                        row.age_days >= config.stale_price_days ? (
+                          <Badge kind="stale">
+                            {formatAge(row.age_days)} güncellendi
+                          </Badge>
+                        ) : (
+                          `${formatAge(row.age_days)} güncellendi`
+                        )}
+                      </span>
                     </td>
-                  ))}
-                  <td>
-                    {/* A row is only as fresh as its stalest cell, which is
-                        what the service already reduced these prices to. */}
-                    {row.age_days !== null && row.age_days >= config.stale_price_days ? (
-                      <Badge kind="stale">{formatAge(row.age_days)}</Badge>
-                    ) : (
-                      <span className="dim">{formatAge(row.age_days)}</span>
-                    )}
-                  </td>
-                  <td className="add-cell">
-                    <button
-                      type="button"
-                      className="button quiet"
-                      onClick={() => void remove(row.basket_item_id)}
-                    >
-                      sil
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td className="num">
+                      <span className="qty">
+                        <button
+                          type="button"
+                          aria-label="azalt"
+                          onClick={() => void changeQty(row.basket_item_id, row.qty - 1)}
+                        >
+                          −
+                        </button>
+                        <span className="qty-value">{row.qty}</span>
+                        <button
+                          type="button"
+                          aria-label="artır"
+                          onClick={() => void changeQty(row.basket_item_id, row.qty + 1)}
+                        >
+                          +
+                        </button>
+                      </span>
+                    </td>
+                    {siteColumns.map((id) => (
+                      <td
+                        key={id}
+                        className={`num${id === cheapest ? " cheap" : ""}`}
+                      >
+                        {row.prices[id] === undefined ? (
+                          <span className="dim">—</span>
+                        ) : (
+                          formatPriceWhole(row.prices[id] ?? null)
+                        )}
+                      </td>
+                    ))}
+                    <td>
+                      <button
+                        type="button"
+                        className="remove-button"
+                        aria-label={`${row.label} sepetten çıkarılsın`}
+                        onClick={() => void remove(row.basket_item_id)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
+            <tfoot>
+              <tr>
+                <td>Ara toplam</td>
+                <td />
+                {siteColumns.map((id) => {
+                  const total = siteTotals[id];
+                  const full = total !== undefined && total.covered === data.rows.length;
+                  return (
+                    <td key={id} className={`num${full ? " full" : ""}`}>
+                      {formatPriceWhole(total?.subtotal ?? 0)}
+                      <span className="matrix-cover">
+                        {total?.covered ?? 0}/{data.rows.length} ürün
+                      </span>
+                    </td>
+                  );
+                })}
+                <td />
+              </tr>
+            </tfoot>
           </table>
+          <p className="matrix-note">
+            Ara toplamlar adetle çarpılmıştır ve kargo hariçtir; yukarıdaki
+            toplamlar kargoyu içerir.
+          </p>
         </div>
-
-        <section className="section">
-          <div className="section-head">
-            <h2>Tek siteden alırsanız</h2>
-          </div>
-          {bestFull === null ? (
-            <div className="notice">Sepetin tamamını tek başına karşılayan site yok.</div>
-          ) : (
-            <Scenario scenario={bestFull} siteName={siteName} highlight />
-          )}
-          {data.report.unavailable.length > 0 && (
-            <div className="notice warn">
-              Hiçbir sitede bulunamayan: {data.report.unavailable.join(", ")}
-            </div>
-          )}
-        </section>
-
-        {best !== null && best.legs.length > 0 && (
-          <section className="section">
-            <div className="section-head">
-              {/* Never "en ucuz": this is a heuristic search's best find, and
-                  claiming optimality would be claiming a proof we do not have. */}
-              <h2>Bulunan en iyi kombinasyon</h2>
-            </div>
-            {best.legs.map((leg) => (
-              <Scenario
-                key={leg.scenario.site_id}
-                scenario={leg.scenario}
-                siteName={siteName}
-              />
-            ))}
-            <div className="scenario">
-              <div className="scenario-head">
-                <span>Toplam</span>
-                <span className="scenario-total">{formatPrice(best.total_kurus)}</span>
-              </div>
-              {best.diff_kurus !== null && best.best_full_site !== null && (
-                <div className="scenario-note">
-                  {best.diff_kurus < 0
-                    ? `${siteName(best.best_full_site.site_id)} tek başına aldığınızdan ${formatPrice(-best.diff_kurus)} DAHA UCUZ`
-                    : best.diff_kurus > 0
-                      ? `${siteName(best.best_full_site.site_id)} tek başına aldığınızdan ${formatPrice(best.diff_kurus)} DAHA PAHALI`
-                      : `${siteName(best.best_full_site.site_id)} tek başına aldığınızla aynı fiyat`}
-                </div>
-              )}
-              {best.omitted_sites.length > 0 && (
-                <div className="scenario-note">
-                  Aramaya girmeyen siteler: {best.omitted_sites.map(siteName).join(", ")}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
 
         {(data.report.full.length > 1 || data.report.partial.length > 0) && (
           <details className="more">

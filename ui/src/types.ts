@@ -145,6 +145,13 @@ export interface SearchStart {
   searches: AcceptedSearch[];
 }
 
+export interface RecentSearch {
+  // The whole line as it was typed, separators and all, so selecting one
+  // replays the multi-perfume query rather than a single piece of it.
+  text: string;
+  searched_at: string;
+}
+
 export interface RefreshStart {
   refresh_id: string;
   total_rows: number;

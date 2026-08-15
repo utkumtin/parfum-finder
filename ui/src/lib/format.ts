@@ -11,6 +11,19 @@ export function formatPrice(kurus: number | null): string {
   })} ₺`;
 }
 
+/**
+ * Kuruş to whole lira: 125000 -> "1,250 ₺".
+ *
+ * For the basket matrix only, where a column per shop has to fit the window
+ * and ",00" on every cell is two characters of nothing. Rounded rather than
+ * truncated so a cell is never further from the real price than it has to be;
+ * the totals a decision rests on are quoted in full elsewhere on the screen.
+ */
+export function formatPriceWhole(kurus: number | null): string {
+  if (kurus === null) return "—";
+  return `${Math.round(kurus / 100).toLocaleString("en-US")} ₺`;
+}
+
 /** Tenths of a millilitre to millilitres: 50 -> "5 ml", 15 -> "1.5 ml". */
 export function formatMl(sizeMlX10: number): string {
   const ml = sizeMlX10 / 10;

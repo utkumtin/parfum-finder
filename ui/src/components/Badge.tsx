@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type BadgeKind = "stale" | "clone" | "weak";
+type BadgeKind = "stale" | "clone" | "weak" | "value" | "good";
 
 export function Badge({
   kind,

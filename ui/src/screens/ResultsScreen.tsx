@@ -46,6 +46,60 @@ function toBlocks(rows: ResultRow[]): Block[] {
   return blocks;
 }
 
+/** The sizes a trial buy is offered in, smallest first, in tenths of a ml. */
+const TRIAL_SIZES_ML_X10 = [30, 50];
+
+interface Verdicts {
+  /** Lowest price per ml: what to buy when the intent is to wear it. */
+  rate: ResultRow | null;
+  /** Least money that answers "what does this smell like", and its size. */
+  trial: ResultRow | null;
+}
+
+/**
+ * The two rows a block's answer reduces to.
+ *
+ * Scoped to one block rather than to everything a query matched, because a
+ * block is one bottle: a search for "Dior Sauvage EDP" also turns up Sauvage
+ * Elixir, and letting the Elixir win this comparison would be answering a
+ * question nobody asked. Clones are out for the same reason, and they would
+ * win every time on rate alone.
+ *
+ * `trial` walks 3 ml then 5 ml, the two sizes the shops sell as samples. When
+ * neither exists there is nothing to recommend that the rate verdict does not
+ * already say, so it stays null and the card does not render.
+ */
+function pickVerdicts(rows: ResultRow[]): Verdicts {
+  // Zero is filtered, not just null: nothing stops a misread page from
+  // storing a price of 0, and a free bottle would win both verdicts outright
+  // while making the rate the trial card divides by a zero.
+  const priced = rows.filter(
+    (r) =>
+      r.price_kurus !== null &&
+      r.price_kurus > 0 &&
+      r.price_per_ml_kurus !== null &&
+      Number(r.price_per_ml_kurus) > 0 &&
+      !r.clone_of,
+  );
+  if (priced.length === 0) return { rate: null, trial: null };
+
+  const rate = priced.reduce((best, row) =>
+    Number(row.price_per_ml_kurus) < Number(best.price_per_ml_kurus) ? row : best,
+  );
+
+  let trial: ResultRow | null = null;
+  for (const size of TRIAL_SIZES_ML_X10) {
+    const sized = priced.filter((r) => r.size_ml_x10 === size);
+    if (sized.length === 0) continue;
+    trial = sized.reduce((best, row) =>
+      (row.price_kurus ?? 0) < (best.price_kurus ?? 0) ? row : best,
+    );
+    break;
+  }
+  // The same row twice is one fact stated twice, so the second card goes.
+  return { rate, trial: trial === rate ? null : trial };
+}
+
 const SORT_LABELS: { key: SortKey; label: string; numeric: boolean }[] = [
   { key: "ml", label: "ml", numeric: true },
   { key: "price", label: "Fiyat", numeric: true },
@@ -248,11 +302,86 @@ export function ResultsScreen({
           const searchBlocks = blocks.filter((b) => b.queryIndex === search.index);
           const searchNotices = notices[search.index] ?? [];
           const notFound = missing[search.index] ?? [];
+          // The leading block is the bottle ranking.py decided the query was
+          // asking about, so it is the one the verdicts speak for.
+          const verdicts = pickVerdicts(searchBlocks[0]?.rows ?? []);
+          const cheapestPerMl =
+            verdicts.rate === null ? null : Number(verdicts.rate.price_per_ml_kurus);
           return (
             <section key={search.index} className="section">
               <div className="section-head">
                 <h2>{search.text}</h2>
               </div>
+
+              {verdicts.rate && (
+                <div className={`verdicts${verdicts.trial ? "" : " alone"}`}>
+                  <div className="verdict rate">
+                    <span className="verdict-body">
+                      <span className="verdict-kicker">En iyi ₺/ml</span>
+                      <span className="verdict-figure">
+                        <b>{formatPerMl(verdicts.rate.price_per_ml_kurus)}</b>
+                      </span>
+                      <span className="verdict-where">
+                        {verdicts.rate.site_label} ·{" "}
+                        {formatMl(verdicts.rate.size_ml_x10)} ·{" "}
+                        {formatPrice(verdicts.rate.price_kurus)}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="button small"
+                      onClick={() => void addToBasket(verdicts.rate!, false)}
+                    >
+                      Sepete ekle
+                    </button>
+                  </div>
+
+                  {verdicts.trial && (
+                    <div className="verdict">
+                      <span className="verdict-body">
+                        <span className="verdict-kicker">
+                          En ucuz {formatMl(verdicts.trial.size_ml_x10)}
+                        </span>
+                        <span className="verdict-figure">
+                          <b>{formatPrice(verdicts.trial.price_kurus)}</b>
+                        </span>
+                        <span className="verdict-where">
+                          {verdicts.trial.site_label} ·{" "}
+                          {formatPerMl(verdicts.trial.price_per_ml_kurus)}
+                        </span>
+                        {/* Both halves of the trade, because the card would
+                            otherwise only show the half that makes it look
+                            good: less money now, worse rate per ml. A trial
+                            size is not guaranteed to cost less than the best
+                            rate, and a saving quoted as a negative number
+                            would be worse than saying nothing. */}
+                        {(verdicts.rate.price_kurus ?? 0) >
+                          (verdicts.trial.price_kurus ?? 0) && (
+                          <span className="verdict-note">
+                            {(
+                              Number(verdicts.trial.price_per_ml_kurus) /
+                              Number(verdicts.rate.price_per_ml_kurus)
+                            ).toFixed(1)}
+                            × ₺/ml, ama{" "}
+                            {formatPrice(
+                              (verdicts.rate.price_kurus ?? 0) -
+                                (verdicts.trial.price_kurus ?? 0),
+                            )}{" "}
+                            daha az para
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        className="button small"
+                        onClick={() => void addToBasket(verdicts.trial!, false)}
+                      >
+                        Sepete ekle
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               {searchNotices.map((notice, i) => (
                 <div
                   key={i}
@@ -291,7 +420,6 @@ export function ResultsScreen({
                           {sort === key && <span className="sort-arrow" aria-hidden="true">▲</span>}
                         </th>
                       ))}
-                      <th className="num">%</th>
                       <th>Güncellik</th>
                       <th />
                     </tr>
@@ -299,7 +427,7 @@ export function ResultsScreen({
                   {searchBlocks.map((block) => (
                     <tbody key={`${block.queryIndex}-${block.product}`}>
                       <tr className="block-head-row">
-                        <th colSpan={8} scope="colgroup">
+                        <th colSpan={7} scope="colgroup">
                           <span className="block-title">{block.product}</span>
                           <span className="block-note">{block.rows.length} boy</span>
                         </th>
@@ -307,14 +435,32 @@ export function ResultsScreen({
                       {block.rows.map((row) => (
                           <tr
                             key={`${row.site_id}-${row.raw_title}-${row.size_ml_x10}`}
-                            className={row.product_url ? "clickable" : ""}
+                            className={[
+                              row.product_url ? "clickable" : "",
+                              row === verdicts.rate ? "cheapest" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
                             onClick={() => {
                               if (row.product_url)
                                 window.open(row.product_url, "_blank", "noopener");
                             }}
                           >
                             <td className="title-cell" title={row.raw_title}>
-                              {row.raw_title}{" "}
+                              {/* The title truncates, the badges do not: a
+                                  shop title long enough to need an ellipsis
+                                  was swallowing the very mark that says this
+                                  row is the answer. */}
+                              <span className="title-inner">
+                              <span className="title-text">{row.raw_title}</span>
+                              {row === verdicts.rate && (
+                                <Badge kind="value">en iyi ₺/ml</Badge>
+                              )}
+                              {row === verdicts.trial && (
+                                <Badge kind="value">
+                                  en ucuz {formatMl(row.size_ml_x10)}
+                                </Badge>
+                              )}
                               {row.clone_of && (
                                 <Badge kind="clone">klon: {row.clone_of}</Badge>
                               )}
@@ -323,12 +469,37 @@ export function ResultsScreen({
                                   zayıf eşleşme
                                 </Badge>
                               )}
+                              </span>
                             </td>
                             <td className="site-cell">{row.site_label}</td>
                             <td className="num">{formatMl(row.size_ml_x10)}</td>
                             <td className="num">{formatPrice(row.price_kurus)}</td>
-                            <td className="num">{formatPerMl(row.price_per_ml_kurus)}</td>
-                            <td className="num dim">{row.match_score}</td>
+                            <td className="num perml">
+                              {/* Sized against the block's own cheapest row, so
+                                  the bar compares bottles that are actually
+                                  comparable rather than the whole screen. */}
+                              <span
+                                className={`perml-bar${row.clone_of ? " clone-bar" : ""}`}
+                                aria-hidden="true"
+                                style={{
+                                  width:
+                                    cheapestPerMl === null ||
+                                    row.price_per_ml_kurus === null
+                                      ? 0
+                                      : `${Math.min(
+                                          100,
+                                          (cheapestPerMl /
+                                            Number(row.price_per_ml_kurus)) *
+                                            100,
+                                        )}%`,
+                                }}
+                              />
+                              <span
+                                className={`perml-value${row.clone_of ? " dim" : ""}`}
+                              >
+                                {formatPerMl(row.price_per_ml_kurus)}
+                              </span>
+                            </td>
                             <td>
                               {row.age_days >= config.stale_price_days ? (
                                 <Badge kind="stale">{formatAge(row.age_days)}</Badge>

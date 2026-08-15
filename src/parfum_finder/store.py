@@ -91,6 +91,13 @@ CREATE TABLE IF NOT EXISTS basket_items (
     UNIQUE (perfume_id, size_ml_x10)
 );
 
+CREATE TABLE IF NOT EXISTS search_history (
+    -- The whole line as it was typed, not the split parts. Replaying a recent
+    -- search has to reproduce the multi-perfume query someone actually ran.
+    query_text  TEXT PRIMARY KEY,
+    searched_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_snapshots_variant_time
     ON price_snapshots  (variant_id, fetched_at DESC);
 CREATE INDEX IF NOT EXISTS idx_variants_product
@@ -794,6 +801,33 @@ def set_basket_qty(conn: sqlite3.Connection, *, basket_item_id: int, qty: int) -
         if cursor.rowcount == 0:
             raise ValueError(f"no basket item with id {basket_item_id}")
     return clamped
+
+
+def record_search(conn: sqlite3.Connection, query_text: str, searched_at: str) -> None:
+    """Remember a query line so the search screen can offer it again.
+
+    Re-running the same line moves it to the top rather than adding a second
+    copy: a recents list that repeats one query five times is a list that has
+    room for four fewer things someone might actually want.
+    """
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO search_history (query_text, searched_at) VALUES (?, ?)
+            ON CONFLICT (query_text) DO UPDATE SET searched_at = excluded.searched_at
+            """,
+            (query_text, searched_at),
+        )
+
+
+def recent_searches(conn: sqlite3.Connection, limit: int = 5) -> list[tuple[str, str]]:
+    """The most recently run query lines, newest first, as (text, searched_at)."""
+    rows = conn.execute(
+        "SELECT query_text, searched_at FROM search_history"
+        " ORDER BY searched_at DESC, rowid DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [(str(r["query_text"]), str(r["searched_at"])) for r in rows]
 
 
 def _scalar(conn: sqlite3.Connection, sql: str, params: tuple[object, ...]) -> int:

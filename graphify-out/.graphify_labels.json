@@ -81,5 +81,6 @@
   "79": "exclude_keywords",
   "80": "_trial",
   "81": ".on_button_pressed",
-  "82": "ConfirmDialog.tsx"
+  "82": "ConfirmDialog.tsx",
+  "83": "split_queries"
 }

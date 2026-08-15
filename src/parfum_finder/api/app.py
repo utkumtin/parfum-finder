@@ -25,6 +25,7 @@ import contextlib
 import json
 import os
 import secrets
+import sqlite3
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -84,6 +85,8 @@ from parfum_finder.store import (
     basket_sites,
     connect,
     now_iso,
+    recent_searches,
+    record_search,
     remove_basket_item,
     set_basket_qty,
 )
@@ -97,6 +100,11 @@ from parfum_finder.viewmodels import BasketRow
 # The three sorts the results table offers. `None` means the grouped default,
 # same as the TUI's own header-click behaviour.
 _SORT_KEYS = ("ml", "price", "per_ml")
+
+# How many past query lines the search screen offers. Short on purpose: the
+# list sits under an empty input, and a long one turns the first screen into
+# something to read instead of somewhere to type.
+RECENT_SEARCHES = 5
 
 _token_header = APIKeyHeader(name="X-Auth-Token", auto_error=False)
 
@@ -289,11 +297,21 @@ def create_app(
         app_state.scan_sessions[search_id] = ScanSession(
             id=search_id, searches=searches, rejected=rejected, force=body.force
         )
+        # The whole line as typed, so replaying it reproduces the multi-perfume
+        # query. A history that cannot be written is a convenience nobody gets,
+        # not a reason to refuse a scan someone is waiting on.
+        with contextlib.suppress(sqlite3.Error):
+            await asyncio.to_thread(_record_search, app_state.db_path, body.query)
         return SearchStartResponse(
             search_id=search_id,
             rejected=rejected,
             searches=[AcceptedSearch(index=s.index, text=s.text) for s in searches],
         )
+
+    @app.get("/api/searches/recent", dependencies=[auth])
+    async def list_recent_searches(request: Request) -> list[dict[str, str]]:
+        app_state = get_state(request)
+        return await asyncio.to_thread(_recent_searches, app_state.db_path)
 
     @app.websocket("/api/search/{search_id}")
     async def stream_search(websocket: WebSocket, search_id: str) -> None:
@@ -519,6 +537,25 @@ def _site_summary(profile: dict[str, Any]) -> dict[str, Any]:
         "needs_review": age >= STALE_PROFILE_DAYS,
         "discovered_at": discovered_at,
     }
+
+
+def _record_search(db_path: Path, query_text: str) -> None:
+    conn = connect(db_path)
+    try:
+        record_search(conn, query_text, now_iso())
+    finally:
+        conn.close()
+
+
+def _recent_searches(db_path: Path) -> list[dict[str, str]]:
+    conn = connect(db_path)
+    try:
+        return [
+            {"text": text, "searched_at": searched_at}
+            for text, searched_at in recent_searches(conn, limit=RECENT_SEARCHES)
+        ]
+    finally:
+        conn.close()
 
 
 def _add_basket_item(db_path: Path, body: BasketAddRequest) -> int:

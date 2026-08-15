@@ -6,6 +6,7 @@
 import type {
   AppConfig,
   BasketResponse,
+  RecentSearch,
   RefreshStart,
   ResultsResponse,
   SearchStart,
@@ -78,6 +79,8 @@ export const api = {
       method: "POST",
       json: { query, force },
     }),
+
+  recentSearches: () => request<RecentSearch[]>("/api/searches/recent"),
 
   results: (searchId: string, sort: SortKey | null) => {
     const suffix = sort ? `?sort=${sort}` : "";
