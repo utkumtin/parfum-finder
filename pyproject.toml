@@ -40,12 +40,19 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "mypy>=2.3.0",
+    "pyinstaller>=6.11.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.16.1",
     "types-jsonschema>=4.26.0.20260518",
 ]
+
+[tool.ruff]
+# PyInstaller execs this file with Analysis/PYZ/EXE/COLLECT/SPECPATH injected
+# as builtins; it isn't importable Python and neither ruff nor mypy below
+# can see those names.
+extend-exclude = ["packaging/parfum-finder.spec"]
 
 [tool.ruff.lint]
 select = [
@@ -62,11 +69,12 @@ python_version = "3.11"
 disallow_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
+exclude = "^packaging/parfum-finder\\.spec$"
 
 [[tool.mypy.overrides]]
 # C-extension-backed libraries that don't ship type stubs. If another dependency
 # raises "cannot find implementation or library stub", add it here too.
-module = ["curl_cffi.*", "selectolax.*", "gspread.*"]
+module = ["curl_cffi.*", "selectolax.*", "gspread.*", "webview.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

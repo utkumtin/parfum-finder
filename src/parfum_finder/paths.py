@@ -49,6 +49,18 @@ def schema_dir() -> Path:
     return resource_dir() / "schema"
 
 
+def ui_dir() -> Path:
+    """Built frontend (index.html + assets/), served by the backend at "/".
+
+    The PyInstaller spec maps `ui/dist/` to `ui/` inside the bundle, so a
+    frozen build's assets sit one level up from where they live in a source
+    checkout.
+    """
+    if is_frozen():
+        return resource_dir() / "ui"
+    return resource_dir() / "ui" / "dist"
+
+
 def default_db_path() -> Path:
     return user_data_dir() / "parfum-finder.db"
 

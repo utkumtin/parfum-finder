@@ -158,6 +158,54 @@ def test_the_token_env_var_is_read_when_no_token_is_passed(
         )
 
 
+# -- static frontend -------------------------------------------------------
+
+
+def test_no_ui_build_leaves_the_api_untouched(
+    sites_dir: Path, db_path: Path, tmp_path: Path
+) -> None:
+    # A fresh checkout (and the Linux CI job) never runs `npm run build`, so
+    # the directory this points at has no index.html: the mount must be
+    # skipped rather than raising, and "/api/*" must not have been shadowed
+    # by a "/" route that was never registered.
+    app = create_app(
+        sites_dir=sites_dir,
+        db_path=db_path,
+        runner=_static_runner({}),
+        ui_dir=tmp_path / "no-such-ui-build",
+        auth_token="the-token",
+    )
+    with TestClient(app) as c:
+        assert c.get("/api/config", headers=_auth("the-token")).status_code == 200
+        assert c.get("/").status_code == 404
+
+
+def test_the_ui_build_is_served_with_the_token_injected(
+    sites_dir: Path, db_path: Path, tmp_path: Path
+) -> None:
+    ui_dir = tmp_path / "ui"
+    (ui_dir / "assets").mkdir(parents=True)
+    (ui_dir / "index.html").write_text(
+        "<html><head><title>t</title></head><body></body></html>"
+    )
+    (ui_dir / "assets" / "index.js").write_text("console.log('ui')")
+    app = create_app(
+        sites_dir=sites_dir,
+        db_path=db_path,
+        runner=_static_runner({}),
+        ui_dir=ui_dir,
+        auth_token="the-token",
+    )
+    with TestClient(app) as c:
+        # "/api/*" still works with a mount registered: the mount must not
+        # have shadowed it.
+        assert c.get("/api/config", headers=_auth("the-token")).status_code == 200
+        index = c.get("/")
+        assert index.status_code == 200
+        assert 'window.__PARFUM_TOKEN__="the-token";' in index.text
+        assert c.get("/assets/index.js").status_code == 200
+
+
 # -- config ---------------------------------------------------------------
 
 

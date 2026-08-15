@@ -28,6 +28,18 @@ def _freeze(
     monkeypatch.setattr(paths, "user_data_dir", lambda: user_data_dir)
 
 
+def test_ui_dir_is_under_dist_when_not_frozen_but_not_when_frozen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The PyInstaller spec maps ui/dist/ to ui/ inside the bundle, so a
+    # frozen build looks one directory level up from a source checkout.
+    assert paths.ui_dir() == paths.resource_dir() / "ui" / "dist"
+
+    bundle = tmp_path / "bundle"
+    _freeze(monkeypatch, bundle, tmp_path / "user_data")
+    assert paths.ui_dir() == bundle / "ui"
+
+
 def test_ensure_user_data_seeds_sites_platforms_and_hooks(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

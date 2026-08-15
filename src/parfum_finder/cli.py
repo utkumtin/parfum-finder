@@ -8,6 +8,7 @@ Subcommands will be added incrementally as the project grows:
                               several perfumes at once: "a - b - c"
     tui [--db] [--sheet-credentials] [--sheet-id] [--sheet-worksheet]
                               - launch the interactive app
+    gui [--selftest]         - launch the desktop app (backend + pywebview window)
     (default, no subcommand)   - same as tui
 
 The three --sheet-* flags also fall back to PARFUM_SHEET_CREDENTIALS,
@@ -382,6 +383,18 @@ def main() -> None:
         "falls back to $PARFUM_SHEET_WORKSHEET / .env",
     )
 
+    gui_parser = subparsers.add_parser(
+        "gui", help="launch the desktop app (FastAPI backend + pywebview window)"
+    )
+    gui_parser.add_argument(
+        "--selftest",
+        action="store_true",
+        help=(
+            "boot the backend headlessly, hit it once, then exit -- no window "
+            "opens. Used by the Windows CI build to smoke-test the frozen exe."
+        ),
+    )
+
     args = parser.parse_args()
 
     if args.command is None or args.command == "tui":
@@ -475,3 +488,10 @@ def main() -> None:
             # this is what lets CI run offline validation as a gate instead of
             # producing output nobody reads.
             sys.exit(1)
+    elif args.command == "gui":
+        # Imported here, not at module load, same reason as tui.app above:
+        # every other subcommand keeps running without the "gui" extra
+        # installed and without importing pywebview's platform backend.
+        from parfum_finder.gui import main as run_gui
+
+        sys.exit(run_gui(selftest=args.selftest))

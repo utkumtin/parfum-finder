@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import os
 import secrets
 from collections.abc import AsyncGenerator, AsyncIterator
@@ -33,11 +34,13 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from fastapi.websockets import WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-from parfum_finder import ranking
+from parfum_finder import paths, ranking
 from parfum_finder.api.serialize import (
     encode_basket_refresh_event,
     encode_basket_report,
@@ -183,7 +186,9 @@ def create_app(
     db_path: Path = DEFAULT_DB_PATH,
     runner: SiteRunner = run_site,
     auth_token: str | None = None,
+    ui_dir: Path | None = None,
 ) -> FastAPI:
+    resolved_ui_dir = ui_dir if ui_dir is not None else paths.ui_dir()
     state = _AppState(
         sites_dir=sites_dir,
         db_path=db_path,
@@ -474,6 +479,32 @@ def create_app(
                     await websocket.send_json(encode_basket_refresh_event(event))
         except WebSocketDisconnect:
             pass
+
+    # -- static frontend ---------------------------------------------------
+    #
+    # Registered last: a mount at "/" would otherwise shadow every "/api/*"
+    # route declared above it, since Starlette resolves routes in
+    # registration order. Skipped entirely when there is no build to serve
+    # (a fresh checkout, or the Linux CI job, never runs `npm run build`).
+    index_path = resolved_ui_dir / "index.html"
+    if index_path.is_file():
+        assets_dir = resolved_ui_dir / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="ui-assets")
+
+        # The packaged app has no window chrome to type a token into, so the
+        # token has to already be on the page: pywebview loads "/" and the
+        # React app's first API call happens before any script we could
+        # inject afterwards would run, ruling out an `evaluate_js` approach.
+        raw_html = index_path.read_text(encoding="utf-8")
+        token_script = (
+            f"<script>window.__PARFUM_TOKEN__={json.dumps(state.auth_token)};</script>"
+        )
+        indexed_html = raw_html.replace("<head>", f"<head>\n    {token_script}", 1)
+
+        @app.get("/", include_in_schema=False)
+        async def index() -> HTMLResponse:
+            return HTMLResponse(indexed_html)
 
     return app
 

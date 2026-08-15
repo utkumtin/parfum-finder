@@ -135,8 +135,8 @@
     "semantic_hash": "bfb86f2cf40bd53f255152fba8118e73"
   },
   "src/parfum_finder/matcher.py": {
-    "mtime": 1786715061.4773974,
-    "ast_hash": "aad7cfffe82bef31dd8944af06154312",
+    "mtime": 1786793487.2616262,
+    "ast_hash": "075ecd06ccdfdf5c466ec0e9287e4fe7",
     "semantic_hash": ""
   },
   "src/parfum_finder/normalize.py": {
@@ -280,14 +280,14 @@
     "semantic_hash": ""
   },
   "ARCHITECTURE.md": {
-    "mtime": 1786694762.0749784,
-    "ast_hash": "2fd5839abdf2a4e30445d7e5f1707863",
+    "mtime": 1786794469.9951143,
+    "ast_hash": "16c0bb838c24854119076948ac4e1b81",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1786253415.9392338,
-    "ast_hash": "f44a03c50bd19f1a03b57e7d5b09abed",
-    "semantic_hash": "f44a03c50bd19f1a03b57e7d5b09abed"
+    "mtime": 1786794528.2875667,
+    "ast_hash": "b24f31b108770a65e631862b452af31b",
+    "semantic_hash": ""
   },
   "docs/discovery-report.md": {
     "mtime": 1786346951.405271,
@@ -460,8 +460,8 @@
     "semantic_hash": ""
   },
   "tests/test_scan_service.py": {
-    "mtime": 1786716729.7417917,
-    "ast_hash": "245ab47aee328c0dbcb67fd5f52b16ec",
+    "mtime": 1786794572.8439503,
+    "ast_hash": "013db701df1e560022666d22e52d83b1",
     "semantic_hash": ""
   },
   "src/parfum_finder/api/__init__.py": {
@@ -470,8 +470,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/api/app.py": {
-    "mtime": 1786791933.2236376,
-    "ast_hash": "10c1182e4786e3f06154494b13622e1f",
+    "mtime": 1786793842.0062578,
+    "ast_hash": "29a58ced31ad36c1f809f077555f1b50",
     "semantic_hash": ""
   },
   "src/parfum_finder/api/serialize.py": {
@@ -485,8 +485,88 @@
     "semantic_hash": ""
   },
   "tests/test_api.py": {
-    "mtime": 1786791979.3239107,
-    "ast_hash": "cc039158316b7215a65021210ca5da2e",
+    "mtime": 1786794572.8449502,
+    "ast_hash": "75f096c569cc20bb99f36828caf5b9d4",
+    "semantic_hash": ""
+  },
+  "ui/package.json": {
+    "mtime": 1786793560.7848587,
+    "ast_hash": "6d3f254625d56b8a43b59cf828c5b932",
+    "semantic_hash": ""
+  },
+  "ui/src/App.tsx": {
+    "mtime": 1786794833.869862,
+    "ast_hash": "934731d500e3381ba1e0c7ab78b98558",
+    "semantic_hash": ""
+  },
+  "ui/src/api/client.ts": {
+    "mtime": 1786793604.4438064,
+    "ast_hash": "481963f77f0cc5f0a254f4e238ac573b",
+    "semantic_hash": ""
+  },
+  "ui/src/api/ws.ts": {
+    "mtime": 1786793625.758354,
+    "ast_hash": "6c8e1d026d47030f891149f900a9e761",
+    "semantic_hash": ""
+  },
+  "ui/src/components/Badge.tsx": {
+    "mtime": 1786793702.2764819,
+    "ast_hash": "3360b8272bf163a69afbd65298d33509",
+    "semantic_hash": ""
+  },
+  "ui/src/components/ConfirmDialog.tsx": {
+    "mtime": 1786793712.7791288,
+    "ast_hash": "05748d4d61d56346c46e696ea5c6d2f2",
+    "semantic_hash": ""
+  },
+  "ui/src/components/ProgressBar.tsx": {
+    "mtime": 1786793706.4814153,
+    "ast_hash": "419944ff6384cc02ecf87dc23d80b067",
+    "semantic_hash": ""
+  },
+  "ui/src/lib/format.ts": {
+    "mtime": 1786794858.0754786,
+    "ast_hash": "f22e196055f4a5ce0623c2574a06de98",
+    "semantic_hash": ""
+  },
+  "ui/src/main.tsx": {
+    "mtime": 1786794023.2456574,
+    "ast_hash": "f0ec263f8913b283d224f1c5cba5c1de",
+    "semantic_hash": ""
+  },
+  "ui/src/screens/BasketScreen.tsx": {
+    "mtime": 1786794841.8021197,
+    "ast_hash": "f09119626092a995730e7bda2db15574",
+    "semantic_hash": ""
+  },
+  "ui/src/screens/ResultsScreen.tsx": {
+    "mtime": 1786794855.908183,
+    "ast_hash": "8860fbaeba5b8867d0c8d64fb88566ff",
+    "semantic_hash": ""
+  },
+  "ui/src/screens/SearchScreen.tsx": {
+    "mtime": 1786793874.5265827,
+    "ast_hash": "a506796b3482bfa7117515359047d87d",
+    "semantic_hash": ""
+  },
+  "ui/src/types.ts": {
+    "mtime": 1786793856.877717,
+    "ast_hash": "d4b8fdda73db74f184fa88073474c706",
+    "semantic_hash": ""
+  },
+  "ui/tsconfig.json": {
+    "mtime": 1786793563.6118202,
+    "ast_hash": "f95f9c158b8c7d3c28b915ae2e4957f1",
+    "semantic_hash": ""
+  },
+  "ui/vite.config.ts": {
+    "mtime": 1786794049.9701738,
+    "ast_hash": "018c98e7a50e1c11c179c6e04f96ef47",
+    "semantic_hash": ""
+  },
+  "ui/index.html": {
+    "mtime": 1786793570.728859,
+    "ast_hash": "85a2923e1b069ca9a31e7a579f5379a2",
     "semantic_hash": ""
   }
 }

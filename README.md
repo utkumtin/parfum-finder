@@ -103,6 +103,33 @@ cd ui && npm install && npm run dev        # http://localhost:5173
 Token verilmezse süreç başına rastgele bir tane üretilir — paketlenmiş uygulamanın
 davranışı budur, orada token pencereye enjekte edilir.
 
+## Windows masaüstü kurulumu
+
+`.github/workflows/build-windows.yml` her `main` push'unda ve `v*` etiketinde
+`windows-latest` üzerinde bir kurulum sihirbazı (`parfum-finder-setup.exe`)
+üretir; iş akışının "Upload artifact" adımından indirilebilir, etiketli
+sürümlerde ayrıca GitHub Release'e eklenir.
+
+Kurulum admin istemez, `%LOCALAPPDATA%\Programs\parfum-finder` altına kurar.
+Bilinmesi gereken iki şey:
+
+- **SmartScreen uyarısı.** Exe imzasız, ilk açılışta Windows "Bilinmeyen
+  yayımcı" uyarısı gösterir. "Daha fazla bilgi" → "Yine de çalıştır" ile
+  geçilir. v1 için bilinçli olarak kabul edildi, bkz. `build-windows-app.md` §4.6.
+- **WebView2 Runtime.** Windows 11'de kurulu gelir; eski Windows 10
+  sürümlerinde olmayabilir. Uygulama WebView2 bulamazsa Microsoft'un
+  Evergreen Bootstrapper'ına yönlendiren bir mesaj kutusu gösterir, beyaz
+  ekran vermez.
+
+Kaynaktan Windows exe üretmek için (CI'ın yaptığının aynısı):
+
+```powershell
+cd ui; npm ci; npm run build; cd ..
+uv sync --locked --extra gui
+uv run pyinstaller packaging/parfum-finder.spec
+.\dist\parfum-finder\parfum-finder.exe --selftest   # pencere açmadan arka ucu dener
+```
+
 ## Geliştirme ortamı
 
 ```bash

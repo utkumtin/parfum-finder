@@ -24,6 +24,7 @@ one.
 from __future__ import annotations
 
 import asyncio
+import sys
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -246,8 +247,13 @@ async def _launch_browser() -> tuple[Any, Any]:
         ) from e
 
     playwright = await async_playwright().start()
+    launch_kwargs: dict[str, Any] = {}
+    if sys.platform == "win32":
+        # Windows ships Edge; launching it through this channel skips the
+        # separate chromium download this strategy would otherwise need.
+        launch_kwargs["channel"] = "msedge"
     try:
-        browser = await playwright.chromium.launch()
+        browser = await playwright.chromium.launch(**launch_kwargs)
     except PlaywrightError as e:
         await playwright.stop()
         # A downloaded-browser check, not a navigation failure. Left as a
@@ -256,6 +262,15 @@ async def _launch_browser() -> tuple[Any, Any]:
         # fairly measured and lost.
         if "Executable doesn't exist" not in str(e):
             raise
+        if launch_kwargs.get("channel") == "msedge":
+            # Missing Edge is a machine problem, not a missing pip install;
+            # falling back to a different chromium silently would hide that
+            # this run isn't testing what production will actually launch.
+            raise PlaywrightNotInstalled(
+                "strategy 'playwright' needs Microsoft Edge installed "
+                "(this platform launches it via channel='msedge' instead of "
+                "downloading a separate chromium)"
+            ) from e
         raise PlaywrightNotInstalled(
             "strategy 'playwright' requires a downloaded browser: "
             "run `uv run playwright install chromium`"
