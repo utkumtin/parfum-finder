@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1786879596.9344406,
-    "ast_hash": "1832d3139ece0f4f6eaf635cb41e32e0",
+    "mtime": 1786880121.1931112,
+    "ast_hash": "0f3268b98e26f41284355fda97aa4ffb",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -595,8 +595,8 @@
     "semantic_hash": ""
   },
   "ui/src/components/AddButton.tsx": {
-    "mtime": 1786822350.813761,
-    "ast_hash": "ffaf95910b1fa1c8fe2b8f3d0ad483d1",
+    "mtime": 1786879819.6338978,
+    "ast_hash": "caac9f136d03bca2b510b71c984956d9",
     "semantic_hash": ""
   },
   "ui/src/components/ScanStatus.tsx": {

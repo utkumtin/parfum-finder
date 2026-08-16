@@ -22,6 +22,10 @@ export function App() {
   // Bumped whenever the basket changed under the basket screen's feet, so
   // switching to it shows the addition rather than a stale read.
   const [basketVersion, setBasketVersion] = useState(0);
+  // How many lines the basket holds, for the count on its tab. Read here
+  // rather than lifted out of BasketScreen because the number has to be there
+  // before that screen has ever been opened.
+  const [basketCount, setBasketCount] = useState(0);
 
   useEffect(() => {
     Promise.all([api.config(), api.sites()])
@@ -33,6 +37,23 @@ export function App() {
         setStartupError(e instanceof ApiError ? e.message : String(e));
       });
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    // A count nobody could read is a missing convenience, not a broken screen:
+    // the tab works either way, so this failure stays quiet.
+    api
+      .basket()
+      .then((response) => {
+        if (!cancelled) setBasketCount(response.rows.length);
+      })
+      .catch(() => {
+        if (!cancelled) setBasketCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [basketVersion]);
 
   const notify = useCallback((message: string, kind: "info" | "error") => {
     setToast({ message, kind });
@@ -54,6 +75,13 @@ export function App() {
 
   return (
     <div className="app">
+      {/* Two fixed, non-interactive layers: a warm halo so the top of the
+          window reads as lit, and a grain so the ground is not a flat sheet.
+          Fixed keeps both off the scrolling content, where a repainting
+          gradient would cost frames for nothing. */}
+      <div className="ground" aria-hidden="true" />
+      <div className="grain" aria-hidden="true" />
+
       <header className="toolbar">
         <span className="toolbar-title">parfum-finder</span>
         <span className="toolbar-spacer" />
@@ -82,6 +110,7 @@ export function App() {
             onClick={() => setView("basket")}
           >
             Sepet
+            {basketCount > 0 && <span className="tab-count">{basketCount}</span>}
           </button>
         </nav>
       </header>
@@ -123,6 +152,7 @@ export function App() {
             config={config}
             siteNames={siteNames}
             notify={notify}
+            onBasketChanged={onBasketChanged}
           />
         )}
       </main>

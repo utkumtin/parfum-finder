@@ -80,5 +80,7 @@
   "78": "vite.config.ts",
   "79": "AddButton.tsx",
   "80": "ConfirmDialog.tsx",
-  "81": "ScanStatus.tsx"
+  "81": "ScanStatus.tsx",
+  "82": "ConfirmDialog.tsx",
+  "83": "ScanStatus.tsx"
 }

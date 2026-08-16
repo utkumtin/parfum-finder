@@ -1,0 +1,92 @@
+{
+  "package.json": {
+    "mtime": 1786793560.7848587,
+    "ast_hash": "6d3f254625d56b8a43b59cf828c5b932",
+    "semantic_hash": ""
+  },
+  "src/App.tsx": {
+    "mtime": 1786884310.5122828,
+    "ast_hash": "3ece2e12d273694909fb22c33eecd9b3",
+    "semantic_hash": ""
+  },
+  "src/api/client.ts": {
+    "mtime": 1786828521.359585,
+    "ast_hash": "47ddb7b0fa4d5bcbda18737fab41218a",
+    "semantic_hash": ""
+  },
+  "src/api/ws.ts": {
+    "mtime": 1786793625.758354,
+    "ast_hash": "6c8e1d026d47030f891149f900a9e761",
+    "semantic_hash": ""
+  },
+  "src/components/AddButton.tsx": {
+    "mtime": 1786879819.6338978,
+    "ast_hash": "caac9f136d03bca2b510b71c984956d9",
+    "semantic_hash": ""
+  },
+  "src/components/Badge.tsx": {
+    "mtime": 1786826669.0304174,
+    "ast_hash": "75e3f28cffd4be8af459e2b8ab879253",
+    "semantic_hash": ""
+  },
+  "src/components/ConfirmDialog.tsx": {
+    "mtime": 1786793712.7791288,
+    "ast_hash": "05748d4d61d56346c46e696ea5c6d2f2",
+    "semantic_hash": ""
+  },
+  "src/components/ProgressBar.tsx": {
+    "mtime": 1786793706.4814153,
+    "ast_hash": "419944ff6384cc02ecf87dc23d80b067",
+    "semantic_hash": ""
+  },
+  "src/components/ScanStatus.tsx": {
+    "mtime": 1786884295.6703725,
+    "ast_hash": "273e53d8a649ed5b1b85aa9c6dea5352",
+    "semantic_hash": ""
+  },
+  "src/lib/format.ts": {
+    "mtime": 1786826995.82321,
+    "ast_hash": "f3dcdf550363c80d52d3ba4559e2df0a",
+    "semantic_hash": ""
+  },
+  "src/main.tsx": {
+    "mtime": 1786794023.2456574,
+    "ast_hash": "f0ec263f8913b283d224f1c5cba5c1de",
+    "semantic_hash": ""
+  },
+  "src/screens/BasketScreen.tsx": {
+    "mtime": 1786884716.504947,
+    "ast_hash": "a09b14f95568beddf7cb1a1265b1778c",
+    "semantic_hash": ""
+  },
+  "src/screens/ResultsScreen.tsx": {
+    "mtime": 1786884286.629576,
+    "ast_hash": "14c3c6b2b120ec221fb6db64ebdffab4",
+    "semantic_hash": ""
+  },
+  "src/screens/SearchScreen.tsx": {
+    "mtime": 1786884225.3017104,
+    "ast_hash": "0228d95b6a800a5906b591164f379e83",
+    "semantic_hash": ""
+  },
+  "src/types.ts": {
+    "mtime": 1786826476.146464,
+    "ast_hash": "71b0efeb9050d63d4e6146cbef624db0",
+    "semantic_hash": ""
+  },
+  "tsconfig.json": {
+    "mtime": 1786793563.6118202,
+    "ast_hash": "f95f9c158b8c7d3c28b915ae2e4957f1",
+    "semantic_hash": ""
+  },
+  "vite.config.ts": {
+    "mtime": 1786794049.9701738,
+    "ast_hash": "018c98e7a50e1c11c179c6e04f96ef47",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1786793570.728859,
+    "ast_hash": "85a2923e1b069ca9a31e7a579f5379a2",
+    "semantic_hash": ""
+  }
+}

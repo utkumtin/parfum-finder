@@ -93,29 +93,44 @@ export function SearchScreen({
 
   return (
     <div className="page search-page">
-      <div>
-        <h1 className="search-heading">Parfüm ara</h1>
-        <p className="search-sub">
-          Birden fazla parfümü <code>{" - "}</code> ile ayırın. En fazla{" "}
-          {config.max_queries} parfüm.
-        </p>
-      </div>
+      <p className="search-sub">
+        Birden fazla parfümü <code>{" - "}</code> ile ayırın. En fazla{" "}
+        {config.max_queries} parfüm.
+      </p>
 
-      <div className={`search-field${overLimit ? " over-limit" : ""}`}>
-        <input
-          type="text"
-          value={text}
-          autoFocus
-          placeholder="Dior Sauvage EDP - Creed Aventus"
-          aria-label="Aranacak parfümler"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void submit();
-          }}
-        />
-        <span className={`search-count${overLimit ? " over-limit" : ""}`}>
-          {parts.length} / {config.max_queries}
-        </span>
+      <div className={`tray search-field${overLimit ? " over-limit" : ""}`}>
+        <div className="core">
+          <input
+            type="text"
+            value={text}
+            autoFocus
+            placeholder="Dior Sauvage EDP - Creed Aventus"
+            aria-label="Aranacak parfümler"
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void submit();
+            }}
+          />
+          <span className={`search-count${overLimit ? " over-limit" : ""}`}>
+            {parts.length} / {config.max_queries}
+          </span>
+          {/* Inside the field rather than under it: the button belongs to the
+              line it acts on, and a shopper hitting Enter and a shopper
+              reaching for the button are doing the same thing. */}
+          <button
+            type="button"
+            className="button primary"
+            disabled={overLimit || parts.length === 0 || starting}
+            onClick={() => void submit()}
+          >
+            {starting ? "Başlatılıyor…" : "Ara"}
+            <span className="button-pip" aria-hidden="true">
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <path d="M2.5 9.5 9.5 2.5M4 2.5h5.5V8" />
+              </svg>
+            </span>
+          </button>
+        </div>
       </div>
 
       {parts.length > 0 && (
@@ -154,30 +169,31 @@ export function SearchScreen({
       {error && <div className="notice error">{error}</div>}
 
       <div className="search-actions">
-        <button
-          type="button"
-          className="button primary"
-          disabled={overLimit || parts.length === 0 || starting}
-          onClick={() => void submit()}
-        >
-          {starting ? "Başlatılıyor…" : "Ara"}
-        </button>
         <label className="checkbox">
           <input
             type="checkbox"
             checked={force}
             onChange={(e) => setForce(e.target.checked)}
           />
+          <span className="checkbox-box" aria-hidden="true">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1.5 5.2 4 7.5 8.5 2.5" />
+            </svg>
+          </span>
           {/* The TUI's [r]. Without it a perfume already in storage is never
               asked for again, and a table mixing two moments is not a
               comparison. */}
           Kayıttakileri de yeniden tara
         </label>
+        <span className="search-hint">
+          Kapalıyken {config.stale_price_days} günden yeni fiyatlar kayıttan
+          gelir.
+        </span>
       </div>
 
       {recents.length > 0 && (
         <div className="recents">
-          <span className="recents-label">Son aramalar</span>
+          <span className="eyebrow recents-label">Son aramalar</span>
           {recents.map((recent) => (
             <button
               key={recent.text}
@@ -188,6 +204,11 @@ export function SearchScreen({
               <span className="recent-text">{recent.text}</span>
               <span className="recent-when">
                 {formatAge(daysSince(recent.searched_at))}
+              </span>
+              <span className="recent-go" aria-hidden="true">
+                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+                  <path d="M4 2.5 7.5 6 4 9.5" />
+                </svg>
               </span>
             </button>
           ))}

@@ -90,11 +90,15 @@ export function BasketScreen({
   config,
   siteNames,
   notify,
+  onBasketChanged,
 }: {
   version: number;
   config: AppConfig;
   siteNames: Record<string, string>;
   notify: (message: string, kind: "info" | "error") => void;
+  // Adding and removing here changes the count on the Sepet tab, which is
+  // owned a level up. Without this the tab keeps the number it had before.
+  onBasketChanged: () => void;
 }) {
   const [data, setData] = useState<BasketResponse | null>(null);
   const [refreshId, setRefreshId] = useState<string | null>(null);
@@ -211,6 +215,7 @@ export function BasketScreen({
         await api.setBasketQty(row.basket_item_id, qty);
       }
       reload();
+      onBasketChanged();
     } catch (e) {
       notify(e instanceof ApiError ? e.message : String(e), "error");
     }
@@ -236,6 +241,7 @@ export function BasketScreen({
       });
       setUndo(null);
       reload();
+      onBasketChanged();
     } catch (e) {
       notify(e instanceof ApiError ? e.message : String(e), "error");
     }
@@ -340,7 +346,8 @@ export function BasketScreen({
             with the matrix between them. */}
         <div className={`plans${split === null || bestFull === null ? " alone" : ""}`}>
           {split !== null && (
-            <div className={`plan-card${splitWins ? " win" : ""}`}>
+            <div className={`tray plan-card${splitWins ? " win" : ""}`}>
+              <div className="core">
               <div className="plan-card-head">
                 {/* Never "en ucuz": this is a heuristic search's best find, and
                     claiming optimality would be claiming a proof we do not
@@ -365,20 +372,24 @@ export function BasketScreen({
                   Aramaya girmeyen siteler: {split.omitted_sites.map(siteName).join(", ")}
                 </p>
               )}
+              </div>
             </div>
           )}
 
           {bestFull === null ? (
-            <div className="plan-card">
-              <div className="plan-card-head">
-                <h3>Tek siteden</h3>
+            <div className="tray plan-card">
+              <div className="core">
+                <div className="plan-card-head">
+                  <h3>Tek siteden</h3>
+                </div>
+                <p className="plan-note">
+                  Sepetin tamamını tek başına karşılayan site yok.
+                </p>
               </div>
-              <p className="plan-note">
-                Sepetin tamamını tek başına karşılayan site yok.
-              </p>
             </div>
           ) : (
-            <div className={`plan-card${splitWins ? "" : " win"}`}>
+            <div className={`tray plan-card${splitWins ? "" : " win"}`}>
+              <div className="core">
               <div className="plan-card-head">
                 <h3>Tek siteden</h3>
                 <span className="dim">{siteName(bestFull.site_id)}</span>
@@ -404,6 +415,7 @@ export function BasketScreen({
                   </p>
                 )}
               {bestFull.notes && <p className="plan-note">{bestFull.notes}</p>}
+              </div>
             </div>
           )}
         </div>
@@ -415,6 +427,8 @@ export function BasketScreen({
         )}
 
         <div className="section">
+          <div className="tray matrix-wrap">
+            <div className="core">
           <table className="matrix">
             <colgroup>
               <col className="c-item" />
@@ -468,6 +482,7 @@ export function BasketScreen({
                             label is the only warning a screen reader gets. */}
                         <button
                           type="button"
+                          className={row.qty === 1 ? "remove" : undefined}
                           aria-label={row.qty === 1 ? "sepetten çıkar" : "azalt"}
                           title={row.qty === 1 ? "Sepetten çıkar" : undefined}
                           onClick={() => void changeQty(row, row.qty - 1)}
@@ -491,6 +506,13 @@ export function BasketScreen({
                       >
                         {row.prices[id] === undefined ? (
                           <span className="dim">—</span>
+                        ) : id === cheapest ? (
+                          // The mark needs something to sit on: a tinted pill
+                          // around the number, not a tint on the whole cell,
+                          // which at this column width reads as a stripe.
+                          <span className="cell">
+                            {formatPriceWhole(row.prices[id] ?? null)}
+                          </span>
                         ) : (
                           formatPriceWhole(row.prices[id] ?? null)
                         )}
@@ -543,6 +565,8 @@ export function BasketScreen({
               </tr>
             </tfoot>
           </table>
+            </div>
+          </div>
           <p className="matrix-note">
             Ara toplamlar adetle çarpılmıştır ve kargo hariçtir; yukarıdaki
             toplamlar kargoyu içerir.

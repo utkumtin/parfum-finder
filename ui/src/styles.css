@@ -1,35 +1,68 @@
 /* One dark theme, no light variant: the app ships as a desktop window whose
    whole surface we own. Spacing is in rem throughout so Windows at 125% or
-   150% scales the layout instead of breaking it. */
+   150% scales the layout instead of breaking it, and the page is sized for the
+   1280x900 window gui.py opens with. */
 
 :root {
-  /* The neutrals carry a slight warm bias rather than being pure grey, so the
-     ground reads as chosen rather than as the absence of a colour. */
-  --bg: #0e0d0c;
-  --surface: #191715;
-  --surface-2: #221f1c;
-  --surface-3: #2b2723;
-  --line: rgba(255, 246, 235, 0.08);
-  --line-strong: rgba(255, 246, 235, 0.16);
-  --text: #f4f1ec;
-  --text-dim: #a39c93;
-  --text-faint: #6f6862;
+  /* Warm ash. Red highest, green lowest, blue in between: that ordering warms
+     the ground without dropping it into brown, where blue would be lowest.
+     What the surfaces read as is smoke, not wood. */
+  --bg: #0c0b0d;
+  --surface: #17151a;
+  --surface-2: #201d24;
+  --surface-3: #2b2731;
 
-  /* One accent, and it means one thing: this is the good value. It marks the
-     cheapest price per ml and nothing else, which is why the stale badge
-     below had to leave the accent hue rather than share it. */
-  --accent: #b58cf0;
-  --accent-dim: rgba(181, 140, 240, 0.18);
-  --accent-line: rgba(181, 140, 240, 0.36);
-  --on-accent: #140f1c;
+  /* Every hairline and every hover tint comes from one warm off-white, so no
+     stray cool grey can get in. */
+  --wash-1: rgba(242, 236, 228, 0.045);
+  --wash-2: rgba(242, 236, 228, 0.07);
+  --wash-3: rgba(242, 236, 228, 0.11);
+  --line: rgba(242, 236, 228, 0.09);
+  --line-strong: rgba(242, 236, 228, 0.17);
+  --hi: rgba(255, 248, 238, 0.055);
 
-  --warn: #cf7f6b;
-  --warn-dim: rgba(207, 127, 107, 0.13);
-  --danger: #e2685a;
-  --danger-dim: rgba(226, 104, 90, 0.13);
-  --good: #4fbf85;
-  --good-dim: rgba(79, 191, 133, 0.14);
+  /* Shadows carry the ground's own hue rather than pure black. A black shadow
+     detaches the surface from the page and reads cheap. */
+  --shadow-soft: 0 1.5rem 3.5rem -2rem rgba(8, 5, 10, 0.9);
+  --shadow-lift: 0 1rem 2rem -0.75rem rgba(8, 5, 10, 0.85);
 
+  --text: #f2ece4;
+  --text-dim: #b6aca6;
+  --text-faint: #8b8288;
+
+  /* One accent, and it means one thing: the money is here. It marks the row
+     the verdict card recommends, the best price per ml, and the cheapest cell
+     of a basket line. Nothing else, buttons included, so that the colour keeps
+     saying something. Muted on purpose: a loud accent reads cheap. */
+  --accent: #e3c08a;
+  --accent-dim: rgba(227, 192, 138, 0.13);
+  --accent-line: rgba(227, 192, 138, 0.34);
+  --on-accent: #14100f;
+
+  /* The semantics are muted to the same degree: sage, clay, brick. */
+  --good: #93b79e;
+  --good-dim: rgba(147, 183, 158, 0.14);
+  --warn: #d69078;
+  --warn-text: #edc0ab;
+  --warn-dim: rgba(214, 144, 120, 0.13);
+  --danger: #dc6a5c;
+  --danger-text: #f2ada2;
+  --danger-dim: rgba(220, 106, 92, 0.13);
+
+  /* All three ship with Windows. The packaged app runs offline, so a webfont
+     would be a download that never arrives and a silent fallback. */
+  --font-display: Constantia, Cambria, Georgia, "Times New Roman", serif;
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* Declared rather than measured, because the refresh progress line has to
+     pin itself to the toolbar's bottom edge and CSS cannot ask how tall the
+     toolbar came out. Both rules read this one value. */
+  --toolbar-h: 3.875rem;
+
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --radius-tray: 1.25rem;
+  --radius-core: 0.875rem;
   --radius: 0.625rem;
   --radius-sm: 0.375rem;
 
@@ -40,19 +73,15 @@
   box-sizing: border-box;
 }
 
-html,
-body,
 #root {
-  height: 100%;
+  min-height: 100vh;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  /* system-ui falls to Segoe UI Variable on Windows, which brings its own
-     optical sizing and table-ready figures. No font is loaded. */
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.9375rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -61,21 +90,14 @@ body {
 h1,
 h2,
 h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
   margin: 0;
-  /* Tracking is tightened only where the type is large. A single global
-     letter-spacing would thin out the body text that needs its width. */
-  letter-spacing: -0.02em;
-  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
-button {
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
+button,
 input {
   font: inherit;
   color: inherit;
@@ -84,14 +106,56 @@ input {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-/* -- shell ---------------------------------------------------------------- */
+/* The light falls from above and it is warm: two very wide, very faint halos
+   on a fixed layer, so the top of the window reads as lit rather than as a
+   flat black sheet. Fixed and pointer-events-none keeps them off the scrolling
+   content, where a repainting gradient would cost frames for nothing. */
+.ground,
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.ground {
+  background:
+    radial-gradient(72rem 42rem at 20% -14%, rgba(227, 192, 138, 0.055), transparent 62%),
+    radial-gradient(56rem 34rem at 92% 4%, rgba(198, 160, 176, 0.035), transparent 64%);
+}
+.grain {
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* --- the nested enclosure ------------------------------------------------
+   Nothing sits flat on the ground. A tray holds a core, the way a plate sits
+   in a machined recess. The core's radius is the tray's minus its padding, so
+   the two curves stay concentric. */
+
+.tray {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-tray);
+  padding: 0.375rem;
+  box-shadow: var(--shadow-soft), inset 0 1px 0 var(--hi);
+}
+.core {
+  background: var(--surface-2);
+  border-radius: var(--radius-core);
+  box-shadow: inset 0 1px 0 var(--hi);
+  overflow: hidden;
+}
+
+/* --- app shell ----------------------------------------------------------- */
 
 .app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
 }
 
 .toolbar {
@@ -101,128 +165,381 @@ input {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(25, 23, 21, 0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  height: var(--toolbar-h);
+  padding: 0 1.5rem;
+  background: rgba(12, 11, 13, 0.78);
+  backdrop-filter: blur(1.5rem) saturate(150%);
+  border-bottom: 1px solid var(--line);
 }
 
 .toolbar-title {
-  font-size: 0.9375rem;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .toolbar-spacer {
   flex: 1;
 }
 
+/* The segmented control is a nested enclosure too: an inset groove holding
+   pills. */
 .tabs {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgba(8, 5, 10, 0.55);
 }
 
 .tab {
-  padding: 0.3125rem 0.75rem;
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--text-dim);
-  transition: color 0.15s ease, background 0.15s ease;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.4375rem 1rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.5s var(--ease),
+    background 0.5s var(--ease);
 }
-
-.tab:hover {
+.tab:hover:not(:disabled) {
   color: var(--text);
+  background: var(--wash-1);
 }
-
 .tab[aria-current="page"] {
   color: var(--text);
-  background: var(--surface-2);
+  background: var(--surface-3);
+  box-shadow: inset 0 1px 0 var(--hi), 0 1px 2px rgba(8, 5, 10, 0.45);
 }
-
-.tab:active {
-  transform: scale(0.97);
+.tab:active:not(:disabled) {
+  transform: scale(0.98);
 }
-
 .tab:disabled {
   color: var(--text-faint);
-  cursor: not-allowed;
+  cursor: default;
 }
 
+.tab-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 0.6875rem;
+  line-height: 1;
+  padding: 0.1875rem 0.375rem;
+  border-radius: 999px;
+  background: var(--wash-3);
+  color: var(--text-dim);
+}
+.tab[aria-current="page"] .tab-count {
+  background: rgba(242, 236, 228, 0.17);
+  color: var(--text);
+}
+
+/* 1280 wide: 1280 minus two 1.5rem gutters leaves 1232px, and the page stops
+   at 76rem (1216px). So the default window fits without the gutters
+   collapsing, and a wider window centres the content instead of stretching
+   the tables past the width a row can be read at. */
 .content {
-  flex: 1;
-  overflow-y: auto;
-  /* The header sits over the scrolling content, so the content fades out into
-     it rather than meeting a 1px rule. */
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 1.25rem,
-    #000 100%
-  );
+  padding: 1.875rem 1.5rem 4rem;
 }
 
 .page {
-  max-width: 68rem;
+  max-width: 76rem;
   margin: 0 auto;
-  padding: 1.5rem 1.5rem 5rem;
-}
-
-/* -- search --------------------------------------------------------------- */
-
-.search-page {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  /* Enough to keep the input off the toolbar, not so much that the recents
-     list below it falls out of the window. */
-  padding-top: 7vh;
+  gap: 1.5rem;
 }
 
-.search-heading {
-  font-size: 1.75rem;
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.search-sub {
-  margin: 0.375rem 0 0;
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+}
+.section-head h2 {
+  font-size: 1.375rem;
+}
+.section-head .button {
+  margin-left: auto;
+}
+
+.section-meta {
+  font-size: 0.8125rem;
   color: var(--text-dim);
 }
 
-.search-field {
+.eyebrow {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.dim {
+  color: var(--text-dim);
+}
+
+/* --- buttons ------------------------------------------------------------- */
+
+.button {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text);
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.625rem 1rem;
+  cursor: pointer;
+  transition:
+    background 0.5s var(--ease),
+    transform 0.5s var(--ease),
+    border-color 0.5s var(--ease),
+    box-shadow 0.5s var(--ease),
+    opacity 0.35s var(--ease);
+}
+.button:hover:not(:disabled) {
+  background: #352f3c;
+}
+.button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The primary action is off-white, not the accent: the accent says "the money
+   is here" and a search button is not that. Not pure white either, which on
+   this ground reads as a cold hole punched through it. */
+.button.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  background: var(--text);
+  color: var(--on-accent);
+  border-color: transparent;
+  font-weight: 600;
+  /* The left text padding balances the trailing circle optically: the circle
+     is 1.5rem with 0.5rem to its right, so its visual weight matches the
+     1.125rem on the left. */
+  padding: 0.5rem 0.5rem 0.5rem 1.125rem;
+}
+.button.primary:hover:not(:disabled) {
+  background: #fbf6ee;
+  /* Coming forward out of the screen: it rises, grows, and drops a shadow
+     underneath. No sideways travel, which read as falling out of alignment. */
+  transform: translateY(-2px) scale(1.025);
+  box-shadow: var(--shadow-lift);
+}
+.button.primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+  box-shadow: 0 0.25rem 0.5rem -0.375rem rgba(8, 5, 10, 0.8);
+}
+
+/* The trailing glyph never sits naked beside the label. It has its own circle,
+   flush with the button's right padding, and that circle stays put on hover
+   and only gains depth. */
+.button-pip {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  border-radius: 999px;
+  background: rgba(20, 16, 15, 0.1);
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.5s var(--ease),
+    background 0.5s var(--ease);
+}
+.button.primary:hover:not(:disabled) .button-pip {
+  transform: scale(1.12);
+  background: rgba(20, 16, 15, 0.18);
+}
+.button-pip svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  display: block;
+}
+
+.button.quiet {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--text-dim);
+  padding: 0.4375rem 0.75rem;
+}
+.button.quiet:hover:not(:disabled) {
+  background: var(--wash-1);
+  color: var(--text);
+}
+
+.button.small {
+  padding: 0.4375rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.link {
+  font-size: 0.8125rem;
+  background: none;
+  border: 0;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+  cursor: pointer;
+  padding: 0;
+  transition: text-decoration-color 0.45s var(--ease);
+}
+.link:hover {
+  text-decoration-color: var(--text);
+}
+
+.checkbox {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
-  background: var(--surface);
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0.375rem 0;
+  user-select: none;
+}
+.checkbox:hover {
+  color: var(--text);
+}
+.checkbox input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.checkbox-box {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: rgba(0, 0, 0, 0.28);
+  display: grid;
+  place-items: center;
+  transition:
+    background 0.4s var(--ease),
+    border-color 0.4s var(--ease);
+}
+.checkbox-box svg {
+  width: 0.625rem;
+  height: 0.625rem;
+  display: block;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.4s var(--ease),
+    transform 0.4s var(--ease);
+}
+.checkbox input:checked + .checkbox-box {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--on-accent);
+}
+.checkbox input:checked + .checkbox-box svg {
+  opacity: 1;
+  transform: none;
+}
+.checkbox input:focus-visible + .checkbox-box {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- search screen ------------------------------------------------------- */
+
+/* No headline. One rule sentence sits above the field, because the window's
+   own title already says what the screen is for. */
+.search-page {
+  max-width: 46rem;
+  gap: 1.25rem;
+  padding-top: 2.75rem;
+}
+
+.search-sub {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  margin: 0;
+  max-width: 40rem;
+}
+/* white-space: pre keeps the spaces around the separator, and the colour is
+   the body's rather than dimmed: the whole point of the chip is to show a
+   character that is one pixel wide, and a faint monospace hyphen in a tinted
+   box reads as an empty box. */
+.search-sub code {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--text);
+  white-space: pre;
+  background: var(--wash-2);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  transition: border-color 0.15s ease;
+  border-radius: 0.25rem;
+  padding: 0.0625rem 0.25rem;
 }
 
-.search-field:focus-within {
-  border-color: var(--line-strong);
+.search-field {
+  padding: 0.4375rem;
 }
-
-.search-field.over-limit {
-  border-color: var(--danger);
+.search-field .core {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+  transition: box-shadow 0.5s var(--ease);
 }
-
+.search-field:focus-within .core {
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--line-strong);
+}
+.search-field.over-limit .core {
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--danger);
+}
 .search-field input {
   flex: 1;
   min-width: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
   background: none;
-  border: none;
-  font-size: 1.0625rem;
+  border: 0;
+  padding: 0.5rem 0;
 }
-
 .search-field input:focus {
   outline: none;
 }
-
-.search-count {
-  font-variant-numeric: tabular-nums;
+.search-field input::placeholder {
   color: var(--text-faint);
-  white-space: nowrap;
+  font-style: italic;
 }
 
+.search-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
 .search-count.over-limit {
   color: var(--danger);
 }
@@ -230,326 +547,610 @@ input {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: 0.5rem;
+  align-items: center;
 }
-
 .chip {
-  padding: 0.1875rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
   font-size: 0.8125rem;
-  color: var(--text-dim);
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
+  padding: 0.3125rem 0.375rem 0.3125rem 0.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  transition: border-color 0.45s var(--ease);
 }
-
+.chip:hover {
+  border-color: rgba(242, 236, 228, 0.3);
+}
 .chip.rejected {
-  color: var(--danger);
+  border-color: rgba(220, 106, 92, 0.42);
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+.chip-remove {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  border: 0;
+  background: var(--wash-2);
+  color: var(--text-dim);
+  font-size: 0.8125rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition:
+    background 0.4s var(--ease),
+    color 0.4s var(--ease);
+}
+.chip-remove:hover {
   background: var(--danger-dim);
+  color: var(--danger);
 }
 
 .search-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
+  flex-wrap: wrap;
 }
-
-.button {
-  padding: 0.5rem 1.125rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  transition: background 0.15s ease;
-}
-
-.button:hover:not(:disabled) {
-  background: var(--surface-3);
-}
-
-.button:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-.button:disabled {
+.search-hint {
+  font-size: 0.75rem;
   color: var(--text-faint);
-  cursor: not-allowed;
 }
 
-.button.primary {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 600;
-}
-
-.button.primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-
-.button.quiet {
-  padding: 0.25rem 0.5rem;
-  color: var(--text-dim);
-  background: none;
-}
-
-.button.quiet:hover {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-
-/* -- progress ------------------------------------------------------------- */
-
-.progress {
-  position: relative;
-  height: 2px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent);
-}
-
-/* -- scan status ------------------------------------------------------------
-   Where a search's rows will land once the scan is done. Nothing here is
-   the answer; it only says the answer is still being worked on. */
-
-.scan-status {
+.recents {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
-  padding: 1.5rem 1.25rem;
-  margin: 0.5rem 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  margin-top: 0.75rem;
 }
-
-.scan-status-head {
+.recents-label {
+  margin-bottom: 0.5rem;
+}
+.recent {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.scan-live-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: scan-live-pulse 1.6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .scan-live-dot {
-    animation: none;
-  }
-}
-
-@keyframes scan-live-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 0 0 var(--accent-dim);
-  }
-  50% {
-    opacity: 0.55;
-    box-shadow: 0 0 0 0.25rem transparent;
-  }
-}
-
-.scan-status-label {
-  font-weight: 500;
-  line-height: 1;
-}
-
-.scan-status-count {
-  margin-left: auto;
-  line-height: 1;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-.scan-bar {
-  position: relative;
-  height: 0.375rem;
-  border-radius: 999px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.scan-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
-.scan-status-errors {
-  margin: 0;
-  color: var(--warn);
-  font-size: 0.8125rem;
-}
-
-/* -- results -------------------------------------------------------------- */
-
-table.rows .block-head-row th {
-  padding: 1.25rem 0.5rem 0.375rem;
-  border-top: none;
-  text-transform: none;
-  letter-spacing: -0.01em;
-}
-
-.block-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.block-note {
-  margin-left: 0.5rem;
-  font-size: 0.8125rem;
-  font-weight: 400;
-  color: var(--text-faint);
-  letter-spacing: 0;
-}
-
-/* The first row under a block heading needs no rule: the heading already
-   separates it from what came before. */
-table.rows .block-head-row + tr td {
-  border-top: none;
-}
-
-table.rows {
+  gap: 1rem;
   width: 100%;
-  border-collapse: collapse;
-  /* Prices and ₺/ml have to line up digit under digit down the column. */
-  font-variant-numeric: tabular-nums;
-}
-
-table.rows th {
-  padding: 0.375rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--text-faint);
   text-align: left;
-}
-
-table.rows th.num,
-table.rows td.num {
-  text-align: right;
-}
-
-table.rows thead th:first-child {
-  width: 38%;
-}
-
-table.rows th.sortable {
-  cursor: pointer;
-}
-
-table.rows th.sortable:hover {
-  color: var(--text-dim);
-}
-
-table.rows th[aria-sort]:not([aria-sort="none"]) {
-  color: var(--accent);
-}
-
-table.rows .sort-arrow {
-  margin-left: 0.25rem;
-  font-size: 0.65em;
-}
-
-table.rows td {
-  padding: 0.4375rem 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: transparent;
+  border: 0;
   border-top: 1px solid var(--line);
-}
-
-table.rows tbody tr {
-  transition: background 0.12s ease;
-}
-
-table.rows tbody tr.clickable {
+  padding: 0.8125rem 0.625rem;
   cursor: pointer;
+  transition:
+    background 0.45s var(--ease),
+    padding-left 0.45s var(--ease);
 }
-
-table.rows tbody tr.clickable:hover {
-  background: var(--surface);
+.recent:last-child {
+  border-bottom: 1px solid var(--line);
 }
-
-table.rows tbody tr.clickable:active {
-  background: var(--surface-2);
+.recent:hover {
+  background: var(--wash-1);
+  padding-left: 1rem;
 }
-
-.title-cell {
-  max-width: 22rem;
-}
-
-/* Inside the cell rather than on it: a td set to display:flex stops being a
-   table cell, and the row's rule breaks where the column ends. This lays the
-   parts out so the badges keep their width and only the title gives ground. */
-.title-inner {
-  display: flex;
-  align-items: baseline;
-  gap: 0.375rem;
-}
-
-.title-text {
+.recent-text {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.recent-when {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 0.75rem;
+  color: var(--text-faint);
+}
+.recent-go {
+  flex: none;
+  color: var(--text-faint);
+  opacity: 0;
+  transform: translateX(-0.25rem);
+  transition:
+    opacity 0.45s var(--ease),
+    transform 0.45s var(--ease);
+}
+.recent-go svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  display: block;
+}
+.recent:hover .recent-go {
+  opacity: 1;
+  transform: none;
+}
 
+/* --- progress and scan status -------------------------------------------- */
+
+/* Fixed rather than sticky: it is rendered inside the padded content column,
+   and a refresh that is happening to the whole window should be drawn across
+   the whole window, not inset by the page gutters. */
+.progress {
+  position: fixed;
+  top: var(--toolbar-h);
+  left: 0;
+  right: 0;
+  z-index: 19;
+  height: 0.1875rem;
+  background: var(--wash-2);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--text);
+}
+
+.scan-status {
+  padding: 0.375rem;
+}
+.scan-status .core {
+  padding: 0.8125rem 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6875rem;
+}
+.scan-status-head {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+}
+.scan-live-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--good);
+  animation: scan-live-pulse 2.8s var(--ease) infinite;
+}
+@keyframes scan-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(147, 183, 158, 0.38);
+  }
+  70% {
+    box-shadow: 0 0 0 0.4375rem rgba(147, 183, 158, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(147, 183, 158, 0);
+  }
+}
+.scan-status-label {
+  color: var(--text);
+}
+.scan-status-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.scan-bar {
+  height: 0.1875rem;
+  border-radius: 999px;
+  background: var(--wash-3);
+  overflow: hidden;
+}
+.scan-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--text);
+}
+.scan-status-errors {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--warn-text);
+}
+
+/* --- notices ------------------------------------------------------------- */
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  padding: 0.6875rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(242, 236, 228, 0.028);
+}
+.notice::before {
+  content: "";
+  display: block;
+  width: 0.1875rem;
+  flex: none;
+  align-self: stretch;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+.notice.warn {
+  color: var(--warn-text);
+  border-color: rgba(214, 144, 120, 0.28);
+  background: var(--warn-dim);
+}
+.notice.warn::before {
+  background: var(--warn);
+}
+.notice.error {
+  color: var(--danger-text);
+  border-color: rgba(220, 106, 92, 0.3);
+  background: var(--danger-dim);
+}
+.notice.error::before {
+  background: var(--danger);
+}
+.notice.undo .link {
+  margin-left: auto;
+}
+
+/* --- badges -------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0.25rem 0.4375rem;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.badge.value {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+}
+.badge.clone {
+  color: var(--text-dim);
+  background: var(--wash-2);
+  border-color: var(--line-strong);
+}
+.badge.weak {
+  color: var(--warn-text);
+  background: var(--warn-dim);
+  border-color: rgba(214, 144, 120, 0.3);
+}
+.badge.stale {
+  color: var(--warn-text);
+  background: transparent;
+  border-color: rgba(214, 144, 120, 0.36);
+}
+.badge.good {
+  color: var(--good);
+  background: var(--good-dim);
+  border-color: rgba(147, 183, 158, 0.34);
+}
+
+/* --- the verdict card ---------------------------------------------------- */
+
+.verdicts {
+  display: grid;
+  gap: 0.875rem;
+}
+.verdicts.alone {
+  grid-template-columns: minmax(0, 1fr);
+}
+.verdict {
+  padding: 0.4375rem;
+}
+.verdict .core {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 1.25rem 1.25rem 1.25rem 1.5rem;
+  background: linear-gradient(105deg, rgba(227, 192, 138, 0.075), transparent 46%),
+    var(--surface-2);
+}
+.verdict-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  flex: 1;
+  min-width: 14rem;
+}
+.verdict-kicker {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+/* Constantia ships old-style figures by default, which on a price headline
+   gives hanging digits that read as a typo. The raw feature tags sit next to
+   the shorthand because not every build of the face maps the shorthand onto
+   them. */
+.verdict-figure {
+  font-family: var(--font-display);
+  font-size: 2.375rem;
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum" 1, "tnum" 1;
+  letter-spacing: -0.02em;
+}
+.verdict-figure b {
+  font-weight: 400;
+}
+.verdict-where {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+.verdict-where b {
+  color: var(--text);
+  font-weight: 500;
+}
+.verdict-rate {
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--accent);
+}
+
+/* --- tables -------------------------------------------------------------- */
+
+.table-tray {
+  padding: 0.375rem;
+}
+/* The basket matrix has one column per shop, so it is the one table that can
+   outgrow the window. It scrolls inside its own core; the page body never
+   scrolls sideways. */
+.matrix-wrap {
+  padding: 0.375rem;
+}
+.matrix-wrap .core {
+  overflow-x: auto;
+}
+
+table.rows,
+table.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+/* Fixed layout on the results table: the columns are split by percentage, so a
+   narrowing window shortens the product title instead of pushing the price
+   columns out from under their headers. */
+table.rows {
+  table-layout: fixed;
+}
+table.rows td,
+table.rows th {
+  overflow: hidden;
+}
+
+table.rows thead th,
+table.matrix thead th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+  padding: 0.8125rem 0.875rem 0.6875rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  user-select: none;
+}
+table.rows th.num,
+table.rows td.num,
+table.matrix th.num,
+table.matrix td.num {
+  text-align: right;
+}
+table.rows thead th:first-child {
+  padding-left: 0.875rem;
+}
+
+table.rows th.sortable {
+  cursor: pointer;
+  transition: color 0.45s var(--ease);
+}
+table.rows th.sortable:hover {
+  color: var(--text);
+}
+table.rows th[aria-sort]:not([aria-sort="none"]) {
+  color: var(--text);
+}
+/* The arrow is always there, faint: a header that can be sorted has to say so
+   before the pointer arrives. The active one is the one at full strength. */
+table.rows .sort-arrow {
+  display: inline-block;
+  margin-left: 0.3125rem;
+  font-size: 0.5rem;
+  color: var(--text-faint);
+  opacity: 0.4;
+  transition:
+    opacity 0.45s var(--ease),
+    color 0.45s var(--ease);
+}
+table.rows th.sortable:hover .sort-arrow {
+  opacity: 0.9;
+}
+table.rows th[aria-sort]:not([aria-sort="none"]) .sort-arrow {
+  opacity: 1;
+  color: var(--text);
+}
+
+table.rows td,
+table.matrix td {
+  padding: 0.6875rem 0.875rem;
+  border-bottom: 1px solid rgba(242, 236, 228, 0.05);
+  vertical-align: middle;
+}
+table.rows tbody tr,
+table.matrix tbody tr {
+  transition: background 0.4s var(--ease);
+}
+table.rows tbody tr.clickable {
+  cursor: pointer;
+}
+table.rows tbody tr.clickable:hover,
+table.matrix tbody tr:hover {
+  background: var(--wash-1);
+}
+table.rows tbody tr.clickable:active {
+  background: var(--wash-2);
+}
+
+/* The row the verdict card recommends. Marked in the accent with a rule down
+   its left edge, so the eye can match the card to the table in one look. */
+table.rows tbody tr.picked {
+  background: rgba(227, 192, 138, 0.065);
+}
+table.rows tbody tr.picked:hover {
+  background: rgba(227, 192, 138, 0.1);
+}
+table.rows tbody tr.picked td:first-child {
+  box-shadow: inset 0.125rem 0 0 var(--accent);
+}
+table.rows tbody tr.picked .site-cell {
+  color: var(--text);
+}
+
+table.rows .block-head-row th {
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+  padding: 0.9375rem 0.875rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(8, 5, 10, 0.22);
+}
+table.rows .block-head-row + tr td {
+  border-top: 0;
+}
+.block-title {
+  font-family: var(--font-display);
+}
+.block-note {
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+  margin-left: 0.625rem;
+}
+
+.title-cell {
+  min-width: 0;
+}
+.title-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
+  min-width: 0;
+}
+/* The title truncates, the badges do not: a shop title long enough to need an
+   ellipsis was swallowing the very mark that says this row is the answer. */
+.title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .title-cell .badge {
   flex: none;
+}
+/* The only thing that says a row opens the shop's page. Before this, the
+   cursor was saying it alone. */
+.row-go {
+  flex: none;
+  color: var(--text-faint);
+  opacity: 0;
+  transform: translateX(-0.25rem);
+  transition:
+    opacity 0.4s var(--ease),
+    transform 0.4s var(--ease);
+}
+.row-go svg {
+  width: 0.6875rem;
+  height: 0.6875rem;
+  display: block;
+}
+table.rows tbody tr.clickable:hover .row-go {
+  opacity: 1;
+  transform: none;
 }
 
 .site-cell {
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-.dim {
-  color: var(--text-faint);
+table.rows td.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
 }
-
-.add-cell {
-  width: 1%;
+.perml {
+  color: var(--text);
+}
+table.rows tbody tr .perml.best {
+  color: var(--accent);
+}
+.perml-value.dim {
+  color: var(--text-dim);
+}
+.age-cell {
   white-space: nowrap;
 }
 
-.add-button {
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.add-cell {
+  text-align: right;
+  width: 3rem;
 }
-
+.add-button {
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-3);
+  color: var(--text);
+  display: inline-grid;
+  place-items: center;
+  transition:
+    background 0.45s var(--ease),
+    transform 0.45s var(--ease),
+    color 0.45s var(--ease),
+    border-color 0.45s var(--ease);
+}
+.add-button:hover:not(:disabled) {
+  background: var(--text);
+  color: var(--on-accent);
+  border-color: transparent;
+  transform: scale(1.08);
+}
 .add-button.done {
   color: var(--good);
+  border-color: rgba(147, 183, 158, 0.38);
+  background: var(--good-dim);
 }
-
+.add-button.done:hover:not(:disabled) {
+  background: var(--good-dim);
+  color: var(--good);
+  transform: none;
+}
 .add-icon {
-  display: inline-block;
-  transition:
-    transform 0.2s ease,
-    opacity 0.2s ease;
+  font-size: 0.875rem;
+  line-height: 1;
 }
-
 .add-button.done .add-icon {
-  animation: add-icon-pop 0.2s ease;
+  animation: add-icon-pop 0.35s var(--ease);
 }
-
 @keyframes add-icon-pop {
   from {
-    transform: scale(0.6);
+    transform: scale(0.4);
     opacity: 0;
   }
   to {
@@ -558,691 +1159,382 @@ table.rows tbody tr.clickable:active {
   }
 }
 
-/* -- badges and notices --------------------------------------------------- */
+/* --- basket matrix ------------------------------------------------------- */
 
-.badge {
-  display: inline-block;
-  padding: 0.0625rem 0.375rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  letter-spacing: 0;
+table.matrix {
+  min-width: 46rem;
+}
+table.matrix col.c-item {
+  width: 26%;
+}
+table.matrix col.c-qty {
+  width: 6rem;
+}
+table.matrix col.c-refresh {
+  width: 3.25rem;
+}
+table.matrix td:first-child {
+  min-width: 15rem;
+}
+.matrix-name {
+  display: block;
+}
+.matrix-sub {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+  margin-top: 0.25rem;
+}
+table.matrix td.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
   white-space: nowrap;
 }
-
-.badge.stale {
-  color: var(--warn);
-  background: var(--warn-dim);
-}
-
-.badge.clone {
-  color: var(--text-dim);
-  background: var(--surface-2);
-}
-
-.badge.weak {
-  color: var(--danger);
-  background: var(--danger-dim);
-}
-
-.notice {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  margin: 0 0 0.5rem;
+table.matrix td.cheap .cell {
+  display: inline-block;
+  padding: 0.1875rem 0.5rem;
+  margin: -0.1875rem -0.5rem;
   border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  background: var(--surface);
-  color: var(--text-dim);
-}
-
-.notice.warn {
-  color: var(--warn);
-  background: var(--warn-dim);
-}
-
-.notice.error {
-  color: var(--danger);
-  background: var(--danger-dim);
-}
-
-/* One slot, not a stack: only the last removal can be taken back, and a
-   second removal replacing this line is the honest way to say so. */
-.notice.undo {
-  align-items: baseline;
-  justify-content: space-between;
-  color: var(--text);
-  border: 1px solid var(--line-strong);
-}
-
-.link {
+  background: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
   color: var(--accent);
-  font-size: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
 }
-
-.empty {
-  padding: 4rem 0;
-  text-align: center;
+table.matrix tfoot td {
+  padding: 0.8125rem 0.875rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  vertical-align: top;
+}
+table.matrix tfoot td.full {
+  color: var(--text);
+}
+.matrix-cover {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.625rem;
   color: var(--text-faint);
+  margin-top: 0.1875rem;
 }
-
-/* -- basket --------------------------------------------------------------- */
-
-.section {
-  margin-bottom: 2rem;
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.section-head h2 {
-  font-size: 1.125rem;
-}
-
-.section-head .button {
-  margin-left: auto;
-}
-
-.matrix-wrap {
-  /* The per-site price matrix grows a column per site. It scrolls inside its
-     own box so the page itself never scrolls sideways. */
-  overflow-x: auto;
+.matrix-note {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  margin: 0;
+  padding: 0 0.375rem;
 }
 
 .qty {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.26);
 }
-
 .qty button {
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  width: 1.625rem;
+  height: 1.625rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.9375rem;
   line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.35s var(--ease),
+    color 0.35s var(--ease);
 }
-
 .qty button:hover {
-  background: var(--surface-3);
+  background: var(--wash-3);
+  color: var(--text);
 }
-
+/* At one, this button is the delete. It says so on hover before it says so in
+   the confirmation, which there isn't one of. */
+.qty button.remove:hover {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
 .qty button:active {
   transform: scale(0.94);
 }
-
 .qty-value {
-  min-width: 1.25rem;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.best-site {
-  color: var(--good);
-}
-
-.scenario {
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.5rem;
-  background: var(--surface);
-  border-radius: var(--radius);
-}
-
-.scenario-head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.625rem;
-}
-
-.scenario-total {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  font-weight: 550;
-}
-
-.scenario-note {
-  margin-top: 0.25rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
   font-size: 0.8125rem;
-  color: var(--text-faint);
+  min-width: 1.125rem;
+  text-align: center;
 }
 
-details.more summary {
-  padding: 0.375rem 0;
+.refresh-button {
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  list-style: none;
+  display: inline-grid;
+  place-items: center;
+  transition:
+    background 0.45s var(--ease),
+    color 0.45s var(--ease),
+    border-color 0.45s var(--ease);
 }
-
-details.more summary::-webkit-details-marker {
-  display: none;
-}
-
-details.more summary::before {
-  content: "▸ ";
-  color: var(--text-faint);
-}
-
-details.more[open] summary::before {
-  content: "▾ ";
-}
-
-/* -- dialog --------------------------------------------------------------- */
-
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  background: rgba(0, 0, 0, 0.55);
-}
-
-.dialog {
-  width: min(28rem, 100%);
-  padding: 1.25rem;
-  border-radius: var(--radius);
-  /* Opaque on purpose: this sits above the translucent toolbar, and stacking
-     one blurred surface on another muddies both. */
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-}
-
-.dialog h2 {
-  font-size: 1.0625rem;
-  margin-bottom: 0.5rem;
-}
-
-.dialog p {
-  margin: 0 0 1rem;
-  color: var(--text-dim);
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-/* -- toast ---------------------------------------------------------------- */
-
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 1.5rem;
-  z-index: 30;
-  transform: translateX(-50%);
-  padding: 0.5rem 0.875rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  font-size: 0.875rem;
-}
-
-.toast.error {
-  color: var(--danger);
-}
-
-/* -- recents ----------------------------------------------------------------
-   Under an empty input, because re-running yesterday's line is the second
-   most common thing to do on this screen after typing a new one. */
-
-.recents {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-top: 1rem;
-}
-
-.recents-label {
-  margin-bottom: 0.25rem;
-  font-size: 0.6875rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.recent {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.4375rem 0.625rem;
-  border-radius: var(--radius-sm);
-  text-align: left;
-  color: var(--text-dim);
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.recent:hover {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.recent-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recent-when {
-  margin-left: auto;
-  font-size: 0.8125rem;
-  color: var(--text-faint);
-  white-space: nowrap;
-}
-
-/* -- chips ------------------------------------------------------------------
-   A chip drops its own perfume, so narrowing a search no longer means
-   re-editing a line by hand to find the right separator. */
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  /* Tighter on the right than the left: the remove button carries its own
-     hit area, and equal padding would leave it floating off the edge. */
-  padding: 0.25rem 0.375rem 0.25rem 0.5rem;
-  color: var(--text);
-}
-
-.chip-remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 0.25rem;
-  color: var(--text-faint);
-  line-height: 1;
-}
-
-.chip-remove:hover {
-  color: var(--text);
-  background: var(--surface-3);
-}
-
-/* -- verdicts ---------------------------------------------------------------
-   A decant is bought for one of two reasons: the rate is good, or it is the
-   least money that answers "what does this smell like". Those are rarely the
-   same row, so the screen states both before the table backs them up. */
-
-.verdicts {
-  display: grid;
-  grid-template-columns: 1.15fr 1fr;
-  gap: 0.625rem;
-  margin-bottom: 0.875rem;
-}
-
-.verdicts.alone {
-  grid-template-columns: 1fr;
-}
-
-.verdict {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.8125rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-
-.verdict.rate {
-  background: linear-gradient(
-    100deg,
-    var(--accent-dim) 0%,
-    rgba(255, 255, 255, 0.012) 70%
-  );
-  border-color: var(--accent-line);
-}
-
-.verdict-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.0625rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.verdict-kicker {
-  font-size: 0.625rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.verdict.rate .verdict-kicker {
-  color: var(--accent);
-}
-
-.verdict-figure {
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.03em;
-}
-
-.verdict-figure b {
-  font-size: 1.625rem;
-  font-weight: 650;
-}
-
-.verdict.rate .verdict-figure b {
-  color: var(--accent);
-}
-
-.verdict-figure span {
-  font-size: 0.8125rem;
-  color: var(--text-dim);
-}
-
-.verdict-where {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8125rem;
-  color: var(--text-dim);
-}
-
-.verdict-note {
-  font-size: 0.75rem;
-  color: var(--text-faint);
-}
-
-.button.small {
-  padding: 0.3125rem 0.75rem;
-  font-size: 0.875rem;
-}
-
-/* -- price per ml -----------------------------------------------------------
-   The number the whole tool exists to compare, so it carries a bar sized
-   against the cheapest row in its block. Reading the column becomes reading
-   a shape instead of comparing four-digit numbers down a line. */
-
-.perml {
-  position: relative;
-}
-
-.perml-bar {
-  position: absolute;
-  inset: 0.1875rem 0.25rem 0.1875rem auto;
-  border-radius: 0.1875rem;
-  /* Barely there on purpose. Sizes inside one block cluster close together,
-     so six bars at a readable strength stack up as six boxes rather than a
-     chart. Faint keeps them a background gradient and leaves the cheapest
-     row, which alone is outlined, as the thing the eye lands on. */
-  background: rgba(181, 140, 240, 0.06);
-}
-
-/* A clone is cheaper per ml than the real thing and always will be. Leaving
-   it on the value axis would let it win a comparison it is not in. */
-.perml-bar.clone-bar {
-  background: rgba(255, 246, 235, 0.05);
-}
-
-.perml-value {
-  position: relative;
-}
-
-table.rows tbody tr.cheapest .perml-bar {
-  background: var(--accent-dim);
-  box-shadow: inset 0 0 0 1px var(--accent-line);
-}
-
-table.rows tbody tr.cheapest .perml-value {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-table.rows tbody tr.cheapest .site-cell {
-  color: var(--text);
-}
-
-.badge.value {
-  color: var(--accent);
-  background: var(--accent-dim);
-}
-
-.badge.good {
-  color: var(--good);
-  background: var(--good-dim);
-}
-
-/* -- basket matrix ----------------------------------------------------------
-   Eleven columns at the packaged window's 1280 only fit if each earns its
-   width: kurus digits go, freshness moves under the product name, and remove
-   becomes an icon. Fixed layout so one long shop name cannot push the table
-   sideways and bring back the horizontal scrollbar. */
-
-table.matrix {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-variant-numeric: tabular-nums;
-}
-
-table.matrix th {
-  padding: 0.375rem 0.4375rem;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  text-align: left;
-  vertical-align: bottom;
-  line-height: 1.25;
-}
-
-table.matrix th.num,
-table.matrix td.num {
-  text-align: right;
-}
-
-table.matrix col.c-item {
-  width: 20rem;
-}
-
-table.matrix col.c-qty {
-  width: 5.25rem;
-}
-
-table.matrix col.c-refresh {
-  width: 2.25rem;
-}
-
-table.matrix td {
-  padding: 0.5rem 0.4375rem;
-  border-top: 1px solid var(--line);
-}
-
-table.matrix tbody tr:hover {
-  background: var(--surface);
-}
-
-.matrix-name {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.matrix-sub {
-  display: block;
-  margin-top: 0.0625rem;
-  font-size: 0.75rem;
-  color: var(--text-faint);
-}
-
-/* The cheapest cell in a row is the one fact this table has always held and
-   never said out loud. */
-table.matrix td.cheap {
-  color: var(--accent);
-  font-weight: 600;
-  background: var(--accent-dim);
-  box-shadow:
-    inset 1px 0 0 var(--accent-line),
-    inset -1px 0 0 var(--accent-line);
-}
-
-table.matrix tfoot td {
-  padding: 0.5rem 0.4375rem;
-  border-top: 1px solid var(--line-strong);
-  font-size: 0.8125rem;
-  color: var(--text-dim);
-}
-
-table.matrix tfoot td.full {
-  color: var(--text);
-}
-
-.matrix-cover {
-  display: block;
-  font-size: 0.6875rem;
-  color: var(--text-faint);
-}
-
-.matrix-note {
-  margin: 0.5rem 0 0;
-  font-size: 0.8125rem;
-  color: var(--text-faint);
-}
-
-/* Re-price one line. Disabled means the prices are already today's, which is
-   most of the reason this control can sit next to a row without being one
-   press away from a wasted scan. */
-.refresh-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: var(--radius-sm);
-  /* Dimmer than the prices it sits beside, but a step above faint: passive is
-     a state this button spends most of its life in, so live has to read as
-     different from across the table. */
-  color: var(--text-dim);
-  line-height: 1;
-}
-
 .refresh-button svg {
   width: 0.875rem;
   height: 0.875rem;
+  display: block;
 }
-
 .refresh-button:hover:not(:disabled) {
-  color: var(--accent);
-  background: var(--accent-dim);
+  background: var(--wash-2);
+  color: var(--text);
+  border-color: var(--line-strong);
 }
-
 .refresh-button:disabled {
-  color: var(--text-faint);
-  opacity: 0.45;
+  opacity: 0.34;
   cursor: default;
 }
-
-/* The spin is the only progress this row gets, so it keeps its full colour
-   while it turns even though the button is disabled meanwhile. */
 .refresh-button.spinning {
-  color: var(--accent);
-  opacity: 1;
+  color: var(--text);
+  border-color: var(--line-strong);
 }
-
 .refresh-button.spinning svg {
-  animation: refresh-spin 0.9s linear infinite;
+  animation: refresh-spin 1.2s linear infinite;
 }
-
 @keyframes refresh-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .refresh-button.spinning svg {
-    animation: none;
-  }
-}
+/* --- plan cards ---------------------------------------------------------- */
 
-/* -- purchase plans ---------------------------------------------------------
-   One site or two is the basket's only question, and its two halves used to
-   sit in separate sections with the matrix between them. */
-
+/* auto-fit: two columns in the default window, one when it narrows, without a
+   breakpoint that has to be kept in step with the card's own width. */
 .plans {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
+  gap: 0.875rem;
 }
-
 .plans.alone {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 34rem);
 }
-
 .plan-card {
+  padding: 0.4375rem;
+}
+.plan-card .core {
+  padding: 1.0625rem 1.125rem 1.125rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 1rem 1.125rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  height: 100%;
 }
-
-.plan-card.win {
-  border-color: rgba(79, 191, 133, 0.35);
-  background: linear-gradient(180deg, var(--good-dim) 0%, var(--surface) 55%);
+.plan-card.win .core {
+  background: linear-gradient(150deg, rgba(147, 183, 158, 0.085), transparent 54%),
+    var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--hi), inset 0 0 0 1px rgba(147, 183, 158, 0.26);
 }
-
 .plan-card-head {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.625rem;
+  flex-wrap: wrap;
 }
-
 .plan-card-head h3 {
-  font-size: 0.9375rem;
-  font-weight: 550;
+  font-size: 1.0625rem;
 }
-
 .plan-total {
   margin-left: auto;
-  font-size: 1.375rem;
-  font-weight: 650;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 1.125rem;
 }
-
-.plan-card.win .plan-total {
+.plan-leg {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  padding: 0.4375rem 0;
+  border-top: 1px solid rgba(242, 236, 228, 0.05);
+}
+.plan-leg-total {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--text-dim);
+}
+.plan-note {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  margin: 0.125rem 0 0;
+}
+.plan-note.gap {
   color: var(--good);
 }
 
-.plan-leg {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+/* --- other scenarios ----------------------------------------------------- */
+
+details.more {
+  border-top: 1px solid var(--line);
+  padding-top: 0.875rem;
+}
+details.more summary {
   font-size: 0.8125rem;
   color: var(--text-dim);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  transition: color 0.45s var(--ease);
 }
-
-.plan-leg-total {
+details.more summary::-webkit-details-marker {
+  display: none;
+}
+details.more summary::before {
+  content: "";
+  display: block;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.45s var(--ease);
+}
+details.more[open] summary::before {
+  transform: rotate(45deg);
+}
+details.more summary:hover {
+  color: var(--text);
+}
+.scenario {
+  padding: 0.875rem 0 0.625rem;
+  border-bottom: 1px solid rgba(242, 236, 228, 0.05);
+}
+.scenario-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  flex-wrap: wrap;
+}
+.scenario-total {
   margin-left: auto;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
 }
-
-.plan-note {
-  margin: 0;
-  font-size: 0.8125rem;
+.scenario-note {
+  font-size: 0.75rem;
   color: var(--text-faint);
+  margin-top: 0.25rem;
+}
+.best-site {
+  color: var(--accent);
 }
 
-.plan-note.gap {
-  color: var(--warn);
+/* --- modal, toast, empty ------------------------------------------------- */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(8, 5, 10, 0.72);
+  backdrop-filter: blur(0.5rem);
+}
+.dialog {
+  width: min(28rem, 100%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-tray);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-soft), inset 0 1px 0 var(--hi);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.dialog h2 {
+  font-size: 1.25rem;
+}
+.dialog p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-dim);
+}
+.dialog-actions {
+  display: flex;
+  gap: 0.625rem;
+  justify-content: flex-end;
+  margin-top: 0.375rem;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 2rem;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+  padding: 0.6875rem 1.125rem;
+  border-radius: 999px;
+  background: rgba(32, 29, 36, 0.96);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-lift);
+}
+.toast.error {
+  border-color: rgba(220, 106, 92, 0.42);
+  color: var(--danger-text);
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  padding: 3.5rem 1rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+}
+
+/* As the window narrows: the toolbar loses its gutters first, then the
+   wordmark. The tabs stay on one line at every width. */
+@media (max-width: 62rem) {
+  .toolbar {
+    padding: 0 1rem;
+  }
+  .content {
+    padding: 1.375rem 1rem 3rem;
+  }
+}
+@media (max-width: 44rem) {
+  .toolbar-title {
+    display: none;
+  }
+  .tabs {
+    padding: 0.1875rem;
+  }
+  .tab {
+    padding: 0.4375rem 0.6875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

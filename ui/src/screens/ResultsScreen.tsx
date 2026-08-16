@@ -337,8 +337,6 @@ export function ResultsScreen({
           // The leading block is the bottle ranking.py decided the query was
           // asking about, so it is the one the verdicts speak for.
           const verdicts = pickVerdicts(searchBlocks[0]?.rows ?? []);
-          const cheapestPerMl =
-            verdicts.rate === null ? null : Number(verdicts.rate.price_per_ml_kurus);
           // The headline card leads with a sample size over the raw best
           // rate: a shopper skimming the top of the screen reads "3 ml" as an
           // answer to "what would trying this cost me", while the true
@@ -356,26 +354,36 @@ export function ResultsScreen({
 
               {headline && (
                 <div className="verdicts alone">
-                  <div className="verdict rate">
-                    <span className="verdict-body">
-                      <span className="verdict-kicker">
-                        En iyi {formatMl(headline.size_ml_x10)} fiyatı
+                  <div className="tray verdict">
+                    <div className="core">
+                      <span className="verdict-body">
+                        <span className="verdict-kicker">
+                          En iyi {formatMl(headline.size_ml_x10)} fiyatı
+                        </span>
+                        <span className="verdict-figure">
+                          <b>{formatPrice(headline.price_kurus)}</b>
+                        </span>
+                        <span className="verdict-where">
+                          <b>{headline.site_label}</b> ·{" "}
+                          <span className="verdict-rate">
+                            {formatPerMl(headline.price_per_ml_kurus)}
+                          </span>{" "}
+                          · {formatAge(headline.age_days)}
+                        </span>
                       </span>
-                      <span className="verdict-figure">
-                        <b>{formatPrice(headline.price_kurus)}</b>
-                      </span>
-                      <span className="verdict-where">
-                        {headline.site_label} ·{" "}
-                        {formatPerMl(headline.price_per_ml_kurus)}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      className="button small"
-                      onClick={() => void addToBasket(headline, false)}
-                    >
-                      Sepete ekle
-                    </button>
+                      <button
+                        type="button"
+                        className="button primary"
+                        onClick={() => void addToBasket(headline, false)}
+                      >
+                        Sepete ekle
+                        <span className="button-pip" aria-hidden="true">
+                          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                            <path d="M6 2.5v7M2.5 6h7" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -401,7 +409,21 @@ export function ResultsScreen({
                    a table sizes its own columns, so separate tables would put
                    each block's prices at a different place on the line and
                    nothing could be read down a column. */
+                <div className="tray table-tray">
+                  <div className="core">
                 <table className="rows">
+                  {/* Fixed column widths, so a narrowing window shortens the
+                      product title instead of pushing the price columns out
+                      from under their own headers. */}
+                  <colgroup>
+                    <col style={{ width: "34%" }} />
+                    <col style={{ width: "15%" }} />
+                    <col style={{ width: "8%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "6%" }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Ürün</th>
@@ -414,7 +436,10 @@ export function ResultsScreen({
                           onClick={() => toggleSort(key)}
                         >
                           {label}
-                          {sort === key && <span className="sort-arrow" aria-hidden="true">▲</span>}
+                          {/* Always drawn, faint until active: a header that
+                              can be sorted has to say so before the pointer
+                              arrives. */}
+                          <span className="sort-arrow" aria-hidden="true">▲</span>
                         </th>
                       ))}
                       <th>Güncellik</th>
@@ -438,9 +463,13 @@ export function ResultsScreen({
                             // DOM node for another row instead of rendering it,
                             // which reads as a duplicate that won't reorder.
                             key={`${row.query_index}-${row.site_id}-${row.brand}-${row.name}-${row.concentration}-${row.size_ml_x10}`}
+                            // The marked row is the one the card above
+                            // recommends, not the best rate: when the two are
+                            // different rows, marking the other one reads as a
+                            // second, contradicting recommendation.
                             className={[
                               row.product_url ? "clickable" : "",
-                              row === verdicts.rate ? "cheapest" : "",
+                              row === headline ? "picked" : "",
                             ]
                               .filter(Boolean)
                               .join(" ")}
@@ -456,13 +485,21 @@ export function ResultsScreen({
                                   row is the answer. */}
                               <span className="title-inner">
                               <span className="title-text">{row.raw_title}</span>
-                              {row === verdicts.rate && (
-                                <Badge kind="value">en iyi ₺/ml</Badge>
-                              )}
-                              {row === verdicts.trial && (
+                              {/* When nothing is sold at 3 ml or 5 ml the
+                                  headline falls back to the best-rate row, and
+                                  both facts are then true of the same row. One
+                                  badge saying both, because two badges side by
+                                  side read as two different rows' marks. */}
+                              {row === headline && row === verdicts.rate && (
                                 <Badge kind="value">
-                                  en ucuz {formatMl(row.size_ml_x10)}
+                                  kartta önerilen · en iyi ₺/ml
                                 </Badge>
+                              )}
+                              {row === headline && row !== verdicts.rate && (
+                                <Badge kind="value">kartta önerilen</Badge>
+                              )}
+                              {row === verdicts.rate && row !== headline && (
+                                <Badge kind="value">en iyi ₺/ml</Badge>
                               )}
                               {row.clone_of && (
                                 <Badge kind="clone">klon: {row.clone_of}</Badge>
@@ -472,38 +509,30 @@ export function ResultsScreen({
                                   zayıf eşleşme
                                 </Badge>
                               )}
+                              {row.product_url && (
+                                <span className="row-go" aria-hidden="true">
+                                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                                    <path d="M3 9 9 3M4.5 3H9v4.5" />
+                                  </svg>
+                                </span>
+                              )}
                               </span>
                             </td>
                             <td className="site-cell">{row.site_label}</td>
                             <td className="num">{formatMl(row.size_ml_x10)}</td>
                             <td className="num">{formatPrice(row.price_kurus)}</td>
-                            <td className="num perml">
-                              {/* Sized against the block's own cheapest row, so
-                                  the bar compares bottles that are actually
-                                  comparable rather than the whole screen. */}
-                              <span
-                                className={`perml-bar${row.clone_of ? " clone-bar" : ""}`}
-                                aria-hidden="true"
-                                style={{
-                                  width:
-                                    cheapestPerMl === null ||
-                                    row.price_per_ml_kurus === null
-                                      ? 0
-                                      : `${Math.min(
-                                          100,
-                                          (cheapestPerMl /
-                                            Number(row.price_per_ml_kurus)) *
-                                            100,
-                                        )}%`,
-                                }}
-                              />
+                            <td
+                              className={`num perml${
+                                row === verdicts.rate ? " best" : ""
+                              }`}
+                            >
                               <span
                                 className={`perml-value${row.clone_of ? " dim" : ""}`}
                               >
                                 {formatPerMl(row.price_per_ml_kurus)}
                               </span>
                             </td>
-                            <td>
+                            <td className="age-cell">
                               {row.age_days >= config.stale_price_days ? (
                                 <Badge kind="stale">{formatAge(row.age_days)}</Badge>
                               ) : (
@@ -521,6 +550,8 @@ export function ResultsScreen({
                     </tbody>
                   ))}
                 </table>
+                  </div>
+                </div>
               )}
             </section>
           );
