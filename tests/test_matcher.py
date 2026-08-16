@@ -597,6 +597,16 @@ REAL_TITLES = [
     ("Hugo – Boss Bottled Absolu", "Hugo Boss Bottled Absolu"),
     ("Hugo Boss Bottled Absolu Edp 3 ml", "Hugo Boss Bottled Absolu EDP"),
     ("Hugo Boss Bottled Absolu EDP 2024 8 ml", "Hugo Boss Bottled Absolu 2024 EDP"),
+    # One shop sells one bottle as four separate listings, each named after
+    # its own size tier rather than the bottle. All four are the same block.
+    ("Xerjoff Naxos Deneme", "Xerjoff Naxos"),
+    ("Xerjoff Naxos Dekant 3ml – Deneme", "Xerjoff Naxos"),
+    ("Xerjoff Naxos Standart", "Xerjoff Naxos"),
+    ("Xerjoff Naxos Dekant 5ml – Standart", "Xerjoff Naxos"),
+    ("Xerjoff Naxos Düzenli Kullanım", "Xerjoff Naxos"),
+    ("Xerjoff Naxos Dekant 15ml – Düzenli Kullanım", "Xerjoff Naxos"),
+    ("Xerjoff Naxos En Popüler", "Xerjoff Naxos"),
+    ("Xerjoff Naxos Dekant 10ml – En Popüler", "Xerjoff Naxos"),
 ]
 
 
@@ -646,3 +656,25 @@ def test_a_title_with_no_product_words_left_has_no_label() -> None:
     # title rather than open a block named "".
     assert product_label("5 ml dekant") == ""
     assert product_label("") == ""
+
+
+def test_size_tier_labels_do_not_split_one_bottle_into_four_blocks() -> None:
+    # A shop naming each size's own listing "Deneme"/"Standart"/"Düzenli
+    # Kullanım"/"En Popüler" was the reason a search for one bottle showed up
+    # as four one-row blocks instead of one four-row block.
+    labels = {
+        product_label(title) for title, _ in REAL_TITLES if title.startswith("Xerjoff")
+    }
+    assert labels == {"Xerjoff Naxos"}
+
+
+def test_a_size_tier_label_does_not_stop_a_search_from_matching() -> None:
+    # The same suffix that broke grouping also broke matching: "Xerjoff Naxos
+    # Deneme" no longer ends on the searched words once "Deneme" is read as
+    # part of the name, so this used to come back at a flagged, unconfident
+    # score instead of the exact match it actually is.
+    query = parse_query("Xerjoff Naxos")
+    match = match_title("Xerjoff Naxos Deneme", query)
+    assert match is not None
+    assert match.confident
+    assert match.score == 100

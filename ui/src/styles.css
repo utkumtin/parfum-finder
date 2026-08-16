@@ -1109,7 +1109,14 @@ table.rows tbody tr .perml.best {
   text-align: right;
   width: 3rem;
 }
-.add-button {
+/* ".button.add-button", not ".add-button": ".button.quiet" carries the same
+   two-class specificity, and being the "quiet" variant it was winning the
+   padding, background, border-color and color that this circular button
+   sets of its own -- including padding, which was leaving a fixed 30x30
+   circle with a content box narrower than the icon inside it, so the icon
+   rendered off its center. Matching the specificity here is what makes this
+   button's own rules the ones that actually apply. */
+.button.add-button {
   width: 1.875rem;
   height: 1.875rem;
   padding: 0;
@@ -1125,25 +1132,26 @@ table.rows tbody tr .perml.best {
     color 0.45s var(--ease),
     border-color 0.45s var(--ease);
 }
-.add-button:hover:not(:disabled) {
+.button.add-button:hover:not(:disabled) {
   background: var(--text);
   color: var(--on-accent);
   border-color: transparent;
   transform: scale(1.08);
 }
-.add-button.done {
+.button.add-button.done {
   color: var(--good);
   border-color: rgba(147, 183, 158, 0.38);
   background: var(--good-dim);
 }
-.add-button.done:hover:not(:disabled) {
+.button.add-button.done:hover:not(:disabled) {
   background: var(--good-dim);
   color: var(--good);
   transform: none;
 }
 .add-icon {
-  font-size: 0.875rem;
-  line-height: 1;
+  width: 0.875rem;
+  height: 0.875rem;
+  display: block;
 }
 .add-button.done .add-icon {
   animation: add-icon-pop 0.35s var(--ease);

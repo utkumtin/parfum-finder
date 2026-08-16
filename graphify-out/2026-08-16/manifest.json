@@ -495,8 +495,8 @@
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
-    "mtime": 1786794833.869862,
-    "ast_hash": "934731d500e3381ba1e0c7ab78b98558",
+    "mtime": 1786884310.5122828,
+    "ast_hash": "3ece2e12d273694909fb22c33eecd9b3",
     "semantic_hash": ""
   },
   "ui/src/api/client.ts": {
@@ -535,18 +535,18 @@
     "semantic_hash": ""
   },
   "ui/src/screens/BasketScreen.tsx": {
-    "mtime": 1786828606.5076475,
-    "ast_hash": "4112be91b0260a2efd2a0f16e91540e7",
+    "mtime": 1786884716.504947,
+    "ast_hash": "a09b14f95568beddf7cb1a1265b1778c",
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1786880121.1931112,
-    "ast_hash": "0f3268b98e26f41284355fda97aa4ffb",
+    "mtime": 1786885247.8135858,
+    "ast_hash": "e01cc52fc48f3e42ef9e7acff3d3170f",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
-    "mtime": 1786826605.3004532,
-    "ast_hash": "204af0d99183a90cf6b8966729f6ed03",
+    "mtime": 1786884225.3017104,
+    "ast_hash": "0228d95b6a800a5906b591164f379e83",
     "semantic_hash": ""
   },
   "ui/src/types.ts": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "ui/src/components/ScanStatus.tsx": {
-    "mtime": 1786822824.009821,
-    "ast_hash": "f697dced089a81824e1a22d8bec3df43",
+    "mtime": 1786884295.6703725,
+    "ast_hash": "273e53d8a649ed5b1b85aa9c6dea5352",
     "semantic_hash": ""
   }
 }

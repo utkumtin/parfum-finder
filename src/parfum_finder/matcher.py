@@ -90,6 +90,16 @@ _CONCENTRATIONS: tuple[tuple[tuple[str, ...], str], ...] = (
 # Words every decant shop puts in its titles, which say nothing about which
 # perfume it is. Turkish "parfüm" is noise; English "parfum" is a concentration,
 # and the two stay distinct after folding because the ü survives it.
+#
+# "Deneme", "Standart", "Düzenli Kullanım", "En Popüler" and "Avantajlı" are a
+# second kind of the same problem: a shop selling one bottle at four sizes
+# names each size's own listing "<Bottle> Deneme", "<Bottle> Standart", and so
+# on, so a size label leaks into what looks like the product's name. Left in,
+# _tokenize and product_label read each one as a different bottle -- four
+# blocks of one row each instead of one block of four -- and match_title's
+# _ends_with check misses too, since the listing no longer ends on the
+# searched words. Dropping them here fixes both at once, the same way the
+# size and packaging words already do.
 _NOISE = frozenset(
     {
         "dekant",
@@ -105,6 +115,13 @@ _NOISE = frozenset(
         "tester",
         "ml",
         "cc",
+        "deneme",
+        "standart",
+        "düzenli",
+        "kullanım",
+        "en",
+        "popüler",
+        "avantajlı",
     }
 )
 
