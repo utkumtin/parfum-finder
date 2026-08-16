@@ -49,6 +49,18 @@ function toBlocks(rows: ResultRow[]): Block[] {
 /** The sizes a trial buy is offered in, smallest first, in tenths of a ml. */
 const TRIAL_SIZES_ML_X10 = [30, 50];
 
+/**
+ * Identifies a row against a basket line the same way store.py's
+ * add_basket_item does: brand, name, concentration and size together are
+ * the basket's own uniqueness key, so matching on anything narrower could
+ * mark the wrong size as already added.
+ */
+function basketKey(
+  item: Pick<ResultRow, "brand" | "name" | "concentration" | "size_ml_x10">,
+): string {
+  return `${item.brand}|${item.name}|${item.concentration}|${item.size_ml_x10}`;
+}
+
 interface Verdicts {
   /** Lowest price per ml: what to buy when the intent is to wear it. */
   rate: ResultRow | null;
@@ -132,6 +144,25 @@ export function ResultsScreen({
   const [missing, setMissing] = useState<Record<number, string[]>>({});
   const [confirming, setConfirming] = useState<ResultRow | null>(null);
   const [streamRefusal, setStreamRefusal] = useState<string | null>(null);
+  // Which rows already sit in the basket, so the add button can show a
+  // checkmark that reflects the basket's real state instead of a timer.
+  const [basketKeys, setBasketKeys] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .basket()
+      .then((response) => {
+        if (cancelled) return;
+        setBasketKeys(new Set(response.rows.map(basketKey)));
+      })
+      .catch(() => {
+        // Not fatal: rows just show "+" until the next mount re-checks.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Rows land once, all together, when the scan is done -- the same table
   // the TUI paints in one go rather than one site at a time. A block's
@@ -258,6 +289,7 @@ export function ResultsScreen({
         });
         setConfirming(null);
         notify(`${row.brand} ${row.name} sepete eklendi`, "info");
+        setBasketKeys((prev) => new Set(prev).add(basketKey(row)));
         onBasketChanged();
         return true;
       } catch (e) {
@@ -479,7 +511,10 @@ export function ResultsScreen({
                               )}
                             </td>
                             <td className="add-cell">
-                              <AddButton onAdd={() => addToBasket(row, false)} />
+                              <AddButton
+                                onAdd={() => addToBasket(row, false)}
+                                inBasket={basketKeys.has(basketKey(row))}
+                              />
                             </td>
                           </tr>
                       ))}

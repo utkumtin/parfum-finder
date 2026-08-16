@@ -1,52 +1,40 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-
-type Status = "idle" | "pending" | "done";
-
-// How long the checkmark stays up before the button settles back to "+". Long
-// enough to register as feedback, short enough that a second add on the same
-// row does not feel blocked.
-const DONE_DURATION_MS = 1400;
+import { useCallback, useState } from "react";
 
 /**
- * Sepete ekle butonu. Sadece "+" gösterir; tıklanınca ekleme biterse yeşil
- * tike döner ve bir süre sonra "+"ya geri geçer.
+ * Sepete ekle butonu. Ürün sepetteyken yeşil tik gösterir, sepette
+ * değilken "+"; sepetten çıkarılınca otomatik olarak "+"ya döner. Tik
+ * bir zamanlayıcıyla değil, sepetin gerçek durumuyla (inBasket) belirlenir.
  */
-export function AddButton({ onAdd }: { onAdd: () => Promise<boolean> }) {
-  const [status, setStatus] = useState<Status>("idle");
-  const timerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    };
-  }, []);
+export function AddButton({
+  onAdd,
+  inBasket,
+}: {
+  onAdd: () => Promise<boolean>;
+  inBasket: boolean;
+}) {
+  const [pending, setPending] = useState(false);
 
   const handleClick = useCallback(
     async (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
-      if (status !== "idle") return;
-      setStatus("pending");
-      const added = await onAdd();
-      if (!added) {
-        setStatus("idle");
-        return;
-      }
-      setStatus("done");
-      timerRef.current = window.setTimeout(() => setStatus("idle"), DONE_DURATION_MS);
+      if (pending) return;
+      setPending(true);
+      await onAdd();
+      setPending(false);
     },
-    [onAdd, status],
+    [onAdd, pending],
   );
 
   return (
     <button
       type="button"
-      className={`button quiet add-button${status === "done" ? " done" : ""}`}
+      className={`button quiet add-button${inBasket ? " done" : ""}`}
       onClick={(e) => void handleClick(e)}
-      disabled={status === "pending"}
+      disabled={pending}
       aria-label="Sepete ekle"
     >
       <span className="add-icon" aria-hidden="true">
-        {status === "done" ? "✓" : "+"}
+        {inBasket ? "✓" : "+"}
       </span>
     </button>
   );

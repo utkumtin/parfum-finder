@@ -81,7 +81,6 @@
   "79": "AddButton.tsx",
   "80": "ConfirmDialog.tsx",
   "81": "ScanStatus.tsx",
-  "82": "BasketRow",
-  "83": "ResultRow",
-  "84": "MonkeyPatch"
+  "82": "ConfirmDialog.tsx",
+  "83": "ScanStatus.tsx"
 }
