@@ -74,5 +74,11 @@
   "72": "_scenario_block",
   "73": "Headers",
   "74": "format_age",
-  "78": "vite.config.ts"
+  "75": "_NoRootParser",
+  "76": "enum",
+  "77": "_collect_products",
+  "78": "vite.config.ts",
+  "79": "AddButton.tsx",
+  "80": "ConfirmDialog.tsx",
+  "81": "ScanStatus.tsx"
 }

@@ -71,7 +71,17 @@
   "69": "Variant Pattern A",
   "70": "Project Root",
   "71": "exclude_keywords",
+  "72": "_scenario_block",
   "73": "Headers",
   "74": "format_age",
-  "78": "vite.config.ts"
+  "75": "_NoRootParser",
+  "76": "enum",
+  "77": "_collect_products",
+  "78": "vite.config.ts",
+  "79": "AddButton.tsx",
+  "80": "ConfirmDialog.tsx",
+  "81": "ScanStatus.tsx",
+  "82": "BasketRow",
+  "83": "ResultRow",
+  "84": "MonkeyPatch"
 }

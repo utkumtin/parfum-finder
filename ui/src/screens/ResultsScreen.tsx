@@ -307,79 +307,44 @@ export function ResultsScreen({
           const verdicts = pickVerdicts(searchBlocks[0]?.rows ?? []);
           const cheapestPerMl =
             verdicts.rate === null ? null : Number(verdicts.rate.price_per_ml_kurus);
+          // The headline card leads with a sample size over the raw best
+          // rate: a shopper skimming the top of the screen reads "3 ml" as an
+          // answer to "what would trying this cost me", while the true
+          // cheapest ₺/ml stays the table's own cheapest-row marker below.
+          // Falls back to the true rate only when nothing is sold at 3 ml or
+          // 5 ml at all. This absorbs the old separate trial card: whenever a
+          // 3 ml or 5 ml row exists, headline already is that row, so a
+          // second "en ucuz Xml" card would only repeat it.
+          const headline = verdicts.trial ?? verdicts.rate;
           return (
             <section key={search.index} className="section">
               <div className="section-head">
                 <h2>{search.text}</h2>
               </div>
 
-              {verdicts.rate && (
-                <div className={`verdicts${verdicts.trial ? "" : " alone"}`}>
+              {headline && (
+                <div className="verdicts alone">
                   <div className="verdict rate">
                     <span className="verdict-body">
-                      <span className="verdict-kicker">En iyi ₺/ml</span>
+                      <span className="verdict-kicker">
+                        En iyi {formatMl(headline.size_ml_x10)} fiyatı
+                      </span>
                       <span className="verdict-figure">
-                        <b>{formatPerMl(verdicts.rate.price_per_ml_kurus)}</b>
+                        <b>{formatPrice(headline.price_kurus)}</b>
                       </span>
                       <span className="verdict-where">
-                        {verdicts.rate.site_label} ·{" "}
-                        {formatMl(verdicts.rate.size_ml_x10)} ·{" "}
-                        {formatPrice(verdicts.rate.price_kurus)}
+                        {headline.site_label} ·{" "}
+                        {formatPerMl(headline.price_per_ml_kurus)}
                       </span>
                     </span>
                     <button
                       type="button"
                       className="button small"
-                      onClick={() => void addToBasket(verdicts.rate!, false)}
+                      onClick={() => void addToBasket(headline, false)}
                     >
                       Sepete ekle
                     </button>
                   </div>
-
-                  {verdicts.trial && (
-                    <div className="verdict">
-                      <span className="verdict-body">
-                        <span className="verdict-kicker">
-                          En ucuz {formatMl(verdicts.trial.size_ml_x10)}
-                        </span>
-                        <span className="verdict-figure">
-                          <b>{formatPrice(verdicts.trial.price_kurus)}</b>
-                        </span>
-                        <span className="verdict-where">
-                          {verdicts.trial.site_label} ·{" "}
-                          {formatPerMl(verdicts.trial.price_per_ml_kurus)}
-                        </span>
-                        {/* Both halves of the trade, because the card would
-                            otherwise only show the half that makes it look
-                            good: less money now, worse rate per ml. A trial
-                            size is not guaranteed to cost less than the best
-                            rate, and a saving quoted as a negative number
-                            would be worse than saying nothing. */}
-                        {(verdicts.rate.price_kurus ?? 0) >
-                          (verdicts.trial.price_kurus ?? 0) && (
-                          <span className="verdict-note">
-                            {(
-                              Number(verdicts.trial.price_per_ml_kurus) /
-                              Number(verdicts.rate.price_per_ml_kurus)
-                            ).toFixed(1)}
-                            × ₺/ml, ama{" "}
-                            {formatPrice(
-                              (verdicts.rate.price_kurus ?? 0) -
-                                (verdicts.trial.price_kurus ?? 0),
-                            )}{" "}
-                            daha az para
-                          </span>
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        className="button small"
-                        onClick={() => void addToBasket(verdicts.trial!, false)}
-                      >
-                        Sepete ekle
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
               {searchNotices.map((notice, i) => (
