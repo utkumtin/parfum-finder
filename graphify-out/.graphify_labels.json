@@ -71,9 +71,8 @@
   "69": "Variant Pattern A",
   "70": "Project Root",
   "71": "exclude_keywords",
-  "72": "._write_to_sheet",
+  "72": "_scenario_block",
   "73": "Headers",
   "74": "format_age",
-  "75": "BasketRefreshEvent",
   "78": "vite.config.ts"
 }

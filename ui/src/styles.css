@@ -364,10 +364,12 @@ input {
 
 .scan-status-label {
   font-weight: 500;
+  line-height: 1;
 }
 
 .scan-status-count {
   margin-left: auto;
+  line-height: 1;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }

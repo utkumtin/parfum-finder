@@ -603,5 +603,10 @@
     "mtime": 1786822824.009821,
     "ast_hash": "f697dced089a81824e1a22d8bec3df43",
     "semantic_hash": ""
+  },
+  "image.png": {
+    "mtime": 1786876965.9620574,
+    "ast_hash": "a9a60d2e1bdae058a57c733829d10f3c",
+    "semantic_hash": ""
   }
 }
