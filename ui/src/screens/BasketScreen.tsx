@@ -480,6 +480,11 @@ export function BasketScreen({
                         {/* At one, this is the delete: the row has no button
                             of its own for that any more. Saying so in the
                             label is the only warning a screen reader gets. */}
+                        {/* A drawn path instead of the "−"/"+" characters: the
+                            minus sign and the plus glyph don't share a
+                            fallback font, so each one's ink landed at a
+                            different height inside the same button box and
+                            the stepper looked misaligned from row to row. */}
                         <button
                           type="button"
                           className={row.qty === 1 ? "remove" : undefined}
@@ -487,7 +492,17 @@ export function BasketScreen({
                           title={row.qty === 1 ? "Sepetten çıkar" : undefined}
                           onClick={() => void changeQty(row, row.qty - 1)}
                         >
-                          −
+                          <svg
+                            className="qty-icon"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M1.5 6h9" />
+                          </svg>
                         </button>
                         <span className="qty-value">{row.qty}</span>
                         <button
@@ -495,7 +510,17 @@ export function BasketScreen({
                           aria-label="artır"
                           onClick={() => void changeQty(row, row.qty + 1)}
                         >
-                          +
+                          <svg
+                            className="qty-icon"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M6 1.5v9M1.5 6h9" />
+                          </svg>
                         </button>
                       </span>
                     </td>

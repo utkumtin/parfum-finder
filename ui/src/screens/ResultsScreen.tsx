@@ -492,11 +492,11 @@ export function ResultsScreen({
                                   side read as two different rows' marks. */}
                               {row === headline && row === verdicts.rate && (
                                 <Badge kind="value">
-                                  kartta önerilen · en iyi ₺/ml
+                                  önerilen · en iyi ₺/ml
                                 </Badge>
                               )}
                               {row === headline && row !== verdicts.rate && (
-                                <Badge kind="value">kartta önerilen</Badge>
+                                <Badge kind="value">önerilen</Badge>
                               )}
                               {row === verdicts.rate && row !== headline && (
                                 <Badge kind="value">en iyi ₺/ml</Badge>

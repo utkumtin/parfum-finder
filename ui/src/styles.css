@@ -1128,7 +1128,6 @@ table.rows tbody tr .perml.best {
   place-items: center;
   transition:
     background 0.45s var(--ease),
-    transform 0.45s var(--ease),
     color 0.45s var(--ease),
     border-color 0.45s var(--ease);
 }
@@ -1136,7 +1135,6 @@ table.rows tbody tr .perml.best {
   background: var(--text);
   color: var(--on-accent);
   border-color: transparent;
-  transform: scale(1.08);
 }
 .button.add-button.done {
   color: var(--good);
@@ -1146,12 +1144,20 @@ table.rows tbody tr .perml.best {
 .button.add-button.done:hover:not(:disabled) {
   background: var(--good-dim);
   color: var(--good);
-  transform: none;
 }
 .add-icon {
   width: 0.875rem;
   height: 0.875rem;
   display: block;
+  transition: transform 0.45s var(--ease);
+}
+/* The scale lives on the icon, not the bordered circle around it: an
+   animated transform on a 1px ring makes the compositor interpolate the
+   border's bitmap every frame, which is what read as blur mid-hover and
+   sharpened only once the transition settled. The icon has no border to
+   smear, so it stays crisp while it moves. */
+.button.add-button:hover:not(:disabled):not(.done) .add-icon {
+  transform: scale(1.12);
 }
 .add-button.done .add-icon {
   animation: add-icon-pop 0.35s var(--ease);
@@ -1248,12 +1254,17 @@ table.matrix tfoot td.full {
   border-radius: 999px;
   background: transparent;
   color: var(--text-dim);
-  font-size: 0.9375rem;
-  line-height: 1;
+  display: inline-grid;
+  place-items: center;
   cursor: pointer;
   transition:
     background 0.35s var(--ease),
     color 0.35s var(--ease);
+}
+.qty-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  display: block;
 }
 .qty button:hover {
   background: var(--wash-3);

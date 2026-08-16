@@ -535,13 +535,13 @@
     "semantic_hash": ""
   },
   "ui/src/screens/BasketScreen.tsx": {
-    "mtime": 1786884716.504947,
-    "ast_hash": "a09b14f95568beddf7cb1a1265b1778c",
+    "mtime": 1786906664.3067641,
+    "ast_hash": "545148cb91531d6fcebfbc70e08810f2",
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1786885247.8135858,
-    "ast_hash": "e01cc52fc48f3e42ef9e7acff3d3170f",
+    "mtime": 1786906527.545333,
+    "ast_hash": "4c3cd702abe938ced73da2cabf9b3e06",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {

@@ -1,7 +1,7 @@
 # Graph Report - parfum-finder  (2026-08-16)
 
 ## Corpus Check
-- 106 files · ~287,815 words
+- 106 files · ~287,891 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b162b9b4`
+- Built from commit: `0eba8b20`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -123,15 +123,15 @@
 
 ## Import Cycles
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/logging_setup.py -> src/parfum_finder/__init__.py`
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
-- 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 
 ## Hyperedges (group relationships)
 - **Sites Implementing Variant Pattern C (embedded JSON)** — docs_discovery_report_venco_site, docs_discovery_report_decantall_site, docs_discovery_report_luxurydekant_site, docs_discovery_report_ruxangroup_site, architecture_md_variant_pattern_c [EXTRACTED 1.00]
@@ -349,8 +349,8 @@ Cohesion: 0.16
 Nodes (26): apply_variant_rules(), Turn raw size rows into decant variants, dropping what is not a decant.      Thr, _named_profile(), Any, Tests for the profile-driven search in parfum_finder.engine.  What these defend, The real fetcher, with a list of every URL it was asked for., A profile whose search page lists two houses' bottles, as shops do., _row() (+18 more)
 
 ### Community 52 - "FetchResult"
-Cohesion: 0.27
-Nodes (9): Run one site's profile against the real site.      Same contract as offline mode, validate_live(), _FakeSite, _fixture_site(), A stand-in for one live site, answering the search page then the rest.      Live, test_a_broken_layer_reports_which_other_layer_could_take_over(), test_a_working_profile_passes_against_a_site_that_still_answers(), test_zero_results_on_a_full_page_blames_the_result_selector() (+1 more)
+Cohesion: 0.12
+Nodes (17): conn(), Path, Tests for parfum_finder.store: the timestamp helper and the schema.  The one har, A disabled site loses its basket column, but an enabled quiet one keeps one., NULL means the site has no free shipping tier at all, not a threshold of zero., An update aimed at a row that isn't there means the caller is out of sync., The recents list has five slots, so a repeat must not consume two.      Someone, A snapshot pointing at a variant that doesn't exist has to be rejected.      SQL (+9 more)
 
 ### Community 53 - "conftest.py"
 Cohesion: 0.07
@@ -393,8 +393,8 @@ Cohesion: 0.11
 Nodes (21): Write a whole scan at once and return how many prices were recorded.      Every, write_snapshots(), The drop happens here so no caller can forget it.      Both the CLI and the scre, A slow site must not spread one reading across several timestamps.      Rows wri, The number reported is what landed in the history, not what was offered., Half a site's sizes updated is worse than none of them.      The basket compares, Another house's bottle on the same results page must not enter this history., EDT and EDP are different products, so the row has to say which one this was. (+13 more)
 
 ### Community 64 - "validate_live"
-Cohesion: 0.50
-Nodes (3): The template this site's profile would be based on, if any., Which of the matching templates gets applied, or None for none of them.      One, _resolve_platform()
+Cohesion: 0.18
+Nodes (11): _balanced_value(), _embedded_documents(), extract_css_variants(), _loads_or_skip(), Any, Rung 4: read the rendered markup with selectors. Last resort.      `config["vari, Yield every JSON document the page hides, in document order., Parse `text` as JSON, yielding nothing when it isn't JSON.      Pages are full o (+3 more)
 
 ### Community 65 - "_named_profile"
 Cohesion: 0.09
@@ -405,8 +405,8 @@ Cohesion: 0.20
 Nodes (10): product_label(), Reduce a site's own title to the product it is about, spelled one way.      What, Split a title into what the bottle is and what it says it imitates.      The sec, _split_clone_reference(), test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates(), test_a_longer_named_bottle_does_not_join_the_shorter_ones_block(), test_a_title_with_no_product_words_left_has_no_label(), test_every_shops_spelling_of_one_bottle_lands_in_one_block() (+2 more)
 
 ### Community 67 - "test_cached_prices_is_empty_for_a_perfume_nobody_scanned"
-Cohesion: 0.12
-Nodes (17): conn(), Path, Tests for parfum_finder.store: the timestamp helper and the schema.  The one har, A disabled site loses its basket column, but an enabled quiet one keeps one., NULL means the site has no free shipping tier at all, not a threshold of zero., An update aimed at a row that isn't there means the caller is out of sync., The recents list has five slots, so a repeat must not consume two.      Someone, A snapshot pointing at a variant that doesn't exist has to be rejected.      SQL (+9 more)
+Cohesion: 0.31
+Nodes (11): Path, Give the test profile's site id a hook file. The id is what binds them., test_a_before_search_that_returns_no_query_is_refused(), test_a_broken_hook_is_an_error_not_a_silent_empty(), test_a_hook_that_reads_nothing_is_named_as_the_culprit(), test_a_site_with_no_hook_file_is_driven_by_its_profile_alone(), test_after_search_can_drop_a_result_the_selectors_could_not(), test_before_search_rewrites_the_query_that_is_actually_sent() (+3 more)
 
 ### Community 68 - "field_map"
 Cohesion: 0.16
@@ -421,20 +421,20 @@ Cohesion: 0.29
 Nodes (7): in_stock, price, size_raw, additionalProperties, required, type, field_map
 
 ### Community 73 - "Headers"
-Cohesion: 0.18
-Nodes (11): _balanced_value(), _embedded_documents(), extract_css_variants(), _loads_or_skip(), Any, Rung 4: read the rendered markup with selectors. Last resort.      `config["vari, Yield every JSON document the page hides, in document order., Parse `text` as JSON, yielding nothing when it isn't JSON.      Pages are full o (+3 more)
+Cohesion: 0.27
+Nodes (9): Run one site's profile against the real site.      Same contract as offline mode, validate_live(), _FakeSite, _fixture_site(), A stand-in for one live site, answering the search page then the rest.      Live, test_a_broken_layer_reports_which_other_layer_could_take_over(), test_a_working_profile_passes_against_a_site_that_still_answers(), test_zero_results_on_a_full_page_blames_the_result_selector() (+1 more)
 
 ### Community 74 - "format_age"
 Cohesion: 0.22
 Nodes (8): _age_line(), format_live_report(), Every check run against one site's profile, in the order they ran.      Checks s, Whether the profile is old enough to be worth re-discovering., The age note for one site, or None when its age is unremarkable.      A profile, Render offline and live results side by side, as APP_FLOW §6 shows them.      Bo, SiteValidation, test_the_live_report_names_the_edit_that_would_repair_the_profile()
 
 ### Community 75 - "_NoRootParser"
-Cohesion: 0.31
-Nodes (11): Path, Give the test profile's site id a hook file. The id is what binds them., test_a_before_search_that_returns_no_query_is_refused(), test_a_broken_hook_is_an_error_not_a_silent_empty(), test_a_hook_that_reads_nothing_is_named_as_the_culprit(), test_a_site_with_no_hook_file_is_driven_by_its_profile_alone(), test_after_search_can_drop_a_result_the_selectors_could_not(), test_before_search_rewrites_the_query_that_is_actually_sent() (+3 more)
-
-### Community 76 - "enum"
 Cohesion: 0.25
 Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules, additionalProperties, required, type
+
+### Community 76 - "enum"
+Cohesion: 0.40
+Nodes (3): ComposeResult, ComposeResult, Static
 
 ### Community 77 - "_collect_products"
 Cohesion: 0.29
@@ -445,12 +445,12 @@ Cohesion: 0.31
 Nodes (7): _DeadSite, FormData, Headers, Method, Strategy, A host that cannot be reached at all., test_an_unreachable_site_is_not_reported_as_a_broken_profile()
 
 ### Community 80 - "_LayerUnavailable"
-Cohesion: 0.67
-Nodes (3): _LayerUnavailable, Exception, This profile carries no configuration for the layer being probed.
+Cohesion: 0.50
+Nodes (3): The template this site's profile would be based on, if any., Which of the matching templates gets applied, or None for none of them.      One, _resolve_platform()
 
 ### Community 81 - "ScanStatus.tsx"
-Cohesion: 0.40
-Nodes (3): ComposeResult, ComposeResult, Static
+Cohesion: 0.67
+Nodes (3): _LayerUnavailable, Exception, This profile carries no configuration for the layer being probed.
 
 ## Knowledge Gaps
 - **201 isolated node(s):** `parfum-finder`, `$schema`, `$id`, `title`, `description` (+196 more)
@@ -460,9 +460,9 @@ Nodes (3): ComposeResult, ComposeResult, Static
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SearchScreen` connect `TUI App Shell` to `TUI App & Screens`, `Title Matcher`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `exclude_keywords`, `Offline Profile Validation`, `ScanStatus.tsx`, `Search TUI Screen`, `Price/Size Normalization`?**
+- **Why does `SearchScreen` connect `TUI App Shell` to `TUI App & Screens`, `Title Matcher`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `exclude_keywords`, `enum`, `Offline Profile Validation`, `Search TUI Screen`, `Price/Size Normalization`?**
   _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Why does `BasketScreen` connect `Price/Size Normalization` to `TUI App & Screens`, `Site Profiles & Templates`, `Title Matcher`, `TUI Confirm Dialog`, `TUI App Shell`, `Basket Optimizer Core`, `ScanStatus.tsx`, `conftest.py`?**
+- **Why does `BasketScreen` connect `Price/Size Normalization` to `TUI App & Screens`, `Site Profiles & Templates`, `Title Matcher`, `TUI Confirm Dialog`, `TUI App Shell`, `Basket Optimizer Core`, `enum`, `conftest.py`?**
   _High betweenness centrality (0.034) - this node is a cross-community bridge._
 - **Why does `parse_query()` connect `_ResultRow` to `Title Matcher`, `Search Engine per Site`, `TUI Confirm Dialog`, `CLI Entry Points`, `TUI App Shell`, `._refresh_table`, `Search TUI Screen`, `snapshot_rows`, `Store Timestamp Tests`, `Live Profile Validation`?**
   _High betweenness centrality (0.030) - this node is a cross-community bridge._
