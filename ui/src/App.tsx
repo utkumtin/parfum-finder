@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "./api/client";
+import { UpdateDialog } from "./components/UpdateDialog";
 import { BasketScreen } from "./screens/BasketScreen";
 import { ResultsScreen } from "./screens/ResultsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
-import type { AppConfig, SearchStart } from "./types";
+import type { AppConfig, SearchStart, UpdateInfo } from "./types";
 
 type View = "search" | "results" | "basket";
 
@@ -26,6 +27,7 @@ export function App() {
   // rather than lifted out of BasketScreen because the number has to be there
   // before that screen has ever been opened.
   const [basketCount, setBasketCount] = useState(0);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
 
   useEffect(() => {
     Promise.all([api.config(), api.sites()])
@@ -36,6 +38,22 @@ export function App() {
       .catch((e: unknown) => {
         setStartupError(e instanceof ApiError ? e.message : String(e));
       });
+  }, []);
+
+  // Deliberately not part of the startup Promise.all above: that one gates the
+  // whole app on its result, and an offline machine or a GitHub outage must
+  // not turn into a window that refuses to open.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .update()
+      .then((info) => {
+        if (!cancelled && info.update_available) setUpdate(info);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -156,6 +174,10 @@ export function App() {
           />
         )}
       </main>
+
+      {update !== null && (
+        <UpdateDialog info={update} onDismiss={() => setUpdate(null)} />
+      )}
 
       {toast && (
         <div className={`toast${toast.kind === "error" ? " error" : ""}`}>

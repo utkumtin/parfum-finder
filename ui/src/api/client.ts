@@ -12,6 +12,8 @@ import type {
   SearchStart,
   SiteSummary,
   SortKey,
+  UpdateInfo,
+  UpdateProgress,
 } from "../types";
 
 declare global {
@@ -113,6 +115,18 @@ export const api = {
 
   removeBasketItem: (itemId: number) =>
     request<void>(`/api/basket/items/${itemId}`, { method: "DELETE" }),
+
+  update: () => request<UpdateInfo>("/api/update"),
+
+  // The download URL is never sent from here: the backend re-checks the
+  // release and downloads what it found itself.
+  startUpdateDownload: () =>
+    request<UpdateProgress>("/api/update/download", { method: "POST" }),
+
+  updateProgress: () => request<UpdateProgress>("/api/update/progress"),
+
+  installUpdate: () =>
+    request<{ installing: boolean }>("/api/update/install", { method: "POST" }),
 
   // Without an item id every basket line is re-priced. With one, the same
   // walk over the enabled sites runs for that line alone.

@@ -158,3 +158,22 @@ export interface RefreshStart {
 }
 
 export type SortKey = "ml" | "price" | "per_ml";
+
+export interface UpdateInfo {
+  current_version: string;
+  latest_version: string | null;
+  update_available: boolean;
+  // The release body as GitHub stores it: Markdown source, shown as written.
+  notes: string;
+  release_url: string;
+  download_url: string | null;
+}
+
+export interface UpdateProgress {
+  state: "idle" | "downloading" | "ready" | "installing" | "error";
+  received: number;
+  // Zero when the server sent no Content-Length, which is what turns the bar
+  // into an indeterminate one instead of a fraction of an unknown whole.
+  total: number;
+  message: string;
+}

@@ -1483,6 +1483,36 @@ details.more summary:hover {
   margin-top: 0.375rem;
 }
 
+/* Wider than a confirm, because what is being read here is a changelog and
+   not a sentence. */
+.update-dialog {
+  width: min(34rem, 100%);
+}
+.update-notes {
+  max-height: 15rem;
+  overflow-y: auto;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-core);
+  background: var(--wash-2);
+  color: var(--text-dim);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  /* Release notes arrive as Markdown source, so the line breaks the author
+     typed are the only structure there is to keep. */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.update-line {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.update-line.error {
+  color: var(--danger-text);
+}
+
 .toast {
   position: fixed;
   left: 50%;

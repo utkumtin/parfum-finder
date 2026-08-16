@@ -18,6 +18,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The version the app reports at runtime is the one the installer has to
+      # carry, and on a tag it also has to be the tag: a build that ships
+      # 0.1.0 under a v0.2.0 tag would offer every user an update forever,
+      # since the update check compares exactly these two numbers.
+      - name: Resolve the app version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $match = Select-String -Path src/parfum_finder/__init__.py -Pattern '^__version__ = "(.+)"'
+          if (-not $match) { throw "__version__ not found in src/parfum_finder/__init__.py" }
+          $version = $match.Matches[0].Groups[1].Value
+          if ("${{ github.ref_type }}" -eq "tag" -and "v$version" -ne $env:RELEASE_TAG) {
+            throw "tag $env:RELEASE_TAG does not match __version__ $version"
+          }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -101,7 +117,7 @@ jobs:
         run: choco install innosetup -y --no-progress
 
       - name: Compile installer
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\installer.iss'
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$env:APP_VERSION packaging\installer.iss'
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

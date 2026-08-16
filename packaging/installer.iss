@@ -6,7 +6,11 @@
 ; (run from the repo root, so the relative ..\dist\ path below resolves).
 
 #define MyAppName "parfum-finder"
-#define MyAppVersion "0.1.0"
+; Sürüm CI'dan geliyor: ISCC /DMyAppVersion=0.2.0. Buradaki yedek yalnızca
+; elle derlemeler için, tek doğru kaynak src/parfum_finder/__init__.py.
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppExeName "parfum-finder.exe"
 
 [Setup]
@@ -14,6 +18,10 @@ AppId={{2F6C3B9E-6C9E-4C9F-9E1A-8D0B5E9F4A2E}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher=Utku Metin
+VersionInfoVersion={#MyAppVersion}
+; Uygulama açıkken kurulum yapılmasını engeller: gui.py aynı adlı mutex'i
+; açılışta oluşturuyor, kurulum da onu görünce üzerine yazmadan duruyor.
+AppMutex=parfum-finder-running
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes

@@ -10,6 +10,7 @@ injecting it after startup -- the same path `sync_to_db` runs at boot takes.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from parfum_finder.engine import (
 )
 from parfum_finder.matcher import MAX_QUERIES, QUERY_SEPARATOR_PATTERN
 from parfum_finder.store import STALE_PRICE_DAYS, now_iso
+from parfum_finder.updater import UpdateDownload
 
 _PROFILE_TEMPLATE: dict[str, Any] = {
     "schema_version": 1,
@@ -634,3 +636,150 @@ def test_basket_refresh_404s_for_an_unknown_line(
         "/api/basket/refresh", headers=_auth(token), json={"basket_item_id": 999999}
     )
     assert response.status_code == 404
+
+
+# -- updates --------------------------------------------------------------
+
+
+class _RecordingStream:
+    """Just enough of an httpx streaming response to be downloaded from."""
+
+    headers: dict[str, str] = {"Content-Length": "2"}
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def iter_bytes(self) -> Iterator[bytes]:
+        yield b"MZ"
+
+    def __enter__(self) -> _RecordingStream:
+        return self
+
+    def __exit__(self, *_exc: Any) -> None:
+        return None
+
+
+class _RecordingClient:
+    def __init__(self, asked: list[str]) -> None:
+        self._asked = asked
+
+    def __enter__(self) -> _RecordingClient:
+        return self
+
+    def __exit__(self, *_exc: Any) -> None:
+        return None
+
+    def stream(self, _method: str, url: str) -> _RecordingStream:
+        self._asked.append(url)
+        return _RecordingStream()
+
+
+def _update_client(
+    sites_dir: Path,
+    db_path: Path,
+    info: dict[str, Any],
+    download: UpdateDownload | None = None,
+    request_quit: Any = None,
+) -> Iterator[tuple[TestClient, str]]:
+    app = create_app(
+        sites_dir=sites_dir,
+        db_path=db_path,
+        runner=_static_runner({}),
+        update_checker=lambda: info,
+        update_download=download,
+        request_quit=request_quit,
+    )
+    with TestClient(app) as c:
+        yield c, app.state.parfum.auth_token
+
+
+_NO_UPDATE: dict[str, Any] = {
+    "current_version": "0.1.0",
+    "latest_version": None,
+    "update_available": False,
+    "notes": "",
+    "release_url": "",
+    "download_url": None,
+}
+
+_AN_UPDATE: dict[str, Any] = {
+    "current_version": "0.1.0",
+    "latest_version": "0.2.0",
+    "update_available": True,
+    "notes": "- yeni",
+    "release_url": "https://example.invalid/r",
+    "download_url": "https://example.invalid/setup.exe",
+}
+
+
+def test_update_check_passes_the_release_through(
+    sites_dir: Path, db_path: Path
+) -> None:
+    c, token = next(_update_client(sites_dir, db_path, _AN_UPDATE))
+    response = c.get("/api/update", headers=_auth(token))
+
+    assert response.status_code == 200
+    assert response.json() == _AN_UPDATE
+
+
+def test_download_starts_from_the_server_side_check(
+    sites_dir: Path, db_path: Path
+) -> None:
+    """The URL the installer comes from is decided here, not by the page.
+
+    A client-supplied download URL would move the question of where the
+    executable came from into the window, which is the one place in this app
+    that renders text written somewhere else.
+    """
+    asked: list[str] = []
+
+    def client_factory(**_kwargs: Any) -> Any:
+        return _RecordingClient(asked)
+
+    download = UpdateDownload(
+        dest_dir=db_path.parent / "download",
+        client_factory=client_factory,
+        spawn=lambda _path: None,
+    )
+    c, token = next(_update_client(sites_dir, db_path, _AN_UPDATE, download=download))
+    response = c.post("/api/update/download", headers=_auth(token))
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "downloading"
+    for _ in range(200):
+        if asked:
+            break
+        time.sleep(0.02)
+    assert asked == ["https://example.invalid/setup.exe"]
+
+
+def test_download_is_refused_when_there_is_nothing_to_download(
+    sites_dir: Path, db_path: Path
+) -> None:
+    c, token = next(_update_client(sites_dir, db_path, _NO_UPDATE))
+    assert c.post("/api/update/download", headers=_auth(token)).status_code == 409
+
+
+def test_install_closes_the_window_only_after_it_has_answered(
+    sites_dir: Path, db_path: Path
+) -> None:
+    """The window has to stay up long enough to deliver this response.
+
+    Closing inside the handler would kill the reply that tells the dialog the
+    installer is running, leaving the last thing on screen a failed request.
+    """
+    quits: list[bool] = []
+    download = UpdateDownload(spawn=lambda _path: None)
+    c, token = next(
+        _update_client(
+            sites_dir,
+            db_path,
+            _AN_UPDATE,
+            download=download,
+            request_quit=lambda: quits.append(True),
+        )
+    )
+    # Nothing downloaded yet: no spawn, no quit, and a status the dialog can
+    # tell apart from a network failure.
+    assert c.post("/api/update/install", headers=_auth(token)).status_code == 409
+    assert quits == []

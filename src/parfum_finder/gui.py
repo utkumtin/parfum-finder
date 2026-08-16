@@ -17,6 +17,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,6 +27,9 @@ from parfum_finder import paths
 from parfum_finder.api.app import DEFAULT_DB_PATH, DEFAULT_SITES_DIR, create_app
 
 _WINDOW_TITLE = "parfum-finder"
+
+# packaging/installer.iss'teki AppMutex ile birebir aynı olmak zorunda.
+APP_MUTEX_NAME = "parfum-finder-running"
 
 
 @dataclass
@@ -41,7 +45,10 @@ class _RunningServer:
 
 
 def _start_server(
-    *, sites_dir: Path | None = None, db_path: Path | None = None
+    *,
+    sites_dir: Path | None = None,
+    db_path: Path | None = None,
+    request_quit: Callable[[], None] | None = None,
 ) -> _RunningServer:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
@@ -51,6 +58,7 @@ def _start_server(
     app = create_app(
         sites_dir=sites_dir if sites_dir is not None else DEFAULT_SITES_DIR,
         db_path=db_path if db_path is not None else DEFAULT_DB_PATH,
+        request_quit=request_quit,
     )
     token: str = app.state.parfum.auth_token
     server = uvicorn.Server(uvicorn.Config(app, log_level="warning"))
@@ -106,7 +114,9 @@ def run_selftest(*, sites_dir: Path | None = None, db_path: Path | None = None) 
 
 def run_window() -> None:
     paths.ensure_user_data()
-    running = _start_server()
+    _hold_app_mutex()
+    quit_requested = threading.Event()
+    running = _start_server(request_quit=quit_requested.set)
     try:
         if not _wait_until_ready(running.port, running.token):
             raise RuntimeError("backend did not become ready in time")
@@ -115,18 +125,44 @@ def run_window() -> None:
         import webview
 
         try:
-            webview.create_window(
+            window = webview.create_window(
                 _WINDOW_TITLE,
                 f"http://127.0.0.1:{running.port}/",
                 width=1280,
                 height=800,
             )
-            webview.start()
+
+            def close_when_asked() -> None:
+                # Güncelleme kurulumu devredildiğinde pencereyi kapatır.
+                # webview.start(func) bunu GUI döngüsü kurulduktan sonra ayrı
+                # bir thread'de çalıştırır, kapanış da oradan gelmek zorunda:
+                # bu satırdan sonrası pencere kapanana kadar geri dönmez.
+                quit_requested.wait()
+                if window is not None:
+                    window.destroy()
+
+            webview.start(close_when_asked)
         except Exception:
             _report_startup_failure()
             raise
     finally:
         running.stop()
+
+
+def _hold_app_mutex() -> None:
+    """Kurulum dosyasının uygulamanın açık olduğunu görmesini sağlar.
+
+    packaging/installer.iss aynı adı AppMutex olarak tanımlıyor; Inno Setup
+    hâlâ açık olan bir exe'nin üzerine yazmak yerine böyle duruyor. Mutex'i
+    kimse bırakmıyor: handle süreçle birlikte ölüyor, yani tam da kurulumun
+    devam edebileceği anda.
+    """
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    with contextlib.suppress(OSError):
+        ctypes.windll.kernel32.CreateMutexW(None, False, APP_MUTEX_NAME)
 
 
 def _report_startup_failure() -> None:

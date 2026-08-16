@@ -26,7 +26,7 @@ import json
 import os
 import secrets
 import sqlite3
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -90,6 +90,7 @@ from parfum_finder.store import (
     remove_basket_item,
     set_basket_qty,
 )
+from parfum_finder.updater import UpdateDownload, check_for_update
 from parfum_finder.validate import (
     DEFAULT_SITES_DIR,
     STALE_PROFILE_DAYS,
@@ -178,6 +179,11 @@ class _AppState:
     runner: SiteRunner
     auth_token: str
     write_lock: asyncio.Lock
+    update_checker: Callable[[], dict[str, Any]]
+    update_download: UpdateDownload
+    # Kurulum devredildikten sonra pencereyi kapatmanın tek yolu. GUI dışında
+    # (testlerde, uvicorn'la elle çalıştırıldığında) kapatılacak pencere yok.
+    request_quit: Callable[[], None] | None = None
     profiles: list[dict[str, Any]] = field(default_factory=list)
     scan_sessions: dict[str, ScanSession] = field(default_factory=dict)
     refresh_sessions: dict[str, BasketRefreshSession] = field(default_factory=dict)
@@ -202,6 +208,9 @@ def create_app(
     runner: SiteRunner = run_site,
     auth_token: str | None = None,
     ui_dir: Path | None = None,
+    update_checker: Callable[[], dict[str, Any]] = check_for_update,
+    update_download: UpdateDownload | None = None,
+    request_quit: Callable[[], None] | None = None,
 ) -> FastAPI:
     resolved_ui_dir = ui_dir if ui_dir is not None else paths.ui_dir()
     state = _AppState(
@@ -216,6 +225,11 @@ def create_app(
             auth_token or os.environ.get(_TOKEN_ENV_VAR) or secrets.token_urlsafe(32)
         ),
         write_lock=asyncio.Lock(),
+        update_checker=update_checker,
+        update_download=(
+            update_download if update_download is not None else UpdateDownload()
+        ),
+        request_quit=request_quit,
     )
 
     @asynccontextmanager
@@ -510,6 +524,45 @@ def create_app(
                     await websocket.send_json(encode_basket_refresh_event(event))
         except WebSocketDisconnect:
             pass
+
+    # -- updates -----------------------------------------------------------
+    #
+    # İndirme adresi istemciden değil, buradaki kontrolden gelir: pencerede
+    # açılan sayfanın gösterdiği bir URL'yi indirip çalıştırmak, kurulum
+    # dosyasının nereden geldiği sorusunu sayfaya devretmek olurdu.
+
+    @app.get("/api/update", dependencies=[auth])
+    async def check_update(request: Request) -> dict[str, Any]:
+        app_state = get_state(request)
+        return await asyncio.to_thread(app_state.update_checker)
+
+    @app.post("/api/update/download", dependencies=[auth])
+    async def start_update_download(request: Request) -> dict[str, Any]:
+        app_state = get_state(request)
+        info = await asyncio.to_thread(app_state.update_checker)
+        download_url = info.get("download_url")
+        if not info.get("update_available") or not download_url:
+            raise HTTPException(status_code=409, detail="indirilecek bir sürüm yok")
+        started = app_state.update_download.start(str(download_url))
+        if started is None:
+            raise HTTPException(status_code=409, detail="indirme zaten sürüyor")
+        return started.as_dict()
+
+    @app.get("/api/update/progress", dependencies=[auth])
+    async def update_progress(request: Request) -> dict[str, Any]:
+        return get_state(request).update_download.progress().as_dict()
+
+    @app.post("/api/update/install", dependencies=[auth])
+    async def install_update(request: Request) -> dict[str, Any]:
+        app_state = get_state(request)
+        if not app_state.update_download.install():
+            raise HTTPException(status_code=409, detail="kurulum dosyası hazır değil")
+        # Pencere hemen değil, bu yanıt istemciye ulaştıktan sonra kapanır:
+        # aynı çağrı içinde kapatmak, kullanıcıya kurulumun başladığını
+        # söyleyen yanıtı yolda öldürürdü.
+        if app_state.request_quit is not None:
+            asyncio.get_running_loop().call_later(1.0, app_state.request_quit)
+        return {"installing": True}
 
     # -- static frontend ---------------------------------------------------
     #

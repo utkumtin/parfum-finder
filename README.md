@@ -121,6 +121,26 @@ Bilinmesi gereken iki şey:
   Evergreen Bootstrapper'ına yönlendiren bir mesaj kutusu gösterir, beyaz
   ekran vermez.
 
+### Yeni sürüm yayınlama ve otomatik güncelleme
+
+Uygulama her açılışta GitHub'ın `releases/latest` uç noktasını sorar ve daha
+yeni bir sürüm varsa release notlarıyla birlikte bir pencere açar. Kullanıcı
+"Güncelle" derse kurulum dosyası indirilir, sessiz kurulum başlar ve uygulama
+yeni sürümle yeniden açılır; "Şimdi değil" derse pencere kapanır ve o oturumda
+bir daha sorulmaz. Kontrol yalnızca paketlenmiş build'de çalışır.
+
+Yayın adımları:
+
+1. `src/parfum_finder/__init__.py` içindeki `__version__`'ı yükselt (tek doğru
+   kaynak; `pyproject.toml` sürümünü de aynı tut).
+2. `git tag v<sürüm>` ve `git push --tags`. CI, etiketle `__version__`
+   uyuşmuyorsa build'i düşürür.
+3. GitHub'da release'i yayınla ve açıklamasına değişiklikleri yaz: kullanıcının
+   pencerede okuyacağı metin birebir bu.
+
+CI, kurulum dosyasını release'e `parfum-finder-setup.exe` olarak ekler.
+Güncelleme kontrolü release'e eklenmiş ilk `.exe` dosyasını indirir.
+
 Kaynaktan Windows exe üretmek için (CI'ın yaptığının aynısı):
 
 ```powershell
