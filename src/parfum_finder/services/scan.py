@@ -189,6 +189,35 @@ def _cached_result_row(price: CachedPrice, label: str, search: Search) -> Result
     )
 
 
+def _dedupe_snapshot_rows(rows: list[SnapshotRow]) -> list[SnapshotRow]:
+    """Collapse listings a site's search page repeats into one.
+
+    A search page can list the same bottle more than once -- an overlapping
+    page, the same listing under two categories -- and nothing upstream of
+    this filters that out. Storage would never show the duplicate anyway:
+    `product_variants` is unique per (product, size), so a second listing for
+    a size already seen overwrites the first instead of adding a row.
+    Collapsing here, before either the table or storage sees these rows,
+    keeps both agreeing with each other and keeps a write from recording the
+    same size twice under one `fetched_at`. Last one in wins, matching what
+    storage would do on its own: `write_snapshots` stamps a whole batch with
+    one `fetched_at`, and `latest_prices` breaks that tie by `snapshot_id`,
+    so whichever listing was read last is also the one storage would end up
+    surfacing.
+    """
+    deduped: dict[tuple[str, str, str, str, int], SnapshotRow] = {}
+    for row in rows:
+        key = (
+            row.site_id,
+            row.brand,
+            row.name,
+            row.concentration,
+            row.variant.size_ml_x10,
+        )
+        deduped[key] = row
+    return list(deduped.values())
+
+
 def _to_result_rows(
     label: str, search: Search, rows: list[SnapshotRow]
 ) -> list[ResultRow]:
@@ -359,7 +388,7 @@ async def run_scan(
             except Exception as e:
                 result = SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
             try:
-                snap_rows = snapshot_rows(result, search.query)
+                snap_rows = _dedupe_snapshot_rows(snapshot_rows(result, search.query))
             except Exception:
                 logger.exception("%s — sonuç okunamadı", site_id)
                 error_count += 1
@@ -550,7 +579,7 @@ async def run_basket_refresh(
                     )
                 )
             else:
-                snap_rows = snapshot_rows(result, query)
+                snap_rows = _dedupe_snapshot_rows(snapshot_rows(result, query))
                 try:
                     async with write_lock:
                         await asyncio.to_thread(

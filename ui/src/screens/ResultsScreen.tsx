@@ -434,7 +434,13 @@ export function ResultsScreen({
                       </tr>
                       {block.rows.map((row) => (
                           <tr
-                            key={`${row.site_id}-${row.raw_title}-${row.size_ml_x10}`}
+                            // The identity the backend already dedupes rows on,
+                            // not the title: two different perfumes can share a
+                            // raw title on the same site and size, and a
+                            // colliding key is what makes React reuse a row's
+                            // DOM node for another row instead of rendering it,
+                            // which reads as a duplicate that won't reorder.
+                            key={`${row.query_index}-${row.site_id}-${row.brand}-${row.name}-${row.concentration}-${row.size_ml_x10}`}
                             className={[
                               row.product_url ? "clickable" : "",
                               row === verdicts.rate ? "cheapest" : "",

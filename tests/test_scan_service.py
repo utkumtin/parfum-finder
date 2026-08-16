@@ -197,6 +197,69 @@ async def test_run_scan_skips_the_shops_for_a_cached_perfume(tmp_path: Path) -> 
     assert rows_ready.rows[0].site_id == "site-a"
 
 
+async def test_a_site_listing_the_same_size_twice_yields_one_row(
+    tmp_path: Path,
+) -> None:
+    """A search page that lists the same bottle under two listings (an
+    overlapping page, the same product under two categories) must not turn
+    into two rows for one size: `product_variants` is unique per size on
+    write, and the live table has to agree with what a reload of the same
+    search will show once that write lands.
+    """
+    db_path = tmp_path / "db.sqlite3"
+    profiles = [_profile("site-a", "Site A")]
+    conn = connect(db_path)
+    try:
+        sync_to_db(conn, profiles, synced_at=now_iso())
+    finally:
+        conn.close()
+
+    def _hit(price_kurus: int, url: str) -> SearchHit:
+        candidate = ProductCandidate(raw_title="Dior Sauvage EDP Dekant", url=url)
+        variant = Variant(
+            size_ml_x10=50,
+            raw_title="Dior Sauvage EDP Dekant 5 ml",
+            product_url=url,
+            price_kurus=price_kurus,
+            in_stock=True,
+        )
+        return SearchHit(candidate, (variant,))
+
+    result = SiteResult(
+        "site-a",
+        "ok",
+        (_hit(25000, "https://example.com/p1"), _hit(27000, "https://example.com/p2")),
+        "site-a: ok",
+    )
+    runner = _static_runner({"site-a": result})
+
+    events = await _collect(
+        run_scan(
+            [_search(0)],
+            profiles,
+            runner=runner,
+            db_path=db_path,
+            write_lock=asyncio.Lock(),
+        )
+    )
+
+    rows_ready = next(e for e in events if isinstance(e, RowsReady))
+    assert len(rows_ready.rows) == 1
+    # The later listing on the page is the one storage will also end up
+    # showing, since `write_snapshots` stamps every row in the batch with
+    # one timestamp and breaks the tie by write order.
+    assert rows_ready.rows[0].price_kurus == 27000
+
+    # The write side has to agree, or a duplicate listing costs a wasted row
+    # in the price history every time this perfume is scanned.
+    conn = connect(db_path)
+    try:
+        written = conn.execute("SELECT COUNT(*) FROM price_snapshots").fetchone()[0]
+    finally:
+        conn.close()
+    assert written == 1
+
+
 async def test_run_scan_force_bypasses_the_cache(tmp_path: Path) -> None:
     db_path = tmp_path / "db.sqlite3"
     profiles = [_profile("site-a", "Site A")]
