@@ -1,7 +1,7 @@
 # Graph Report - parfum-finder  (2026-08-17)
 
 ## Corpus Check
-- 124 files · ~301,010 words
+- 124 files · ~301,274 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `37315e12`
+- Built from commit: `e1a79d5f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -81,9 +81,8 @@
 - CandidateFilter
 - validate_live
 - _named_profile
-- product_label
 - test_cached_prices_is_empty_for_a_perfume_nobody_scanned
-- field_map
+- build_basket_rows
 - Variant Pattern A
 - Project Root
 - exclude_keywords
@@ -91,15 +90,16 @@
 - Headers
 - format_age
 - _NoRootParser
-- enum
+- FetchResult
 - _collect_products
+- vite.config.ts
 - .__call__
 - exclude_keywords
 - ScanStatus.tsx
-- build_basket_rows
-- _collect_products
-- BasketScreen.tsx
 - run_scan
+- product_label
+- BasketScreen.tsx
+- basket_prices
 - test_paths.py
 - helpers.ts
 - ConfirmScreen
@@ -140,14 +140,14 @@
   tests/test_engine.py → src/parfum_finder/engine.py
 
 ## Import Cycles
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/logging_setup.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 
@@ -179,8 +179,8 @@ Cohesion: 0.06
 Nodes (133): Screen, ProductCandidate, One hit on a search results page, before its product page is opened.      `raw_t, One decant size of one product, in the units the database stores.      Tenths of, A candidate together with the decant sizes its product page offers., SearchHit, Variant, connect() (+125 more)
 
 ### Community 5 - "Search Engine per Site"
-Cohesion: 0.15
-Nodes (27): Match, match_title(), PerfumeQuery, The perfume being looked for, split into its three identity parts.      `concent, One site title judged against the query.      `concentration` is what the title, Judge one site title against a query, or None if it is not that perfume.      No, test_a_brand_needs_all_of_its_words_not_one(), test_a_brand_only_query_matches_a_title_that_is_only_that_brand() (+19 more)
+Cohesion: 0.12
+Nodes (27): _read_basket(), _ClimbState, _label(), Basket scenario evaluation. A pure function, no network access, no sqlite.  Inpu, One site's share of a split basket: what to buy there and what it costs.      `s, The hill-climb's working assignment plus the running per-site figures.      `sub, Name one basket line the way a missing-item warning has to read it., Whether a split plan beats the best full-coverage single site.      `best_full` (+19 more)
 
 ### Community 6 - "Platform Discovery Flow"
 Cohesion: 0.15
@@ -199,12 +199,12 @@ Cohesion: 0.09
 Nodes (43): HTMLParser, _check_variant_control(), _fetch_page(), _headers(), _is_excluded(), _paced_fetcher(), _page_offers_sizes(), _page_says_sold_out() (+35 more)
 
 ### Community 10 - "Basket Optimizer Core"
-Cohesion: 0.15
-Nodes (35): BasketItem, optimize(), Prices, Score one site against the basket, or against a subset of it.      `item_ids` is, Score every enabled site against the whole basket and sort the results.      Sit, Search for the cheapest way to split the basket across several sites.      Retur, One line of the shopping list: a basket row, not a unit count.      `item_id` is, single_site_scenarios() (+27 more)
+Cohesion: 0.14
+Nodes (37): BasketItem, optimize(), Prices, Score one site against the basket, or against a subset of it.      `item_ids` is, Score every enabled site against the whole basket and sort the results.      Sit, Search for the cheapest way to split the basket across several sites.      Retur, One line of the shopping list: a basket row, not a unit count.      `item_id` is, One site's shipping terms, read once and reused for every scenario.      `free_s (+29 more)
 
 ### Community 11 - "Basket Store & Pricing"
-Cohesion: 0.25
-Nodes (8): cached_prices(), Return the latest stored price of every size of this perfume, per site.      Bra, The search screen's second search must be answered with today's numbers.      Tw, A price nobody will scan again may not be offered as a result.      Refreshing i, Nothing on record is the state before a first search, not an error.      The sea, test_cached_prices_is_empty_for_a_perfume_nobody_scanned(), test_cached_prices_leaves_out_a_disabled_site(), test_cached_prices_serves_the_latest_reading_of_every_size()
+Cohesion: 0.20
+Nodes (10): cached_prices(), Return the latest stored price of every size of this perfume, per site.      Bra, The search screen's second search must be answered with today's numbers.      Tw, A search that named no concentration is asking for all of them.      "" means "a, A price nobody will scan again may not be offered as a result.      Refreshing i, Nothing on record is the state before a first search, not an error.      The sea, test_cached_prices_is_empty_for_a_perfume_nobody_scanned(), test_cached_prices_leaves_out_a_disabled_site() (+2 more)
 
 ### Community 12 - "JSON-LD Product Extraction"
 Cohesion: 0.15
@@ -219,8 +219,8 @@ Cohesion: 0.06
 Nodes (31): any, defaults, fingerprint, additionalProperties, items, minItems, type, description (+23 more)
 
 ### Community 15 - "Product Extraction"
-Cohesion: 0.21
-Nodes (15): probe(), Fetch `url` with every strategy and report diagnostics for each.      timeout_s, MonkeyPatch, Tests for parfum_finder.probe.  probe() always tries all three strategies -- the, test_probe_counts_jsonld_product_and_platform_signature(), test_probe_counts_product_across_jsonld_root_shapes(), test_probe_counts_product_markup_without_any_jsonld(), test_probe_counts_products_nested_below_the_top_level() (+7 more)
+Cohesion: 0.15
+Nodes (27): Match, match_title(), PerfumeQuery, The perfume being looked for, split into its three identity parts.      `concent, One site title judged against the query.      `concentration` is what the title, Judge one site title against a query, or None if it is not that perfume.      No, test_a_brand_needs_all_of_its_words_not_one(), test_a_brand_only_query_matches_a_title_that_is_only_that_brand() (+19 more)
 
 ### Community 16 - "Schema Field Patterns"
 Cohesion: 0.06
@@ -251,8 +251,8 @@ Cohesion: 0.24
 Nodes (6): BaseHTTPRequestHandler, _Handler, _playwright_usable(), Shared pytest fixtures.  A local HTTP server used by fetch/probe tests: real req, Whether the playwright rung can actually run here, binary included.      Checkin, server_url()
 
 ### Community 23 - "Price/Size Normalization"
-Cohesion: 0.13
-Nodes (9): _Change, Delete one basket line, and say whether there was one to delete.      Returns Fa, remove_basket_item(), BasketScreen, BasketRow, Path, The basket: the list on top, one scenario per site underneath., _remove() (+1 more)
+Cohesion: 0.15
+Nodes (7): _Change, BasketScreen, BasketRow, Path, The basket: the list on top, one scenario per site underneath., _remove(), _set_qty()
 
 ### Community 24 - "JSON Schema Primitives"
 Cohesion: 0.11
@@ -287,8 +287,8 @@ Cohesion: 0.14
 Nodes (22): _canonical(), _covers(), _ends_with(), _index_of(), _match_text(), _own_identity(), Perfume matching: brand and concentration are mandatory; fuzzy matching only app, What a clone's own title says the bottle is, in the shape a query has.      Buil (+14 more)
 
 ### Community 32 - "Variant Extraction Fields"
-Cohesion: 0.11
-Nodes (18): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+10 more)
+Cohesion: 0.10
+Nodes (20): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+12 more)
 
 ### Community 33 - "_ResultRow"
 Cohesion: 0.10
@@ -299,16 +299,16 @@ Cohesion: 0.12
 Nodes (19): Check, _count_result_cards(), _first_result_url(), _no_results_check(), _probe_layer(), _probe_other_layers(), Any, Path (+11 more)
 
 ### Community 35 - "Platform Field Mapping"
-Cohesion: 0.12
-Nodes (16): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+8 more)
+Cohesion: 0.18
+Nodes (11): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+3 more)
 
 ### Community 36 - "Shipping Config Schema"
 Cohesion: 0.14
 Nodes (14): free_shipping_threshold_kurus, shipping_cost_kurus, minimum, type, free_shipping_threshold_kurus, notes, shipping, shipping_cost_kurus (+6 more)
 
 ### Community 37 - "_trial"
-Cohesion: 0.18
-Nodes (17): _classify_single_separator(), _parse_number(), parse_price(), parse_size_ml(), Decimal, Number parsing and formatting for prices and volumes, plus text folding.  This i, Decide whether a lone separator marks a fraction or a thousands group.      Retu, Parse a price string, e.g. '1.250,00 TL' -> Decimal('1250.00').      Recognizes (+9 more)
+Cohesion: 0.13
+Nodes (22): _classify_single_separator(), format_age(), format_ml(), _parse_number(), parse_price(), parse_size_ml(), Decimal, Number parsing and formatting for prices and volumes, plus text folding.  This i (+14 more)
 
 ### Community 38 - "TUI Confirm Dialog"
 Cohesion: 0.19
@@ -323,16 +323,16 @@ Cohesion: 0.14
 Nodes (14): curl_cffi, httpx, playwright, result_item, result_title, result_url, strategy, url_template (+6 more)
 
 ### Community 41 - "HTTP Request Schema"
-Cohesion: 0.14
-Nodes (14): GET, POST, properties, default, enum, type, type, type (+6 more)
+Cohesion: 0.12
+Nodes (17): GET, POST, additionalProperties, allOf, description, properties, type, default (+9 more)
 
 ### Community 42 - "Fixture Fetcher (Tests)"
 Cohesion: 0.05
 Nodes (56): Client, check_enabled(), check_for_update(), DownloadProgress, fetch_latest_release(), handoff_command(), _installer_asset(), is_newer() (+48 more)
 
 ### Community 44 - "Decant Variant Rules"
-Cohesion: 0.11
-Nodes (22): _coerce_in_stock(), _css_variant(), extract_css_variants(), extract_endpoint_variants(), _map_variant(), _parse_price_value(), Any, Decimal (+14 more)
+Cohesion: 0.12
+Nodes (20): readDetail(), request(), Window, AcceptedSearch, BasketRefreshEvent, BasketReport, BasketResponse, BasketRow (+12 more)
 
 ### Community 45 - "_ResultRow"
 Cohesion: 0.10
@@ -352,7 +352,7 @@ Nodes (46): _choose_strategy(), collect_prices(), DiscoveryReport, FieldConfiden
 
 ### Community 49 - "_RecordingFetcher"
 Cohesion: 0.09
-Nodes (38): add_basket_item(), basket_prices(), Add a size of a perfume to the basket, and return the basket_item_id.      The p, Return the basket price matrix: one row per (line, site) that has a price., Connection, A stale reading must never outrank the one taken after it.      latest_prices al, A 10 ml listing must never fill a basket line asking for 5 ml.      The matrix j, Whether an out-of-stock price counts as missing is the caller's call.      Dropp (+30 more)
+Nodes (38): conn(), Connection, Path, Tests for parfum_finder.store: the timestamp helper and the schema.  The one har, A disabled site loses its basket column, but an enabled quiet one keeps one., NULL means the site has no free shipping tier at all, not a threshold of zero., Deleting a row that's already gone is a race between two screens, not a bug., The table's CHECK (qty > 0) would reject a bare 0, and the '-' key has to     su (+30 more)
 
 ### Community 50 - "Profile Age Checks"
 Cohesion: 0.20
@@ -363,12 +363,12 @@ Cohesion: 0.27
 Nodes (13): apply_variant_rules(), Turn raw size rows into decant variants, dropping what is not a decant.      Thr, _row(), test_a_keyword_in_the_size_label_excludes_the_row_too(), test_a_literal_zero_price_reads_as_no_price_not_a_free_perfume(), test_a_size_at_the_threshold_is_a_bottle_whatever_it_calls_itself(), test_a_size_that_cannot_be_read_is_dropped(), test_an_uppercase_turkish_keyword_still_matches() (+5 more)
 
 ### Community 52 - "FetchResult"
-Cohesion: 0.14
-Nodes (14): conn(), Path, Tests for parfum_finder.store: the timestamp helper and the schema.  The one har, A disabled site loses its basket column, but an enabled quiet one keeps one., NULL means the site has no free shipping tier at all, not a threshold of zero., The drop happens here so no caller can forget it.      Both the CLI and the scre, A snapshot pointing at a variant that doesn't exist has to be rejected.      SQL, Reopening an existing database must not wipe or re-raise on its schema. (+6 more)
+Cohesion: 0.33
+Nodes (7): Remember a query line so the search screen can offer it again.      Re-running t, The most recently run query lines, newest first, as (text, searched_at)., recent_searches(), record_search(), The recents list has five slots, so a repeat must not consume two.      Someone, test_recent_searches_stops_at_the_limit(), test_rerunning_a_search_moves_it_up_instead_of_adding_a_second_copy()
 
 ### Community 53 - "conftest.py"
-Cohesion: 0.13
-Nodes (26): _read_basket(), _ClimbState, _label(), Basket scenario evaluation. A pure function, no network access, no sqlite.  Inpu, One site's share of a split basket: what to buy there and what it costs.      `s, The hill-climb's working assignment plus the running per-site figures.      `sub, Name one basket line the way a missing-item warning has to read it., One site's shipping terms, read once and reused for every scenario.      `free_s (+18 more)
+Cohesion: 0.11
+Nodes (22): _coerce_in_stock(), _css_variant(), extract_css_variants(), extract_endpoint_variants(), _map_variant(), _parse_price_value(), Any, Decimal (+14 more)
 
 ### Community 54 - "Endpoint Schema Fields"
 Cohesion: 0.22
@@ -395,40 +395,36 @@ Cohesion: 0.15
 Nodes (20): _close_browser(), _fetch_curl_cffi(), _fetch_httpx(), _fetch_playwright(), _launch_browser(), PlaywrightNoResponse, Any, FormData (+12 more)
 
 ### Community 60 - "._scan"
-Cohesion: 0.16
-Nodes (14): _check_empty_search(), Fail when a search yielded no rows off a page that plainly lists products., FetchResult, One fetched page, uniform regardless of which strategy produced it., _LayerUnavailable, Exception, This profile carries no configuration for the layer being probed., _NoRootParser (+6 more)
+Cohesion: 0.15
+Nodes (16): _as_str(), _build_offer(), _build_product(), _collect_offers(), _collect_variants(), JsonLdOffer, _parse_availability(), One offer attached to a product.      A plain Offer fills `price`. An AggregateO (+8 more)
 
 ### Community 61 - "single_site_scenarios"
 Cohesion: 0.17
 Nodes (23): ExtractionFailed, RuntimeError, A page answered but gave up nothing, where something was expected.      This is, Run one query against one site and read every hit's sizes.      Everything site-, search_site(), Path, Give the test profile's site id a hook file. The id is what binds them., test_a_before_search_that_returns_no_query_is_refused() (+15 more)
 
 ### Community 62 - "snapshot_rows"
-Cohesion: 0.15
-Nodes (17): Turn one site's hits into the rows write_snapshots is ready to store.      Share, snapshot_rows(), A shop's imitation must not be stored as the perfume it imitates.      The clone, The number reported is what landed in the history, not what was offered., Another house's bottle on the same results page must not enter this history., EDT and EDP are different products, so the row has to say which one this was., Layton' finding 'Layton Exclusif' must not price the two as one bottle.      A s, A shop that just writes the same bottle differently must not fork it.      Filin (+9 more)
+Cohesion: 0.11
+Nodes (21): Turn one site's hits into the rows write_snapshots is ready to store.      Share, snapshot_rows(), A shop's imitation must not be stored as the perfume it imitates.      The clone, The drop happens here so no caller can forget it.      Both the CLI and the scre, A slow site must not spread one reading across several timestamps.      Rows wri, The number reported is what landed in the history, not what was offered., Half a site's sizes updated is worse than none of them.      The basket compares, Another house's bottle on the same results page must not enter this history. (+13 more)
 
 ### Community 64 - "validate_live"
 Cohesion: 0.14
 Nodes (20): _balanced_value(), _collect_products(), _embedded_documents(), _has_type(), _loads_or_skip(), _parse_selector(), Node, Extraction ladder: JSON-LD -> platform JSON endpoint -> embedded JS state -> CSS (+12 more)
 
 ### Community 65 - "_named_profile"
-Cohesion: 0.15
-Nodes (16): _as_str(), _build_offer(), _build_product(), _collect_offers(), _collect_variants(), JsonLdOffer, _parse_availability(), One offer attached to a product.      A plain Offer fills `price`. An AggregateO (+8 more)
-
-### Community 66 - "product_label"
-Cohesion: 0.20
-Nodes (10): product_label(), Reduce a site's own title to the product it is about, spelled one way.      What, Split a title into what the bottle is and what it says it imitates.      The sec, _split_clone_reference(), test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates(), test_a_longer_named_bottle_does_not_join_the_shorter_ones_block(), test_a_title_with_no_product_words_left_has_no_label(), test_every_shops_spelling_of_one_bottle_lands_in_one_block() (+2 more)
+Cohesion: 0.21
+Nodes (15): probe(), Fetch `url` with every strategy and report diagnostics for each.      timeout_s, MonkeyPatch, Tests for parfum_finder.probe.  probe() always tries all three strategies -- the, test_probe_counts_jsonld_product_and_platform_signature(), test_probe_counts_product_across_jsonld_root_shapes(), test_probe_counts_product_markup_without_any_jsonld(), test_probe_counts_products_nested_below_the_top_level() (+7 more)
 
 ### Community 67 - "test_cached_prices_is_empty_for_a_perfume_nobody_scanned"
-Cohesion: 0.12
-Nodes (24): The cheapest basket split the search found. A heuristic, not a proof.      Every, SplitPlan, format_age(), format_ml(), format_price(), Format a price for display (comma-thousands, dot-decimal).      Decimal('1250'), Format a volume for display (dot-decimal): Decimal('1.5') -> '1.5 ml'., Turn a price age in days into the words the age column shows. (+16 more)
+Cohesion: 0.14
+Nodes (21): The cheapest basket split the search found. A heuristic, not a proof.      Every, SplitPlan, format_price(), Format a price for display (comma-thousands, dot-decimal).      Decimal('1250'), Delete one basket line, and say whether there was one to delete.      Returns Fa, remove_basket_item(), _heading(), _leg_block() (+13 more)
 
-### Community 68 - "field_map"
-Cohesion: 0.21
-Nodes (11): CacheKey, CandidateFilter, _candidates_to_open(), Path, Open one product page and read its sizes on the profile's layer.      A `cache`, Run every site against one query, all at once, and report each separately., Narrow the search results down to the pages worth a request.      The first one, _read_variants() (+3 more)
+### Community 68 - "build_basket_rows"
+Cohesion: 0.18
+Nodes (15): Collection, BasketRow, _score_basket(), basket_inputs(), build_basket_rows(), BasketRow, Turn basket lines and their site prices into what the table shows.      Out of s, The three inputs site_scenario/optimize score: items, prices, shipping.      Bui (+7 more)
 
 ### Community 71 - "exclude_keywords"
-Cohesion: 0.14
-Nodes (21): _perfume_id(), _product_id(), Connection, Write a whole scan at once and return how many prices were recorded.      Every, Do the writing, without opening a transaction of its own., Remember a query line so the search screen can offer it again.      Re-running t, The most recently run query lines, newest first, as (text, searched_at)., Read back the id of a row that was just inserted or already existed.      RETURN (+13 more)
+Cohesion: 0.16
+Nodes (19): add_basket_item(), _perfume_id(), price_history(), _product_id(), Connection, Row, Write a whole scan at once and return how many prices were recorded.      Every, Do the writing, without opening a transaction of its own. (+11 more)
 
 ### Community 72 - "_scenario_block"
 Cohesion: 0.25
@@ -446,13 +442,17 @@ Nodes (7): _age_line(), format_live_report(), Every check run against one site's
 Cohesion: 0.33
 Nodes (6): css, embedded_json, endpoint, jsonld, enum, extraction
 
-### Community 76 - "enum"
-Cohesion: 0.12
-Nodes (20): readDetail(), request(), Window, AcceptedSearch, BasketRefreshEvent, BasketReport, BasketResponse, BasketRow (+12 more)
+### Community 76 - "FetchResult"
+Cohesion: 0.16
+Nodes (14): _check_empty_search(), Fail when a search yielded no rows off a page that plainly lists products., FetchResult, One fetched page, uniform regardless of which strategy produced it., _LayerUnavailable, Exception, This profile carries no configuration for the layer being probed., _NoRootParser (+6 more)
 
 ### Community 77 - "_collect_products"
-Cohesion: 0.29
-Nodes (7): price_history(), Row, Return one variant's past readings, newest first, capped at limit.      Empty fo, The trend panel reads row 0 as the latest reading, so order is the point.      A, No history yet is a normal state for a variant, not an error to raise on., test_price_history_is_empty_for_an_unknown_variant(), test_price_history_is_newest_first_and_capped_at_limit()
+Cohesion: 0.20
+Nodes (11): ApiError, App(), Toast, View, root, daysSince(), SearchScreen(), splitParts() (+3 more)
+
+### Community 78 - "vite.config.ts"
+Cohesion: 0.21
+Nodes (11): CacheKey, CandidateFilter, _candidates_to_open(), Path, Open one product page and read its sizes on the profile's layer.      A `cache`, Run every site against one query, all at once, and report each separately., Narrow the search results down to the pages worth a request.      The first one, _read_variants() (+3 more)
 
 ### Community 79 - ".__call__"
 Cohesion: 0.31
@@ -466,21 +466,21 @@ Nodes (3): The template this site's profile would be based on, if any., Which of
 Cohesion: 0.18
 Nodes (19): FastAPI, create_app(), HTTP/WS backend for the GUI frontend. See api/app.py for the app itself., encode_basket_refresh_event(), encode_basket_report(), encode_basket_row(), encode_result_row(), encode_scan_event() (+11 more)
 
-### Community 82 - "build_basket_rows"
-Cohesion: 0.15
-Nodes (18): Collection, BasketRow, _score_basket(), basket_inputs(), build_basket_rows(), BasketRow, Turn basket lines and their site prices into what the table shows.      Out of s, The three inputs site_scenario/optimize score: items, prices, shipping.      Bui (+10 more)
+### Community 82 - "run_scan"
+Cohesion: 0.21
+Nodes (12): Lock, _cached_result_row(), Any, Path, ResultRow, A site's display name, with a badge when its profile is old enough     to be wor, Turn one stored price back into the row the table shows.      Everything the tab, Rebuild the table's rows for every searched perfume already on record.      Site (+4 more)
 
-### Community 83 - "_collect_products"
+### Community 83 - "product_label"
 Cohesion: 0.20
-Nodes (11): ApiError, App(), Toast, View, root, daysSince(), SearchScreen(), splitParts() (+3 more)
+Nodes (10): product_label(), Reduce a site's own title to the product it is about, spelled one way.      What, Split a title into what the bottle is and what it says it imitates.      The sec, _split_clone_reference(), test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates(), test_a_longer_named_bottle_does_not_join_the_shorter_ones_block(), test_a_title_with_no_product_words_left_has_no_label(), test_every_shops_spelling_of_one_bottle_lands_in_one_block() (+2 more)
 
 ### Community 84 - "BasketScreen.tsx"
 Cohesion: 0.35
 Nodes (8): ProgressBar(), formatAge(), formatMl(), formatPrice(), formatPriceWhole(), BasketScreen(), cheapestSite(), Scenario()
 
-### Community 85 - "run_scan"
-Cohesion: 0.21
-Nodes (12): Lock, _cached_result_row(), Any, Path, ResultRow, A site's display name, with a badge when its profile is old enough     to be wor, Turn one stored price back into the row the table shows.      Everything the tab, Rebuild the table's rows for every searched perfume already on record.      Site (+4 more)
+### Community 85 - "basket_prices"
+Cohesion: 0.20
+Nodes (10): basket_prices(), Return the basket price matrix: one row per (line, site) that has a price., A stale reading must never outrank the one taken after it.      latest_prices al, A 10 ml listing must never fill a basket line asking for 5 ml.      The matrix j, Whether an out-of-stock price counts as missing is the caller's call.      Dropp, A basket line nobody sells must still be visible via basket_lines.      basket_p, test_basket_prices_has_no_row_for_a_line_no_site_prices(), test_basket_prices_joins_on_the_exact_integer_size() (+2 more)
 
 ### Community 86 - "test_paths.py"
 Cohesion: 0.38
@@ -530,11 +530,11 @@ Nodes (4): Set a basket line's quantity, clamped to at least 1, and return it.  
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SearchScreen` connect `TUI App Shell` to `TUI App & Screens`, `Title Matcher`, `._cache_notice`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `test_cached_prices_is_empty_for_a_perfume_nobody_scanned`, `Search TUI Screen`, `conftest.py`, `Price/Size Normalization`, `ConfirmScreen`?**
+- **Why does `SearchScreen` connect `TUI App Shell` to `TUI App & Screens`, `Title Matcher`, `._cache_notice`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `_trial`, `Product Extraction`, `Search TUI Screen`, `Price/Size Normalization`, `ConfirmScreen`?**
   _High betweenness centrality (0.038) - this node is a cross-community bridge._
-- **Why does `BasketScreen` connect `Price/Size Normalization` to `TUI App & Screens`, `Site Profiles & Templates`, `Title Matcher`, `test_cached_prices_is_empty_for_a_perfume_nobody_scanned`, `TUI Confirm Dialog`, `TUI App Shell`, `Basket Optimizer Core`, `conftest.py`, `ConfirmScreen`, `BasketReport`?**
+- **Why does `BasketScreen` connect `Price/Size Normalization` to `TUI App & Screens`, `Site Profiles & Templates`, `Title Matcher`, `test_cached_prices_is_empty_for_a_perfume_nobody_scanned`, `Search Engine per Site`, `TUI Confirm Dialog`, `TUI App Shell`, `Basket Optimizer Core`, `ConfirmScreen`, `BasketReport`?**
   _High betweenness centrality (0.025) - this node is a cross-community bridge._
-- **Why does `SiteRunner` connect `Title Matcher` to `HTTP/Browser Fetching`, `field_map`, `Search/Basket Domain Models`, `TUI Confirm Dialog`, `test_cached_prices_is_empty_for_a_perfume_nobody_scanned`, `TUI App Shell`, `Search Engine Core`, `_ResultRow`, `ScanStatus.tsx`, `run_scan`, `Candidate Filtering`, `Price/Size Normalization`, `ConfirmScreen`, `._scan`?**
+- **Why does `SiteRunner` connect `Title Matcher` to `HTTP/Browser Fetching`, `Search/Basket Domain Models`, `test_cached_prices_is_empty_for_a_perfume_nobody_scanned`, `TUI Confirm Dialog`, `TUI App Shell`, `Search Engine Core`, `FetchResult`, `_ResultRow`, `vite.config.ts`, `ScanStatus.tsx`, `run_scan`, `Candidate Filtering`, `Price/Size Normalization`, `ConfirmScreen`?**
   _High betweenness centrality (0.023) - this node is a cross-community bridge._
 - **Are the 25 inferred relationships involving `SiteResult` (e.g. with `RawVariant` and `Fetcher`) actually correct?**
   _`SiteResult` has 25 INFERRED edges - model-reasoned connections that need verification._

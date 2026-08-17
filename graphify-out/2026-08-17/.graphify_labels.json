@@ -67,7 +67,6 @@
   "65": "_named_profile",
   "66": "product_label",
   "67": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
-  "68": "field_map",
   "69": "Variant Pattern A",
   "70": "Project Root",
   "71": "exclude_keywords",
@@ -75,11 +74,18 @@
   "73": "Headers",
   "74": "format_age",
   "75": "_NoRootParser",
-  "76": "enum",
   "77": "_collect_products",
   "78": "vite.config.ts",
   "79": ".__call__",
   "80": "exclude_keywords",
   "81": "ScanStatus.tsx",
-  "83": "_collect_products"
+  "84": "BasketScreen.tsx",
+  "86": "test_paths.py",
+  "87": "helpers.ts",
+  "88": "ConfirmScreen",
+  "90": "_named_profile",
+  "94": "Arayüz testleri",
+  "99": "._cache_notice",
+  "100": "playwright.config.ts",
+  "101": "setup.ts"
 }

@@ -243,13 +243,12 @@ export function ResultsScreen({
   );
 
   const onStreamClosed = useCallback((code: number) => {
-    // A refused socket means the scan never started. Nothing further is
-    // coming, and a progress bar left running would be the screen's way of
-    // saying it is still working when it is not.
+    // A refused socket means no event will ever reach this screen. Whatever
+    // the server says about the scan, this screen is not going to hear about
+    // it, so the refusal is recorded and read alongside `finished` below.
     const reason = refusalReason(code);
     if (reason === null) return;
     setStreamRefusal(reason);
-    setFinished(true);
   }, []);
 
   useEventStream<ScanEvent>(`/api/search/${searchId}`, onEvent, onStreamClosed);
@@ -310,6 +309,12 @@ export function ResultsScreen({
 
   const totalUnits = totals.sites * totals.perfumes;
 
+  // A refused stream outranks whatever /api/results says about the scan: the
+  // read of the table can land after the refusal and carry finished=false,
+  // and letting that win would bring back a bar that can never advance,
+  // because the events that would move it are going to another socket.
+  const scanOver = finished || streamRefusal !== null;
+
   const toggleSort = (key: SortKey) => setSort((current) => (current === key ? null : key));
 
   return (
@@ -323,7 +328,7 @@ export function ResultsScreen({
         {streamRefusal !== null && (
           <div className="notice error">Tarama başlamadı: {streamRefusal}</div>
         )}
-        {!finished && (
+        {!scanOver && (
           <ScanStatus done={done} total={totalUnits} errorCount={errorCount} />
         )}
         {finished && errorCount > 0 && (
@@ -414,8 +419,16 @@ export function ResultsScreen({
                 </div>
               )}
               {searchBlocks.length === 0 ? (
+                /* "Bulunamadı" is a completed answer, so it is only said when
+                   the server itself calls the scan finished. A refused stream
+                   leaves the table empty without settling anything, and the
+                   notice above already says why. */
                 <p className="dim">
-                  {finished ? "Hiçbir sitede bulunamadı." : "Aranıyor…"}
+                  {finished
+                    ? "Hiçbir sitede bulunamadı."
+                    : streamRefusal !== null
+                      ? "Bu ekrana sonuç gelmedi."
+                      : "Aranıyor…"}
                 </p>
               ) : (
                 /* One table for every block of a perfume, not one per block:

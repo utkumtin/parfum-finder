@@ -393,6 +393,42 @@ describe("ResultsScreen scan progress", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
+  it("keeps the bar down when the table is read after the refusal", async () => {
+    // The read of the table can answer after the socket was refused, and it
+    // carries finished=false while another socket drives the scan. Letting
+    // that answer win puts back a bar this screen can never advance, since
+    // the events that would move it are going somewhere else.
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.on("GET /api/results/:searchId", async () => {
+      await held;
+      return { body: { rows: [], hidden_out_of_stock: 0, finished: false } };
+    });
+    render(
+      <ResultsScreen
+        searchId={SEARCH_ID}
+        searches={[{ index: 0, text: "Dior Sauvage EDP" }]}
+        rejected={[]}
+        config={DEFAULT_CONFIG}
+        onBasketChanged={vi.fn()}
+        notify={vi.fn()}
+      />,
+    );
+    const socket = await server.socket(STREAM);
+
+    act(() => socket.refuse(4409));
+    await screen.findByText("Tarama başlamadı: bu arama zaten başlatılmış");
+    await act(async () => {
+      release();
+      await held;
+    });
+
+    await screen.findByText("Bu ekrana sonuç gelmedi.");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("shows the pieces of the line the server could not read", async () => {
     renderScreen([], { rejected: ["- - -"] });
     expect(

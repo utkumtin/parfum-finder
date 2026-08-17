@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1786969906.307058,
-    "ast_hash": "d01f27a7abc08e93fc01fad6df2abfd0",
+    "mtime": 1786973866.7781994,
+    "ast_hash": "36fb9dc47e0d3af917862e74d544dea5",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/ResultsScreen.test.tsx": {
-    "mtime": 1786972230.1722016,
-    "ast_hash": "39f314ca98bcd73c57e6adecb0b72784",
+    "mtime": 1786973835.3211615,
+    "ast_hash": "10a73f7ea7b15f9a415ba3fd71492d40",
     "semantic_hash": ""
   },
   "ui/tests/screens/SearchScreen.test.tsx": {
