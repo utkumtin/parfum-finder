@@ -1,16 +1,16 @@
-# Graph Report - parfum-finder  (2026-08-16)
+# Graph Report - parfum-finder  (2026-08-17)
 
 ## Corpus Check
-- 106 files · ~287,891 words
+- 106 files · ~287,997 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2323 nodes · 6587 edges · 82 communities (79 shown, 3 thin omitted)
+- 2323 nodes · 6587 edges · 83 communities (80 shown, 3 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 469 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0eba8b20`
+- Built from commit: `8a8f32cb`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -94,8 +94,9 @@
 - enum
 - _collect_products
 - .__call__
-- _LayerUnavailable
 - ScanStatus.tsx
+- enum
+- _collect_products
 
 ## God Nodes (most connected - your core abstractions)
 1. `SiteResult` - 68 edges
@@ -122,23 +123,23 @@
   tests/test_engine.py → src/parfum_finder/engine.py
 
 ## Import Cycles
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/logging_setup.py -> src/parfum_finder/__init__.py`
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/__init__.py`
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/logging_setup.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
-- 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 
 ## Hyperedges (group relationships)
 - **Sites Implementing Variant Pattern C (embedded JSON)** — docs_discovery_report_venco_site, docs_discovery_report_decantall_site, docs_discovery_report_luxurydekant_site, docs_discovery_report_ruxangroup_site, architecture_md_variant_pattern_c [EXTRACTED 1.00]
 - **İdeasoft Platform Sites and Endpoint** — docs_discovery_report_dekantparfum_site, docs_discovery_report_dekantdoktoru_site, docs_discovery_report_ideasoft_related_options_endpoint, platforms_readme_ideasoft_json [EXTRACTED 1.00]
 - **discover Command Output Artifacts (profile + fixtures + CI validation)** — architecture_md_discover_flow, sites_readme_sites_dir, fixtures_readme_fixtures_dir, github_workflows_ci_validate_profiles_step, architecture_md_validate_command [INFERRED 0.85]
 
-## Communities (82 total, 3 thin omitted)
+## Communities (83 total, 3 thin omitted)
 
 ### Community 0 - "TUI App & Screens"
 Cohesion: 0.09
@@ -205,8 +206,8 @@ Cohesion: 0.21
 Nodes (15): probe(), Fetch `url` with every strategy and report diagnostics for each.      timeout_s, MonkeyPatch, Tests for parfum_finder.probe.  probe() always tries all three strategies -- the, test_probe_counts_jsonld_product_and_platform_signature(), test_probe_counts_product_across_jsonld_root_shapes(), test_probe_counts_product_markup_without_any_jsonld(), test_probe_counts_products_nested_below_the_top_level() (+7 more)
 
 ### Community 16 - "Schema Field Patterns"
-Cohesion: 0.05
-Nodes (39): css, embedded_json, endpoint, jsonld, format, pattern, type, pattern (+31 more)
+Cohesion: 0.06
+Nodes (33): format, pattern, type, pattern, type, default, type, pattern (+25 more)
 
 ### Community 17 - "Offline Profile Validation"
 Cohesion: 0.12
@@ -269,8 +270,8 @@ Cohesion: 0.14
 Nodes (22): _canonical(), _covers(), _ends_with(), _index_of(), _match_text(), _own_identity(), Perfume matching: brand and concentration are mandatory; fuzzy matching only app, What a clone's own title says the bottle is, in the shape a query has.      Buil (+14 more)
 
 ### Community 32 - "Variant Extraction Fields"
-Cohesion: 0.12
-Nodes (16): attribute, script, type, additionalProperties, allOf, description, properties, type (+8 more)
+Cohesion: 0.11
+Nodes (18): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+10 more)
 
 ### Community 33 - "_ResultRow"
 Cohesion: 0.10
@@ -281,8 +282,8 @@ Cohesion: 0.13
 Nodes (17): Check, _count_result_cards(), _first_result_url(), _no_results_check(), _probe_layer(), _probe_other_layers(), Any, Path (+9 more)
 
 ### Community 35 - "Platform Field Mapping"
-Cohesion: 0.18
-Nodes (11): field_map, product_json, source, variants_path, required, additionalProperties, allOf, description (+3 more)
+Cohesion: 0.12
+Nodes (16): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+8 more)
 
 ### Community 36 - "Shipping Config Schema"
 Cohesion: 0.14
@@ -397,8 +398,8 @@ Cohesion: 0.18
 Nodes (11): _balanced_value(), _embedded_documents(), extract_css_variants(), _loads_or_skip(), Any, Rung 4: read the rendered markup with selectors. Last resort.      `config["vari, Yield every JSON document the page hides, in document order., Parse `text` as JSON, yielding nothing when it isn't JSON.      Pages are full o (+3 more)
 
 ### Community 65 - "_named_profile"
-Cohesion: 0.09
-Nodes (39): _as_str(), _build_offer(), _build_product(), _coerce_in_stock(), _collect_offers(), _collect_products(), _collect_variants(), _css_variant() (+31 more)
+Cohesion: 0.10
+Nodes (35): _as_str(), _build_offer(), _build_product(), _coerce_in_stock(), _collect_offers(), _collect_variants(), _css_variant(), JsonLdOffer (+27 more)
 
 ### Community 66 - "product_label"
 Cohesion: 0.20
@@ -417,8 +418,8 @@ Cohesion: 0.11
 Nodes (28): _load_profiles(), Any, Path, _recent_searches(), _record_search(), _remove_basket_item(), _set_basket_qty(), _site_summary() (+20 more)
 
 ### Community 72 - "_scenario_block"
-Cohesion: 0.29
-Nodes (7): in_stock, price, size_raw, additionalProperties, required, type, field_map
+Cohesion: 0.50
+Nodes (3): The template this site's profile would be based on, if any., Which of the matching templates gets applied, or None for none of them.      One, _resolve_platform()
 
 ### Community 73 - "Headers"
 Cohesion: 0.27
@@ -444,13 +445,17 @@ Nodes (7): price_history(), Row, Return one variant's past readings, newest firs
 Cohesion: 0.31
 Nodes (7): _DeadSite, FormData, Headers, Method, Strategy, A host that cannot be reached at all., test_an_unreachable_site_is_not_reported_as_a_broken_profile()
 
-### Community 80 - "_LayerUnavailable"
-Cohesion: 0.50
-Nodes (3): The template this site's profile would be based on, if any., Which of the matching templates gets applied, or None for none of them.      One, _resolve_platform()
-
 ### Community 81 - "ScanStatus.tsx"
 Cohesion: 0.67
 Nodes (3): _LayerUnavailable, Exception, This profile carries no configuration for the layer being probed.
+
+### Community 82 - "enum"
+Cohesion: 0.33
+Nodes (6): css, embedded_json, endpoint, jsonld, enum, extraction
+
+### Community 83 - "_collect_products"
+Cohesion: 0.50
+Nodes (4): _collect_products(), _has_type(), Walk a parsed JSON-LD block and append every Product found, depth first.      De, Whether a node's "@type" names `name`, as a string or inside a list.      Substr
 
 ## Knowledge Gaps
 - **201 isolated node(s):** `parfum-finder`, `$schema`, `$id`, `title`, `description` (+196 more)

@@ -334,9 +334,22 @@ export function ResultsScreen({
           const searchBlocks = blocks.filter((b) => b.queryIndex === search.index);
           const searchNotices = notices[search.index] ?? [];
           const notFound = missing[search.index] ?? [];
-          // The leading block is the bottle ranking.py decided the query was
-          // asking about, so it is the one the verdicts speak for.
-          const verdicts = pickVerdicts(searchBlocks[0]?.rows ?? []);
+          // One query can legitimately turn up more than one bottle (a base
+          // scent and a flanker), and grouped_value in ranking.py orders
+          // those blocks alphabetically by product name, not by which one
+          // the query was actually about. Picking the block with the best
+          // match_score keeps the card scoped to the bottle someone typed,
+          // instead of whichever product name happens to sort first and
+          // instead of whichever block happens to have a price at all --
+          // a wrong bottle with a price is still the wrong answer.
+          const bestBlock = searchBlocks.reduce<{ block: Block; score: number } | null>(
+            (best, block) => {
+              const score = Math.max(...block.rows.map((r) => r.match_score));
+              return !best || score > best.score ? { block, score } : best;
+            },
+            null,
+          )?.block;
+          const verdicts = pickVerdicts(bestBlock?.rows ?? []);
           // The headline card leads with a sample size over the raw best
           // rate: a shopper skimming the top of the screen reads "3 ml" as an
           // answer to "what would trying this cost me", while the true
