@@ -125,6 +125,21 @@ jobs:
           name: parfum-finder-windows-installer
           path: packaging/Output/*.exe
 
+      # gh release upload only attaches assets to an existing release, it
+      # never creates one -- pushing a tag alone doesn't create a GitHub
+      # Release, so without this the upload step fails with "release not
+      # found" on every tag's first run.
+      - name: Ensure the release exists
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$env:RELEASE_TAG" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --generate-notes
+          }
+
       - name: Attach installer to the release
         if: startsWith(github.ref, 'refs/tags/')
         env:
