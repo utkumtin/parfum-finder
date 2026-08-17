@@ -150,8 +150,13 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           $output = gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --generate-notes 2>&1
-          if ($LASTEXITCODE -ne 0 -and $output -notmatch 'already exists') {
-            Write-Host $output
+          # 2>&1 gives back one array element per line, so matching against
+          # $output directly checks each line in isolation and misses
+          # "already exists" sitting on its own line below the HTTP 422
+          # summary. Joining first makes the match see the whole message.
+          $text = $output -join "`n"
+          if ($LASTEXITCODE -ne 0 -and $text -notmatch 'already exists') {
+            Write-Host $text
             throw "gh release create failed"
           }
 
