@@ -141,19 +141,18 @@ jobs:
       # the tag push) is also why the workflow has a concurrency group above
       # queuing same-ref runs, so this doesn't need its own check-then-act
       # race handling.
-      - name: Ensure the release exists and matches this commit
+      - name: Ensure the release exists
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          # gh release view/edit resolved by tag name has been observed to
-          # return "release not found" for a release that demonstrably
-          # exists (confirmed separately via `gh release list`), so
-          # existence is checked against the list instead of a single-
-          # release lookup. GitHub's release API has also been flaky
-          # (see githubstatus.com), so transient failures here get retried
-          # rather than failing the whole build on one blip.
+          # Existence is checked via `gh release list` rather than `gh
+          # release view <tag>` because this is the call this workflow has
+          # actually seen succeed under GITHUB_TOKEN. GitHub's release API
+          # has also been flaky (see githubstatus.com), so transient
+          # failures here get retried rather than failing the whole build
+          # on one blip.
           $attempt = 0
           do {
             $attempt++
@@ -171,21 +170,6 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
           } else {
             Write-Host "Release $env:RELEASE_TAG already exists; reusing it."
-          }
-
-          # A force-pushed tag moving to a new commit doesn't move an
-          # already-existing release's target or notes, so sync both on
-          # every run, not just on first create.
-          $attempt = 0
-          do {
-            $attempt++
-            $editOutput = gh release edit "$env:RELEASE_TAG" --target "$env:GITHUB_SHA" --generate-notes 2>&1
-            if ($LASTEXITCODE -eq 0) { break }
-            Start-Sleep -Seconds (5 * $attempt)
-          } while ($attempt -lt 3)
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host ($editOutput -join "`n")
-            throw "gh release edit failed after $attempt attempts"
           }
 
       - name: Attach installer to the release
