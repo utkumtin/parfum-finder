@@ -143,22 +143,32 @@ jobs:
       # with "already exists" even though the release ends up in the right
       # state either way. So attempt the create and only fail on errors that
       # aren't that one.
-      - name: Ensure the release exists
+      - name: Ensure the release exists and matches this commit
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           $output = gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --generate-notes 2>&1
-          # 2>&1 gives back one array element per line, so matching against
-          # $output directly checks each line in isolation and misses
-          # "already exists" sitting on its own line below the HTTP 422
-          # summary. Joining first makes the match see the whole message.
-          $text = $output -join "`n"
-          if ($LASTEXITCODE -ne 0 -and $text -notmatch 'already exists') {
-            Write-Host $text
-            throw "gh release create failed"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host ($output -join "`n")
+            # gh's error text isn't a stable contract to string-match, so
+            # confirm the actual state instead: if the release exists now
+            # (by us or a racing run) that's the outcome we wanted either
+            # way. GitHub Actions appends its own `exit $LASTEXITCODE` after
+            # this script, so a stale nonzero code here would fail the step
+            # even past this point -- reset it once we know it's fine.
+            gh release view "$env:RELEASE_TAG" --json tagName | Out-Null
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            Write-Host "Release $env:RELEASE_TAG already exists; reusing it."
+            $global:LASTEXITCODE = 0
           }
+          # A release created against a tag that already existed keeps
+          # whatever target commit and notes it had from its first run, so
+          # re-pushing a force-moved tag (same tag, new commit) wouldn't
+          # otherwise update either. Syncing both on every run, not just on
+          # first create, keeps the release matching this push.
+          gh release edit "$env:RELEASE_TAG" --target "$env:GITHUB_SHA" --generate-notes
 
       - name: Attach installer to the release
         if: startsWith(github.ref, 'refs/tags/')
