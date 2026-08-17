@@ -136,39 +136,57 @@ jobs:
       # gh release upload only attaches assets to an existing release, it
       # never creates one -- pushing a tag alone doesn't create a GitHub
       # Release, so without this the upload step fails with "release not
-      # found" on every tag's first run.
-      # Creating unconditionally rather than checking first with `gh release
-      # view` avoids a check-then-act race: two runs on the same tag could
-      # both see "missing" and both try to create, and the loser would fail
-      # with "already exists" even though the release ends up in the right
-      # state either way. So attempt the create and only fail on errors that
-      # aren't that one.
+      # found" on every tag's first run. Two runs on the same tag racing
+      # here (a rerun overlapping the original, a manual dispatch alongside
+      # the tag push) is also why the workflow has a concurrency group above
+      # queuing same-ref runs, so this doesn't need its own check-then-act
+      # race handling.
       - name: Ensure the release exists and matches this commit
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          $output = gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --generate-notes 2>&1
+          # gh release view/edit resolved by tag name has been observed to
+          # return "release not found" for a release that demonstrably
+          # exists (confirmed separately via `gh release list`), so
+          # existence is checked against the list instead of a single-
+          # release lookup. GitHub's release API has also been flaky
+          # (see githubstatus.com), so transient failures here get retried
+          # rather than failing the whole build on one blip.
+          $attempt = 0
+          do {
+            $attempt++
+            $tags = gh release list --limit 100 --json tagName --jq ".[].tagName" 2>&1
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds (5 * $attempt)
+          } while ($attempt -lt 3)
           if ($LASTEXITCODE -ne 0) {
-            Write-Host ($output -join "`n")
-            # gh's error text isn't a stable contract to string-match, so
-            # confirm the actual state instead: if the release exists now
-            # (by us or a racing run) that's the outcome we wanted either
-            # way. GitHub Actions appends its own `exit $LASTEXITCODE` after
-            # this script, so a stale nonzero code here would fail the step
-            # even past this point -- reset it once we know it's fine.
-            gh release view "$env:RELEASE_TAG" --json tagName | Out-Null
-            if ($LASTEXITCODE -ne 0) { exit 1 }
-            Write-Host "Release $env:RELEASE_TAG already exists; reusing it."
-            $global:LASTEXITCODE = 0
+            Write-Host ($tags -join "`n")
+            throw "gh release list failed after $attempt attempts"
           }
-          # A release created against a tag that already existed keeps
-          # whatever target commit and notes it had from its first run, so
-          # re-pushing a force-moved tag (same tag, new commit) wouldn't
-          # otherwise update either. Syncing both on every run, not just on
-          # first create, keeps the release matching this push.
-          gh release edit "$env:RELEASE_TAG" --target "$env:GITHUB_SHA" --generate-notes
+
+          if ($tags -notcontains $env:RELEASE_TAG) {
+            gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
+          } else {
+            Write-Host "Release $env:RELEASE_TAG already exists; reusing it."
+          }
+
+          # A force-pushed tag moving to a new commit doesn't move an
+          # already-existing release's target or notes, so sync both on
+          # every run, not just on first create.
+          $attempt = 0
+          do {
+            $attempt++
+            $editOutput = gh release edit "$env:RELEASE_TAG" --target "$env:GITHUB_SHA" --generate-notes 2>&1
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds (5 * $attempt)
+          } while ($attempt -lt 3)
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host ($editOutput -join "`n")
+            throw "gh release edit failed after $attempt attempts"
+          }
 
       - name: Attach installer to the release
         if: startsWith(github.ref, 'refs/tags/')
