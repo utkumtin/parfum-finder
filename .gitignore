@@ -28,6 +28,13 @@ ui/node_modules/
 ui/dist/
 ui/.env.local
 
+# Frontend test output: vitest coverage, and playwright's traces and reports
+ui/coverage/
+ui/test-results/
+ui/playwright-report/
+ui/blob-report/
+ui/.playwright/
+
 # PyInstaller build output (packaging/parfum-finder.spec)
 /build/
 /build-wine/

@@ -275,18 +275,18 @@
     "semantic_hash": "e4903f6b9e14dde5eae73fa33cfc43f5"
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1786799527.4118013,
-    "ast_hash": "067e35f92d3de9e8e6d7a7bf7147dce2",
+    "mtime": 1786972886.763012,
+    "ast_hash": "44f90fd41f791f6ceddf7b7f87e99ef4",
     "semantic_hash": ""
   },
   "ARCHITECTURE.md": {
-    "mtime": 1786794469.9951143,
-    "ast_hash": "16c0bb838c24854119076948ac4e1b81",
+    "mtime": 1786973179.6159413,
+    "ast_hash": "75712312f40aa8f4eeb5928b6233fd87",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1786905428.9909608,
-    "ast_hash": "20b7ed302ae2645ba024fc7aec0ac507",
+    "mtime": 1786973069.301092,
+    "ast_hash": "800779bc3224cc02cb528346dd0b0231",
     "semantic_hash": ""
   },
   "docs/discovery-report.md": {
@@ -490,8 +490,8 @@
     "semantic_hash": ""
   },
   "ui/package.json": {
-    "mtime": 1786793560.7848587,
-    "ast_hash": "6d3f254625d56b8a43b59cf828c5b932",
+    "mtime": 1786971793.017021,
+    "ast_hash": "b21734acfd345d86d3e3e3b7466c5dab",
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
@@ -555,8 +555,8 @@
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
-    "mtime": 1786793563.6118202,
-    "ast_hash": "f95f9c158b8c7d3c28b915ae2e4957f1",
+    "mtime": 1786971804.3988826,
+    "ast_hash": "42afb2701e203593430921c8cb3e0acd",
     "semantic_hash": ""
   },
   "ui/vite.config.ts": {
@@ -617,6 +617,96 @@
   "ui/src/components/UpdateDialog.tsx": {
     "mtime": 1786905676.8670633,
     "ast_hash": "4b46dd1fd720fd5101d8b69110331817",
+    "semantic_hash": ""
+  },
+  "ui/e2e/backend.py": {
+    "mtime": 1786972904.545454,
+    "ast_hash": "2b21585cbcc78b9df04df66d3e7a11f3",
+    "semantic_hash": ""
+  },
+  "ui/e2e/basket.spec.ts": {
+    "mtime": 1786972806.666659,
+    "ast_hash": "f3231cf9cc95876364a4ccde070a6eae",
+    "semantic_hash": ""
+  },
+  "ui/e2e/helpers.ts": {
+    "mtime": 1786972767.926135,
+    "ast_hash": "e998f19b646d7709194e149b0a734a58",
+    "semantic_hash": ""
+  },
+  "ui/e2e/search.spec.ts": {
+    "mtime": 1786972835.28572,
+    "ast_hash": "3aa8c3d5b0bcac7d4c37e6f08d5b7e6a",
+    "semantic_hash": ""
+  },
+  "ui/playwright.config.ts": {
+    "mtime": 1786972698.850096,
+    "ast_hash": "0a6a3130a6cc903249ad5ecc0b66c771",
+    "semantic_hash": ""
+  },
+  "ui/tests/App.test.tsx": {
+    "mtime": 1786972417.6677327,
+    "ast_hash": "c00ed7b525388be9488d20eb7443ed46",
+    "semantic_hash": ""
+  },
+  "ui/tests/api/client.test.ts": {
+    "mtime": 1786971996.177236,
+    "ast_hash": "94510d6c444d99f7b92a6b7039ab29eb",
+    "semantic_hash": ""
+  },
+  "ui/tests/api/ws.test.ts": {
+    "mtime": 1786971976.5419343,
+    "ast_hash": "6efffd166f5ba8a2b14a3150cf730516",
+    "semantic_hash": ""
+  },
+  "ui/tests/components/UpdateDialog.test.tsx": {
+    "mtime": 1786972442.295136,
+    "ast_hash": "bcc790680a3423b3d0a2ed9f9cbf5a3a",
+    "semantic_hash": ""
+  },
+  "ui/tests/helpers/fixtures.ts": {
+    "mtime": 1786971908.1617694,
+    "ast_hash": "84c6ef99b444e68ce4ae4ae3eed5cbe1",
+    "semantic_hash": ""
+  },
+  "ui/tests/helpers/server.ts": {
+    "mtime": 1786972057.2388089,
+    "ast_hash": "c58bb8ff6fa4f2997bbed27086e68f8a",
+    "semantic_hash": ""
+  },
+  "ui/tests/lib/format.test.ts": {
+    "mtime": 1786971926.7553952,
+    "ast_hash": "4d66cf5bc99460bfcbcbaab19df9f5ef",
+    "semantic_hash": ""
+  },
+  "ui/tests/screens/BasketScreen.test.tsx": {
+    "mtime": 1786972357.0101583,
+    "ast_hash": "e006258c113b11cae1fde004278c7e0f",
+    "semantic_hash": ""
+  },
+  "ui/tests/screens/ResultsScreen.test.tsx": {
+    "mtime": 1786972230.1722016,
+    "ast_hash": "39f314ca98bcd73c57e6adecb0b72784",
+    "semantic_hash": ""
+  },
+  "ui/tests/screens/SearchScreen.test.tsx": {
+    "mtime": 1786972024.4368227,
+    "ast_hash": "451c2d3f627ffa3585ed2ac97ce87049",
+    "semantic_hash": ""
+  },
+  "ui/tests/setup.ts": {
+    "mtime": 1786971832.3066185,
+    "ast_hash": "6958379d86a8d9fd2b6d836be02ac599",
+    "semantic_hash": ""
+  },
+  "ui/vitest.config.ts": {
+    "mtime": 1786971800.5888608,
+    "ast_hash": "a04b751389023ffd801bf23ccffc64a5",
+    "semantic_hash": ""
+  },
+  "ui/TESTING.md": {
+    "mtime": 1786973103.9639516,
+    "ast_hash": "f9c97b7c9bd900cd088502d5aee636d7",
     "semantic_hash": ""
   }
 }

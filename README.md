@@ -152,9 +152,31 @@ uv run pyinstaller packaging/parfum-finder.spec
 
 ## Geliştirme ortamı
 
+Python tarafı:
+
 ```bash
 uv run ruff format --check .
 uv run ruff check .
 uv run mypy .
 uv run pytest
 ```
+
+Arayüz tarafı (`ui/` içinden):
+
+```bash
+npm run typecheck          # src, tests ve e2e, hepsi tek tsconfig'te
+npm run test               # vitest + jsdom: birim ve bileşen testleri
+npm run test:watch         # geliştirirken
+npm run test:coverage
+npm run test:e2e           # playwright: gerçek tarayıcı, gerçek arka uç
+```
+
+`npm run test:e2e` ilk çalıştırmada bir tarayıcı ister:
+
+```bash
+npx playwright install chromium
+```
+
+Arka ucu kendisi ayağa kaldırır (`ui/e2e/backend.py`): gerçek FastAPI
+uygulaması, gerçek sqlite dosyası, uydurma mağazalar. Ağa çıkmaz, gerçek
+sitelere dokunmaz. Ayrıntı: [`ui/TESTING.md`](ui/TESTING.md).

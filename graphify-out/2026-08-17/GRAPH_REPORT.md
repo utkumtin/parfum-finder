@@ -5,7 +5,7 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2323 nodes · 6554 edges · 86 communities (83 shown, 3 thin omitted)
+- 2323 nodes · 6587 edges · 83 communities (80 shown, 3 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 469 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
@@ -124,8 +124,8 @@
 
 ## Import Cycles
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/__init__.py`
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/logging_setup.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
@@ -139,7 +139,7 @@
 - **İdeasoft Platform Sites and Endpoint** — docs_discovery_report_dekantparfum_site, docs_discovery_report_dekantdoktoru_site, docs_discovery_report_ideasoft_related_options_endpoint, platforms_readme_ideasoft_json [EXTRACTED 1.00]
 - **discover Command Output Artifacts (profile + fixtures + CI validation)** — architecture_md_discover_flow, sites_readme_sites_dir, fixtures_readme_fixtures_dir, github_workflows_ci_validate_profiles_step, architecture_md_validate_command [INFERRED 0.85]
 
-## Communities (86 total, 3 thin omitted)
+## Communities (83 total, 3 thin omitted)
 
 ### Community 0 - "TUI App & Screens"
 Cohesion: 0.09
@@ -206,16 +206,16 @@ Cohesion: 0.21
 Nodes (15): probe(), Fetch `url` with every strategy and report diagnostics for each.      timeout_s, MonkeyPatch, Tests for parfum_finder.probe.  probe() always tries all three strategies -- the, test_probe_counts_jsonld_product_and_platform_signature(), test_probe_counts_product_across_jsonld_root_shapes(), test_probe_counts_product_markup_without_any_jsonld(), test_probe_counts_products_nested_below_the_top_level() (+7 more)
 
 ### Community 16 - "Schema Field Patterns"
-Cohesion: 0.05
-Nodes (39): css, embedded_json, endpoint, jsonld, format, pattern, type, pattern (+31 more)
+Cohesion: 0.06
+Nodes (33): format, pattern, type, pattern, type, default, type, pattern (+25 more)
 
 ### Community 17 - "Offline Profile Validation"
 Cohesion: 0.12
 Nodes (30): Run one site and classify what came back instead of raising.      It is also whe, run_site(), FetchResult, One fetched page, uniform regardless of which strategy produced it., The Textual App root. Handles screen navigation and is the app's default entry p, _counting_fetcher(), _profile(), Exception (+22 more)
 
 ### Community 18 - "Playwright Errors"
-Cohesion: 0.13
-Nodes (26): PlaywrightNoResponse, PlaywrightNotInstalled, RuntimeError, The "playwright" strategy was requested but cannot run at all.      Covers both, Navigation completed but playwright returned no Response object.      Its own ty, _attempt(), _count_jsonld(), _count_product_objects() (+18 more)
+Cohesion: 0.12
+Nodes (25): _choose_strategy(), _qualifies(), Pick the cheapest strategy that came back with real content, or None.      probe, Whether one strategy came back with a usable page., _attempt(), _count_jsonld(), _count_product_objects(), _detect_platforms() (+17 more)
 
 ### Community 19 - "Search TUI Screen"
 Cohesion: 0.08
@@ -255,11 +255,11 @@ Nodes (17): Draft202012Validator, _load_schema(), _platform_validator(), Any, Te
 
 ### Community 28 - "Variant Rule Fields"
 Cohesion: 0.11
-Nodes (19): exclude_keywords, field, max_size_ml, size_from, size_pattern, title, variant_label, exclusiveMinimum (+11 more)
+Nodes (18): field, title, variant_label, items, type, type, exclusiveMinimum, type (+10 more)
 
 ### Community 29 - "Discovery CLI Reporting"
 Cohesion: 0.06
-Nodes (56): api, ApiError, authToken(), readDetail(), request(), Window, refusalReason(), streamUrl() (+48 more)
+Nodes (60): api, ApiError, authToken(), readDetail(), request(), Window, refusalReason(), streamUrl() (+52 more)
 
 ### Community 30 - "Store Timestamp Tests"
 Cohesion: 0.27
@@ -270,8 +270,8 @@ Cohesion: 0.14
 Nodes (22): _canonical(), _covers(), _ends_with(), _index_of(), _match_text(), _own_identity(), Perfume matching: brand and concentration are mandatory; fuzzy matching only app, What a clone's own title says the bottle is, in the shape a query has.      Buil (+14 more)
 
 ### Community 32 - "Variant Extraction Fields"
-Cohesion: 0.12
-Nodes (16): attribute, script, type, additionalProperties, allOf, description, properties, type (+8 more)
+Cohesion: 0.10
+Nodes (20): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+12 more)
 
 ### Community 33 - "_ResultRow"
 Cohesion: 0.10
@@ -283,7 +283,7 @@ Nodes (17): Check, _count_result_cards(), _first_result_url(), _no_results_check
 
 ### Community 35 - "Platform Field Mapping"
 Cohesion: 0.18
-Nodes (11): field_map, product_json, source, variants_path, required, additionalProperties, allOf, description (+3 more)
+Nodes (11): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+3 more)
 
 ### Community 36 - "Shipping Config Schema"
 Cohesion: 0.14
@@ -306,16 +306,16 @@ Cohesion: 0.14
 Nodes (14): curl_cffi, httpx, playwright, result_item, result_title, result_url, strategy, url_template (+6 more)
 
 ### Community 41 - "HTTP Request Schema"
-Cohesion: 0.14
-Nodes (14): GET, POST, properties, default, enum, type, type, type (+6 more)
+Cohesion: 0.12
+Nodes (17): GET, POST, additionalProperties, allOf, description, properties, type, default (+9 more)
 
 ### Community 42 - "Fixture Fetcher (Tests)"
 Cohesion: 0.05
 Nodes (59): Client, check_enabled(), check_for_update(), DownloadProgress, fetch_latest_release(), handoff_command(), _installer_asset(), is_newer() (+51 more)
 
 ### Community 43 - "FieldConfidence"
-Cohesion: 0.22
-Nodes (3): _FakeBrowser, _FakePage, Any
+Cohesion: 0.17
+Nodes (8): PlaywrightNoResponse, PlaywrightNotInstalled, RuntimeError, The "playwright" strategy was requested but cannot run at all.      Covers both, Navigation completed but playwright returned no Response object.      Its own ty, _FakeBrowser, _FakePage, Any
 
 ### Community 44 - "Decant Variant Rules"
 Cohesion: 0.18
@@ -334,8 +334,8 @@ Cohesion: 0.15
 Nodes (18): _age_of(), live_query(), _path(), profile_age_days(), datetime, Profile staleness checks. Two modes: offline (against saved fixtures) and live (, A URL's path with no trailing slash, for comparing two spellings of one page., Every site that has a profile, sorted so reports read the same way twice. (+10 more)
 
 ### Community 48 - "._build_rows"
-Cohesion: 0.08
-Nodes (39): _choose_strategy(), DiscoveryReport, FieldConfidence, _flatten_defaults(), _format_choice(), _format_confidence(), _format_defaults(), _format_fingerprint() (+31 more)
+Cohesion: 0.07
+Nodes (49): collect_prices(), DiscoveryReport, FieldConfidence, _flatten_defaults(), _format_choice(), _format_confidence(), _format_defaults(), _format_fingerprint() (+41 more)
 
 ### Community 49 - "_RecordingFetcher"
 Cohesion: 0.10
@@ -418,8 +418,8 @@ Cohesion: 0.11
 Nodes (28): _load_profiles(), Any, Path, _recent_searches(), _record_search(), _remove_basket_item(), _set_basket_qty(), _site_summary() (+20 more)
 
 ### Community 72 - "_scenario_block"
-Cohesion: 0.18
-Nodes (17): collect_prices(), _format_product(), _format_stock(), _format_trial(), _has_exact_price(), PageTrial, Decimal, One page fetched with the chosen strategy and read for JSON-LD.      A fetch tha (+9 more)
+Cohesion: 0.25
+Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules, additionalProperties, required, type
 
 ### Community 73 - "Headers"
 Cohesion: 0.27
@@ -430,8 +430,8 @@ Cohesion: 0.22
 Nodes (8): _age_line(), format_live_report(), Every check run against one site's profile, in the order they ran.      Checks s, Whether the profile is old enough to be worth re-discovering., The age note for one site, or None when its age is unremarkable.      A profile, Render offline and live results side by side, as APP_FLOW §6 shows them.      Bo, SiteValidation, test_the_live_report_names_the_edit_that_would_repair_the_profile()
 
 ### Community 75 - "_NoRootParser"
-Cohesion: 0.29
-Nodes (7): in_stock, price, size_raw, additionalProperties, required, type, field_map
+Cohesion: 0.33
+Nodes (6): css, embedded_json, endpoint, jsonld, enum, extraction
 
 ### Community 76 - "enum"
 Cohesion: 0.40
@@ -446,8 +446,8 @@ Cohesion: 0.31
 Nodes (7): _DeadSite, FormData, Headers, Method, Strategy, A host that cannot be reached at all., test_an_unreachable_site_is_not_reported_as_a_broken_profile()
 
 ### Community 80 - "exclude_keywords"
-Cohesion: 0.29
-Nodes (7): items, type, type, items, type, exclude_keywords, needs_review
+Cohesion: 0.50
+Nodes (3): The template this site's profile would be based on, if any., Which of the matching templates gets applied, or None for none of them.      One, _resolve_platform()
 
 ### Community 81 - "ScanStatus.tsx"
 Cohesion: 0.67
@@ -458,7 +458,7 @@ Cohesion: 0.50
 Nodes (4): _collect_products(), _has_type(), Walk a parsed JSON-LD block and append every Product found, depth first.      De, Whether a node's "@type" names `name`, as a string or inside a list.      Substr
 
 ## Knowledge Gaps
-- **206 isolated node(s):** `Notice`, `Block`, `TRIAL_SIZES_ML_X10`, `Verdicts`, `SORT_LABELS` (+201 more)
+- **201 isolated node(s):** `parfum-finder`, `$schema`, `$id`, `title`, `description` (+196 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **3 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -466,16 +466,16 @@ Nodes (4): _collect_products(), _has_type(), Walk a parsed JSON-LD block and app
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `SearchScreen` connect `TUI App Shell` to `TUI App & Screens`, `Title Matcher`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `exclude_keywords`, `enum`, `Offline Profile Validation`, `Search TUI Screen`, `Price/Size Normalization`?**
-  _High betweenness centrality (0.037) - this node is a cross-community bridge._
+  _High betweenness centrality (0.041) - this node is a cross-community bridge._
 - **Why does `BasketScreen` connect `Price/Size Normalization` to `TUI App & Screens`, `Site Profiles & Templates`, `Title Matcher`, `TUI Confirm Dialog`, `TUI App Shell`, `Basket Optimizer Core`, `enum`, `conftest.py`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
-- **Why does `load_site_profile()` connect `Site Profiles & Templates` to `TUI App & Screens`, `Title Matcher`, `TUI Confirm Dialog`, `CLI Entry Points`, `exclude_keywords`, `TUI App Shell`, `Headers`, `JsonLdProduct`, `Profile Age Checks`, `conftest.py`, `Store Timestamp Tests`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
+- **Why does `parse_query()` connect `_ResultRow` to `Title Matcher`, `Search Engine per Site`, `TUI Confirm Dialog`, `CLI Entry Points`, `TUI App Shell`, `._refresh_table`, `Search TUI Screen`, `snapshot_rows`, `Store Timestamp Tests`, `Live Profile Validation`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
 - **Are the 25 inferred relationships involving `SiteResult` (e.g. with `RawVariant` and `Fetcher`) actually correct?**
   _`SiteResult` has 25 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 23 inferred relationships involving `PerfumeQuery` (e.g. with `BasketPriceExcluded` and `BasketRefreshFinished`) actually correct?**
   _`PerfumeQuery` has 23 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 14 inferred relationships involving `SearchScreen` (e.g. with `ParfumFinderApp` and `SiteRunner`) actually correct?**
   _`SearchScreen` has 14 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `Notice`, `Block`, `TRIAL_SIZES_ML_X10` to the rest of the system?**
-  _206 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `parfum-finder`, `$schema`, `$id` to the rest of the system?**
+  _201 weakly-connected nodes found - possible documentation gaps or missing edges._

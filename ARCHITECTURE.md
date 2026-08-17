@@ -62,6 +62,9 @@ src/parfum_finder/
     └── basket_screen.py
 
 ui/                    # Vite + React masaüstü arayüzü — proje kökünde, src/ dışında
+├── src/               # ekranlar, bileşenler, api istemcisi
+├── tests/             # vitest + jsdom, src/ ağacını aynalar
+└── e2e/               # playwright; backend.py gerçek arka ucu uydurma mağazalarla kaldırır
 sites/<id>.json        # site profilleri (kullanıcı düzenler) — proje kökünde, src/ dışında
 platforms/<name>.json  # platform şablonları (proje ile gelir) — proje kökünde
 hooks/<id>.py          # opsiyonel Python override — proje kökünde

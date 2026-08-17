@@ -48,3 +48,80 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+  # Split from the Python job rather than bolted onto it: the two share no
+  # tooling, and a frontend failure that reads as "the Python job failed" is a
+  # failure nobody looks in the right place for.
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      # npm ci, not npm install: it fails on a lockfile out of sync with
+      # package.json instead of quietly resolving a different dependency set,
+      # the same reason the Python job passes --locked.
+      - name: Install dependencies
+        working-directory: ui
+        run: npm ci
+
+      # Covers src, tests and the e2e specs -- they are all in the one
+      # tsconfig, so a test that stopped matching a prop's type fails here.
+      - name: Type check
+        working-directory: ui
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: ui
+        run: npm run test
+
+  # The browser layer. Kept out of the job above because it needs both
+  # toolchains and a browser download, and it is the slow one: a broken unit
+  # test should not wait on a chromium install to be reported.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # The gui extra is what ui/e2e/backend.py serves the app with. The
+      # browser extra is deliberately absent: the fixture runner replaces
+      # SiteRunner outright, so nothing in an e2e run ever fetches a page.
+      - name: Install python dependencies
+        run: uv sync --locked --extra gui
+
+      - name: Install node dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Install chromium
+        working-directory: ui
+        run: npx playwright install --with-deps chromium
+
+      # The config builds the frontend and starts the backend itself, so this
+      # is the whole run: browser, real API, real sqlite, fake shops.
+      - name: Test
+        working-directory: ui
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: ui/playwright-report/
+          retention-days: 7
