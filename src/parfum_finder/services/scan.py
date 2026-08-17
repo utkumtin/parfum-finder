@@ -524,9 +524,14 @@ async def run_basket_refresh(
     One task per site, one after the other inside it: `runner` builds its
     own pacer per call, so firing a site's whole basket at once would put
     every rate-limit gap in parallel and hand a small shop the request burst
-    this project exists not to send. No `browser_session` here on purpose,
-    matching the screen this was extracted from -- a basket refresh has
-    never needed one.
+    this project exists not to send.
+
+    `browser_session` wraps the whole refresh, same as `run_scan`. A site
+    whose search page needs a real browser opens one lazily on its first row
+    and keeps it for the rest of the refresh; without this, a refresh of N
+    basket rows against such a site would launch and tear down N browsers
+    instead of one -- a cost that grows with exactly the thing a refresh has
+    no control over, how much is already in the basket.
 
     Policy, unchanged: a site that errors or comes back suspect excludes
     that (site, row) cell and shows a warning; a site that answers empty
@@ -540,7 +545,7 @@ async def run_basket_refresh(
 
     queue: asyncio.Queue[BasketRefreshEvent] = asyncio.Queue()
 
-    async def refresh_site(profile: dict[str, Any]) -> None:
+    async def refresh_site(profile: dict[str, Any], fetcher: Fetcher) -> None:
         site_id = str(profile["id"])
         for row in rows:
             # Built from the stored identity parts instead of re-parsing a
@@ -559,7 +564,7 @@ async def run_basket_refresh(
             # integer join.
             text = f"{row.line.brand} {row.line.name} {row.line.concentration}".strip()
             try:
-                result = await runner(profile, text)
+                result = await runner(profile, text, fetcher=fetcher)
             except Exception as e:
                 result = SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
             if result.status in ("error", "suspect"):
@@ -601,15 +606,18 @@ async def run_basket_refresh(
                 )
             )
 
-    async with asyncio.TaskGroup() as group:
-        for profile in enabled:
-            group.create_task(refresh_site(profile), name=f"refresh:{profile['id']}")
-        remaining = len(enabled) * len(rows)
-        done = 0
-        while done < remaining:
-            event = await queue.get()
-            if isinstance(event, BasketRowFinished):
-                done += 1
-            yield event
+    async with browser_session() as fetcher:
+        async with asyncio.TaskGroup() as group:
+            for profile in enabled:
+                group.create_task(
+                    refresh_site(profile, fetcher), name=f"refresh:{profile['id']}"
+                )
+            remaining = len(enabled) * len(rows)
+            done = 0
+            while done < remaining:
+                event = await queue.get()
+                if isinstance(event, BasketRowFinished):
+                    done += 1
+                yield event
 
     yield BasketRefreshFinished()

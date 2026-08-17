@@ -797,8 +797,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "schema_site_schema_properties_extraction",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 16,
+      "community_name": "Schema Field Patterns",
       "norm_label": "extraction"
     },
     {
@@ -808,8 +808,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "schema_site_schema_extraction_enum",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 16,
+      "community_name": "Schema Field Patterns",
       "norm_label": "enum"
     },
     {
@@ -819,8 +819,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ref_jsonld",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 16,
+      "community_name": "Schema Field Patterns",
       "norm_label": "jsonld"
     },
     {
@@ -830,8 +830,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ref_endpoint",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 16,
+      "community_name": "Schema Field Patterns",
       "norm_label": "endpoint"
     },
     {
@@ -841,8 +841,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ref_embedded_json",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 16,
+      "community_name": "Schema Field Patterns",
       "norm_label": "embedded_json"
     },
     {
@@ -852,8 +852,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ref_css",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 16,
+      "community_name": "Schema Field Patterns",
       "norm_label": "css"
     },
     {
@@ -1402,8 +1402,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "schema_site_schema_properties_endpoint",
-      "community": 41,
-      "community_name": "HTTP Request Schema",
+      "community": 35,
+      "community_name": "Platform Field Mapping",
       "norm_label": "endpoint"
     },
     {
@@ -1413,8 +1413,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "schema_site_schema_endpoint_description",
-      "community": 41,
-      "community_name": "HTTP Request Schema",
+      "community": 35,
+      "community_name": "Platform Field Mapping",
       "norm_label": "description"
     },
     {
@@ -1424,8 +1424,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "schema_site_schema_endpoint_type",
-      "community": 41,
-      "community_name": "HTTP Request Schema",
+      "community": 35,
+      "community_name": "Platform Field Mapping",
       "norm_label": "type"
     },
     {
@@ -1435,8 +1435,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "schema_site_schema_endpoint_additionalproperties",
-      "community": 41,
-      "community_name": "HTTP Request Schema",
+      "community": 35,
+      "community_name": "Platform Field Mapping",
       "norm_label": "additionalproperties"
     },
     {
@@ -1611,8 +1611,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "schema_site_schema_properties_variants_path",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 41,
+      "community_name": "HTTP Request Schema",
       "norm_label": "variants_path"
     },
     {
@@ -1622,8 +1622,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "schema_site_schema_variants_path_type",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 41,
+      "community_name": "HTTP Request Schema",
       "norm_label": "type"
     },
     {
@@ -1633,8 +1633,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "schema_site_schema_properties_field_map",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 52,
+      "community_name": "FetchResult",
       "norm_label": "field_map"
     },
     {
@@ -1644,8 +1644,8 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "schema_site_schema_field_map_type",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 52,
+      "community_name": "FetchResult",
       "norm_label": "type"
     },
     {
@@ -1655,8 +1655,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "schema_site_schema_field_map_additionalproperties",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 52,
+      "community_name": "FetchResult",
       "norm_label": "additionalproperties"
     },
     {
@@ -1743,8 +1743,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "schema_site_schema_field_map_required",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 52,
+      "community_name": "FetchResult",
       "norm_label": "required"
     },
     {
@@ -1754,8 +1754,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ref_size_raw",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 52,
+      "community_name": "FetchResult",
       "norm_label": "size_raw"
     },
     {
@@ -1765,8 +1765,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ref_price",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 52,
+      "community_name": "FetchResult",
       "norm_label": "price"
     },
     {
@@ -1776,8 +1776,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ref_in_stock",
-      "community": 32,
-      "community_name": "Variant Extraction Fields",
+      "community": 52,
+      "community_name": "FetchResult",
       "norm_label": "in_stock"
     },
     {
@@ -1831,8 +1831,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "schema_site_schema_endpoint_allof",
-      "community": 41,
-      "community_name": "HTTP Request Schema",
+      "community": 35,
+      "community_name": "Platform Field Mapping",
       "norm_label": "allof"
     },
     {
@@ -1842,8 +1842,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "schema_site_schema_properties_embedded_json",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 32,
+      "community_name": "Variant Extraction Fields",
       "norm_label": "embedded_json"
     },
     {
@@ -1853,8 +1853,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "schema_site_schema_embedded_json_description",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 32,
+      "community_name": "Variant Extraction Fields",
       "norm_label": "description"
     },
     {
@@ -1864,8 +1864,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "schema_site_schema_embedded_json_type",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 32,
+      "community_name": "Variant Extraction Fields",
       "norm_label": "type"
     },
     {
@@ -1875,8 +1875,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "schema_site_schema_embedded_json_additionalproperties",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 32,
+      "community_name": "Variant Extraction Fields",
       "norm_label": "additionalproperties"
     },
     {
@@ -2029,8 +2029,8 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "schema_site_schema_embedded_json_allof",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 32,
+      "community_name": "Variant Extraction Fields",
       "norm_label": "allof"
     },
     {
@@ -2040,8 +2040,8 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "schema_site_schema_properties_variant_rules",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 28,
+      "community_name": "Variant Rule Fields",
       "norm_label": "variant_rules"
     },
     {
@@ -2051,8 +2051,8 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "schema_site_schema_variant_rules_type",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 28,
+      "community_name": "Variant Rule Fields",
       "norm_label": "type"
     },
     {
@@ -2062,8 +2062,8 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "schema_site_schema_variant_rules_additionalproperties",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 28,
+      "community_name": "Variant Rule Fields",
       "norm_label": "additionalproperties"
     },
     {
@@ -2161,8 +2161,8 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "schema_site_schema_properties_exclude_keywords",
-      "community": 28,
-      "community_name": "Variant Rule Fields",
+      "community": 53,
+      "community_name": "conftest.py",
       "norm_label": "exclude_keywords"
     },
     {
@@ -2172,8 +2172,8 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "schema_site_schema_exclude_keywords_type",
-      "community": 28,
-      "community_name": "Variant Rule Fields",
+      "community": 53,
+      "community_name": "conftest.py",
       "norm_label": "type"
     },
     {
@@ -2183,8 +2183,8 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "schema_site_schema_exclude_keywords_items",
-      "community": 28,
-      "community_name": "Variant Rule Fields",
+      "community": 53,
+      "community_name": "conftest.py",
       "norm_label": "items"
     },
     {
@@ -2194,8 +2194,8 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "schema_site_schema_items_type",
-      "community": 28,
-      "community_name": "Variant Rule Fields",
+      "community": 53,
+      "community_name": "conftest.py",
       "norm_label": "type"
     },
     {
@@ -2238,8 +2238,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "schema_site_schema_variant_rules_required",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 28,
+      "community_name": "Variant Rule Fields",
       "norm_label": "required"
     },
     {
@@ -2249,8 +2249,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "ref_size_from",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 28,
+      "community_name": "Variant Rule Fields",
       "norm_label": "size_from"
     },
     {
@@ -2260,8 +2260,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "ref_size_pattern",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 28,
+      "community_name": "Variant Rule Fields",
       "norm_label": "size_pattern"
     },
     {
@@ -2271,8 +2271,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "ref_exclude_keywords",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 28,
+      "community_name": "Variant Rule Fields",
       "norm_label": "exclude_keywords"
     },
     {
@@ -2282,8 +2282,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "ref_max_size_ml",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 28,
+      "community_name": "Variant Rule Fields",
       "norm_label": "max_size_ml"
     },
     {
@@ -2502,8 +2502,8 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "schema_site_schema_properties_needs_review",
-      "community": 28,
-      "community_name": "Variant Rule Fields",
+      "community": 53,
+      "community_name": "conftest.py",
       "norm_label": "needs_review"
     },
     {
@@ -2513,8 +2513,8 @@
       "source_location": "L169",
       "_origin": "ast",
       "id": "schema_site_schema_needs_review_type",
-      "community": 28,
-      "community_name": "Variant Rule Fields",
+      "community": 53,
+      "community_name": "conftest.py",
       "norm_label": "type"
     },
     {
@@ -2524,8 +2524,8 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "schema_site_schema_needs_review_items",
-      "community": 28,
-      "community_name": "Variant Rule Fields",
+      "community": 53,
+      "community_name": "conftest.py",
       "norm_label": "items"
     },
     {
@@ -2711,8 +2711,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_api_init",
-      "community": 81,
-      "community_name": "ScanStatus.tsx",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "api/__init__.py"
     },
     {
@@ -2722,8 +2722,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_api_init_rationale_1",
-      "community": 81,
-      "community_name": "ScanStatus.tsx",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "http/ws backend for the gui frontend. see api/app.py for the app itself."
     },
     {
@@ -2909,8 +2909,8 @@
       "source_location": "L596",
       "_origin": "ast",
       "id": "src_parfum_finder_api_app_site_summary",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "_site_summary()"
     },
     {
@@ -2920,8 +2920,8 @@
       "source_location": "L608",
       "_origin": "ast",
       "id": "src_parfum_finder_api_app_record_search",
-      "community": 38,
-      "community_name": "TUI Confirm Dialog",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_record_search()"
     },
     {
@@ -2975,8 +2975,8 @@
       "source_location": "L658",
       "_origin": "ast",
       "id": "src_parfum_finder_api_app_read_basket",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "_read_basket()"
     },
     {
@@ -2986,8 +2986,8 @@
       "source_location": "L668",
       "_origin": "ast",
       "id": "src_parfum_finder_api_app_score_basket",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "_score_basket()"
     },
     {
@@ -2997,8 +2997,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_api_app_py_basketrow",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "basketrow"
     },
     {
@@ -3250,8 +3250,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_basket",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "basket.py"
     },
     {
@@ -3283,8 +3283,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_sitescenario",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "sitescenario"
     },
     {
@@ -3294,8 +3294,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_sitescenario_is_full",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": ".is_full()"
     },
     {
@@ -3305,8 +3305,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_basketreport",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "basketreport"
     },
     {
@@ -3316,8 +3316,8 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_splitleg",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "splitleg"
     },
     {
@@ -3327,8 +3327,8 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_splitplan",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "splitplan"
     },
     {
@@ -3338,8 +3338,8 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_climbstate",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "_climbstate"
     },
     {
@@ -3371,8 +3371,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "collection",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "collection"
     },
     {
@@ -3404,8 +3404,8 @@
       "source_location": "L545",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_label",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "_label()"
     },
     {
@@ -3415,8 +3415,8 @@
       "source_location": "L551",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_build_basket_rows",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "build_basket_rows()"
     },
     {
@@ -3426,8 +3426,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_py_basketrow",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "basketrow"
     },
     {
@@ -3437,8 +3437,8 @@
       "source_location": "L585",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_basket_inputs",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "basket_inputs()"
     },
     {
@@ -3448,8 +3448,8 @@
       "source_location": "L617",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_splitverdict",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "splitverdict"
     },
     {
@@ -3459,8 +3459,8 @@
       "source_location": "L630",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_compare_split_to_best_full",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "compare_split_to_best_full()"
     },
     {
@@ -3470,8 +3470,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_1",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "basket scenario evaluation. a pure function, no network access, no sqlite.  inpu"
     },
     {
@@ -3503,8 +3503,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_78",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "what it would cost to buy some or all of the basket from one site.      `covered"
     },
     {
@@ -3514,8 +3514,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_104",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "every site's single-site scenario, split by whether it covers everything.      a"
     },
     {
@@ -3525,8 +3525,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_118",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "one site's share of a split basket: what to buy there and what it costs.      `s"
     },
     {
@@ -3536,8 +3536,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_132",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "the cheapest basket split the search found. a heuristic, not a proof.      every"
     },
     {
@@ -3547,8 +3547,8 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_151",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "the hill-climb's working assignment plus the running per-site figures.      `sub"
     },
     {
@@ -3591,8 +3591,8 @@
       "source_location": "L546",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_546",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "name one basket line the way a missing-item warning has to read it."
     },
     {
@@ -3602,8 +3602,8 @@
       "source_location": "L556",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_556",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "turn basket lines and their site prices into what the table shows.      out of s"
     },
     {
@@ -3613,8 +3613,8 @@
       "source_location": "L588",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_588",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "the three inputs site_scenario/optimize score: items, prices, shipping.      bui"
     },
     {
@@ -3624,8 +3624,8 @@
       "source_location": "L618",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_618",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "whether a split plan beats the best full-coverage single site.      `best_full`"
     },
     {
@@ -3635,8 +3635,8 @@
       "source_location": "L631",
       "_origin": "ast",
       "id": "src_parfum_finder_basket_rationale_631",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "score a split plan against the cheapest full-coverage single site.      only the"
     },
     {
@@ -4537,8 +4537,8 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_extractionfailed",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "extractionfailed"
     },
     {
@@ -4548,8 +4548,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_py_runtimeerror",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "runtimeerror"
     },
     {
@@ -4559,8 +4559,8 @@
       "source_location": "L165",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_productcandidate",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "productcandidate"
     },
     {
@@ -4647,8 +4647,8 @@
       "source_location": "L353",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_siterunner_call",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": ".__call__()"
     },
     {
@@ -4658,8 +4658,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "candidatefilter",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "candidatefilter"
     },
     {
@@ -4669,8 +4669,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "cachekey",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "cachekey"
     },
     {
@@ -4680,8 +4680,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "variantsread",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "variantsread"
     },
     {
@@ -4702,8 +4702,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_py_path",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "path"
     },
     {
@@ -4713,8 +4713,8 @@
       "source_location": "L455",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_run_sites",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "run_sites()"
     },
     {
@@ -4724,8 +4724,8 @@
       "source_location": "L508",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_search_site",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "search_site()"
     },
     {
@@ -4735,8 +4735,8 @@
       "source_location": "L652",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_candidates_to_open",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "_candidates_to_open()"
     },
     {
@@ -4746,8 +4746,8 @@
       "source_location": "L672",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_check_empty_search",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "_check_empty_search()"
     },
     {
@@ -4922,8 +4922,8 @@
       "source_location": "L1054",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_read_variants",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "_read_variants()"
     },
     {
@@ -4988,8 +4988,8 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_rationale_151",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "a page answered but gave up nothing, where something was expected.      this is"
     },
     {
@@ -4999,8 +4999,8 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_rationale_166",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "one hit on a search results page, before its product page is opened.      `raw_t"
     },
     {
@@ -5076,8 +5076,8 @@
       "source_location": "L464",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_rationale_464",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "run every site against one query, all at once, and report each separately."
     },
     {
@@ -5087,8 +5087,8 @@
       "source_location": "L517",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_rationale_517",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "run one query against one site and read every hit's sizes.      everything site-"
     },
     {
@@ -5098,8 +5098,8 @@
       "source_location": "L655",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_rationale_655",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "narrow the search results down to the pages worth a request.      the first one"
     },
     {
@@ -5109,8 +5109,8 @@
       "source_location": "L673",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_rationale_673",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "fail when a search yielded no rows off a page that plainly lists products."
     },
     {
@@ -5263,8 +5263,8 @@
       "source_location": "L1061",
       "_origin": "ast",
       "id": "src_parfum_finder_engine_rationale_1061",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "open one product page and read its sizes on the profile's layer.      a `cache`"
     },
     {
@@ -5340,8 +5340,8 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_jsonldoffer",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "jsonldoffer"
     },
     {
@@ -5373,8 +5373,8 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_extract_jsonld_variants",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "extract_jsonld_variants()"
     },
     {
@@ -5384,8 +5384,8 @@
       "source_location": "L196",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_flatten_jsonld",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_flatten_jsonld()"
     },
     {
@@ -5395,8 +5395,8 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_extract_endpoint_variants",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "extract_endpoint_variants()"
     },
     {
@@ -5406,8 +5406,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_py_any",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "any"
     },
     {
@@ -5417,8 +5417,8 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_extract_embedded_variants",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "extract_embedded_variants()"
     },
     {
@@ -5428,8 +5428,8 @@
       "source_location": "L259",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_extract_css_variants",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "extract_css_variants()"
     },
     {
@@ -5439,8 +5439,8 @@
       "source_location": "L280",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_css_variant",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_css_variant()"
     },
     {
@@ -5538,8 +5538,8 @@
       "source_location": "L428",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_variants_from_document",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_variants_from_document()"
     },
     {
@@ -5549,8 +5549,8 @@
       "source_location": "L457",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_map_variant",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_map_variant()"
     },
     {
@@ -5560,8 +5560,8 @@
       "source_location": "L480",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_resolve_path",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_resolve_path()"
     },
     {
@@ -5571,8 +5571,8 @@
       "source_location": "L506",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_coerce_in_stock",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_coerce_in_stock()"
     },
     {
@@ -5604,8 +5604,8 @@
       "source_location": "L569",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_build_product",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_build_product()"
     },
     {
@@ -5615,8 +5615,8 @@
       "source_location": "L580",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_sibling_variants",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_sibling_variants()"
     },
     {
@@ -5626,8 +5626,8 @@
       "source_location": "L597",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_collect_variants",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_collect_variants()"
     },
     {
@@ -5637,8 +5637,8 @@
       "source_location": "L612",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_collect_offers",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_collect_offers()"
     },
     {
@@ -5648,8 +5648,8 @@
       "source_location": "L630",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_build_offer",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_build_offer()"
     },
     {
@@ -5659,8 +5659,8 @@
       "source_location": "L643",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_parse_price_value",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_parse_price_value()"
     },
     {
@@ -5670,8 +5670,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_py_decimal",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "decimal"
     },
     {
@@ -5681,8 +5681,8 @@
       "source_location": "L667",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_parse_availability",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_parse_availability()"
     },
     {
@@ -5692,8 +5692,8 @@
       "source_location": "L680",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_as_str",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "_as_str()"
     },
     {
@@ -5725,8 +5725,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_115",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "one offer attached to a product.      a plain offer fills `price`. an aggregateo"
     },
     {
@@ -5758,8 +5758,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_173",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "rung 1: read the page's json-ld as flat variant rows.      a product that declar"
     },
     {
@@ -5769,8 +5769,8 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_197",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "turn one product and everything under it into rows."
     },
     {
@@ -5780,8 +5780,8 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_218",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "rung 2: read the variant list out of a platform's json response.      `document`"
     },
     {
@@ -5791,8 +5791,8 @@
       "source_location": "L234",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_234",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "rung 3: read the json blob the page carries but does not display.      two shape"
     },
     {
@@ -5802,8 +5802,8 @@
       "source_location": "L262",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_262",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "rung 4: read the rendered markup with selectors. last resort.      `config[\"vari"
     },
     {
@@ -5813,8 +5813,8 @@
       "source_location": "L281",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_281",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "read one variant's fields out of its container node."
     },
     {
@@ -5901,8 +5901,8 @@
       "source_location": "L431",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_431",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "read variant rows out of a parsed json document.      shared by the endpoint and"
     },
     {
@@ -5912,8 +5912,8 @@
       "source_location": "L460",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_460",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "turn one entry of a variant container into a row, following the field map."
     },
     {
@@ -5923,8 +5923,8 @@
       "source_location": "L481",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_481",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "follow a dotted path into parsed json, e.g. \"data.options.0.price\".      a segme"
     },
     {
@@ -5934,8 +5934,8 @@
       "source_location": "L507",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_507",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "read an availability field written as a flag, a count or a word.      counts are"
     },
     {
@@ -5967,8 +5967,8 @@
       "source_location": "L570",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_570",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "turn one product node into a jsonldproduct."
     },
     {
@@ -5978,8 +5978,8 @@
       "source_location": "L581",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_581",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "read the sizes listed by the parent group a product points back to.      some st"
     },
     {
@@ -5989,8 +5989,8 @@
       "source_location": "L598",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_598",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "read a product's hasvariant entries.      every dict is accepted, whether or not"
     },
     {
@@ -6000,8 +6000,8 @@
       "source_location": "L613",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_613",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "read a product's \"offers\", which may be one object or a list of them.      an ag"
     },
     {
@@ -6011,8 +6011,8 @@
       "source_location": "L631",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_631",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "turn one offer or aggregateoffer node into a jsonldoffer."
     },
     {
@@ -6022,8 +6022,8 @@
       "source_location": "L644",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_644",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "read a json-ld price field, which may be a number or a string.      returns none"
     },
     {
@@ -6033,8 +6033,8 @@
       "source_location": "L668",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_668",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "map an availability value to a yes/no answer, or none if it says neither."
     },
     {
@@ -6044,8 +6044,8 @@
       "source_location": "L681",
       "_origin": "ast",
       "id": "src_parfum_finder_extract_rationale_681",
-      "community": 60,
-      "community_name": "._scan",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "read a text field, accepting the numeric skus and prices feeds also emit.      a"
     },
     {
@@ -6077,8 +6077,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_fetch_py_runtimeerror",
-      "community": 59,
-      "community_name": "_named_profile",
+      "community": 43,
+      "community_name": "FieldConfidence",
       "norm_label": "runtimeerror"
     },
     {
@@ -6088,8 +6088,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "src_parfum_finder_fetch_playwrightnoresponse",
-      "community": 59,
-      "community_name": "_named_profile",
+      "community": 43,
+      "community_name": "FieldConfidence",
       "norm_label": "playwrightnoresponse"
     },
     {
@@ -6099,8 +6099,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "src_parfum_finder_fetch_fetchresult",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "fetchresult"
     },
     {
@@ -6110,8 +6110,8 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "src_parfum_finder_fetch_fetcher",
-      "community": 2,
-      "community_name": "Title Matcher",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "fetcher"
     },
     {
@@ -6121,8 +6121,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_fetch_py_protocol",
-      "community": 2,
-      "community_name": "Title Matcher",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "protocol"
     },
     {
@@ -6319,8 +6319,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "src_parfum_finder_fetch_rationale_71",
-      "community": 59,
-      "community_name": "_named_profile",
+      "community": 43,
+      "community_name": "FieldConfidence",
       "norm_label": "navigation completed but playwright returned no response object.      its own ty"
     },
     {
@@ -6330,8 +6330,8 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "src_parfum_finder_fetch_rationale_81",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "one fetched page, uniform regardless of which strategy produced it."
     },
     {
@@ -6341,8 +6341,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "src_parfum_finder_fetch_rationale_90",
-      "community": 2,
-      "community_name": "Title Matcher",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "anything that can stand in for `fetch`.      offline profile validation runs the"
     },
     {
@@ -6583,8 +6583,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_logging_setup",
-      "community": 2,
-      "community_name": "Title Matcher",
+      "community": 7,
+      "community_name": "CLI Entry Points",
       "norm_label": "logging_setup.py"
     },
     {
@@ -6616,8 +6616,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_logging_setup_rationale_1",
-      "community": 2,
-      "community_name": "Title Matcher",
+      "community": 7,
+      "community_name": "CLI Entry Points",
       "norm_label": "file logging for the app's own diagnostics.  nothing here ever writes to the con"
     },
     {
@@ -6693,8 +6693,8 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "src_parfum_finder_matcher_product_label",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "product_label()"
     },
     {
@@ -6748,8 +6748,8 @@
       "source_location": "L444",
       "_origin": "ast",
       "id": "src_parfum_finder_matcher_split_clone_reference",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "_split_clone_reference()"
     },
     {
@@ -6913,8 +6913,8 @@
       "source_location": "L288",
       "_origin": "ast",
       "id": "src_parfum_finder_matcher_rationale_288",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "reduce a site's own title to the product it is about, spelled one way.      what"
     },
     {
@@ -6968,8 +6968,8 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "src_parfum_finder_matcher_rationale_445",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "split a title into what the bottle is and what it says it imitates.      the sec"
     },
     {
@@ -7078,8 +7078,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "src_parfum_finder_normalize_casefold_tr",
-      "community": 31,
-      "community_name": "Live Profile Validation",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "casefold_tr()"
     },
     {
@@ -7122,8 +7122,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "src_parfum_finder_normalize_format_price",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "format_price()"
     },
     {
@@ -7133,8 +7133,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "src_parfum_finder_normalize_format_ml",
-      "community": 37,
-      "community_name": "_trial",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "format_ml()"
     },
     {
@@ -7144,8 +7144,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "src_parfum_finder_normalize_format_age",
-      "community": 37,
-      "community_name": "_trial",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "format_age()"
     },
     {
@@ -7188,8 +7188,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "src_parfum_finder_normalize_rationale_22",
-      "community": 31,
-      "community_name": "Live Profile Validation",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": "lower-case text for comparison, without breaking turkish \"i\".      python folds"
     },
     {
@@ -7221,8 +7221,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "src_parfum_finder_normalize_rationale_55",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "format a price for display (comma-thousands, dot-decimal).      decimal('1250')"
     },
     {
@@ -7232,8 +7232,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "src_parfum_finder_normalize_rationale_63",
-      "community": 37,
-      "community_name": "_trial",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "format a volume for display (dot-decimal): decimal('1.5') -> '1.5 ml'."
     },
     {
@@ -7243,8 +7243,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "src_parfum_finder_normalize_rationale_68",
-      "community": 37,
-      "community_name": "_trial",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "turn a price age in days into the words the age column shows."
     },
     {
@@ -7562,8 +7562,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "htmlparser",
-      "community": 9,
-      "community_name": "Search Engine Core",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "htmlparser"
     },
     {
@@ -8244,8 +8244,8 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_site_label",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 21,
+      "community_name": "Candidate Filtering",
       "norm_label": "site_label()"
     },
     {
@@ -8255,8 +8255,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_py_any",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 21,
+      "community_name": "Candidate Filtering",
       "norm_label": "any"
     },
     {
@@ -8266,8 +8266,8 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_cached_result_row",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "_cached_result_row()"
     },
     {
@@ -8277,8 +8277,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_py_resultrow",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "resultrow"
     },
     {
@@ -8310,8 +8310,8 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_read_cache",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "_read_cache()"
     },
     {
@@ -8321,8 +8321,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_py_path",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "path"
     },
     {
@@ -8343,8 +8343,8 @@
       "source_location": "L288",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_about",
-      "community": 98,
-      "community_name": "_about",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "_about()"
     },
     {
@@ -8354,8 +8354,8 @@
       "source_location": "L293",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_run_scan",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 21,
+      "community_name": "Candidate Filtering",
       "norm_label": "run_scan()"
     },
     {
@@ -8365,8 +8365,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "lock",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 21,
+      "community_name": "Candidate Filtering",
       "norm_label": "lock"
     },
     {
@@ -8552,8 +8552,8 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_rationale_155",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 21,
+      "community_name": "Candidate Filtering",
       "norm_label": "a site's display name, with a badge when its profile is old enough     to be wor"
     },
     {
@@ -8563,8 +8563,8 @@
       "source_location": "L165",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_rationale_165",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "turn one stored price back into the row the table shows.      everything the tab"
     },
     {
@@ -8585,8 +8585,8 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_rationale_255",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "rebuild the table's rows for every searched perfume already on record.      site"
     },
     {
@@ -8596,8 +8596,8 @@
       "source_location": "L289",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_rationale_289",
-      "community": 98,
-      "community_name": "_about",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "which perfume a log line is about, when more than one is in flight."
     },
     {
@@ -8607,8 +8607,8 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "src_parfum_finder_services_scan_rationale_302",
-      "community": 82,
-      "community_name": "run_scan",
+      "community": 21,
+      "community_name": "Candidate Filtering",
       "norm_label": "show what storage already knows, then go to the shops for the rest.      `force="
     },
     {
@@ -8970,8 +8970,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_store_py_connection",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "connection"
     },
     {
@@ -9047,8 +9047,8 @@
       "source_location": "L314",
       "_origin": "ast",
       "id": "src_parfum_finder_store_write_snapshots",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 62,
+      "community_name": "snapshot_rows",
       "norm_label": "write_snapshots()"
     },
     {
@@ -9058,8 +9058,8 @@
       "source_location": "L360",
       "_origin": "ast",
       "id": "src_parfum_finder_store_record",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_record()"
     },
     {
@@ -9069,8 +9069,8 @@
       "source_location": "L395",
       "_origin": "ast",
       "id": "src_parfum_finder_store_perfume_id",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_perfume_id()"
     },
     {
@@ -9080,8 +9080,8 @@
       "source_location": "L412",
       "_origin": "ast",
       "id": "src_parfum_finder_store_product_id",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_product_id()"
     },
     {
@@ -9091,8 +9091,8 @@
       "source_location": "L432",
       "_origin": "ast",
       "id": "src_parfum_finder_store_variant_id",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_variant_id()"
     },
     {
@@ -9102,8 +9102,8 @@
       "source_location": "L462",
       "_origin": "ast",
       "id": "src_parfum_finder_store_add_basket_item",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "add_basket_item()"
     },
     {
@@ -9146,8 +9146,8 @@
       "source_location": "L566",
       "_origin": "ast",
       "id": "src_parfum_finder_store_cached_prices",
-      "community": 11,
-      "community_name": "Basket Store & Pricing",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "cached_prices()"
     },
     {
@@ -9157,8 +9157,8 @@
       "source_location": "L622",
       "_origin": "ast",
       "id": "src_parfum_finder_store_basketline",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "basketline"
     },
     {
@@ -9168,8 +9168,8 @@
       "source_location": "L641",
       "_origin": "ast",
       "id": "src_parfum_finder_store_basketprice",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "basketprice"
     },
     {
@@ -9179,8 +9179,8 @@
       "source_location": "L657",
       "_origin": "ast",
       "id": "src_parfum_finder_store_basketsite",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "basketsite"
     },
     {
@@ -9201,8 +9201,8 @@
       "source_location": "L703",
       "_origin": "ast",
       "id": "src_parfum_finder_store_basket_prices",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "basket_prices()"
     },
     {
@@ -9223,8 +9223,8 @@
       "source_location": "L768",
       "_origin": "ast",
       "id": "src_parfum_finder_store_remove_basket_item",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "remove_basket_item()"
     },
     {
@@ -9234,8 +9234,8 @@
       "source_location": "L783",
       "_origin": "ast",
       "id": "src_parfum_finder_store_set_basket_qty",
-      "community": 96,
-      "community_name": "set_basket_qty",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "set_basket_qty()"
     },
     {
@@ -9245,8 +9245,8 @@
       "source_location": "L806",
       "_origin": "ast",
       "id": "src_parfum_finder_store_record_search",
-      "community": 52,
-      "community_name": "FetchResult",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "record_search()"
     },
     {
@@ -9256,8 +9256,8 @@
       "source_location": "L823",
       "_origin": "ast",
       "id": "src_parfum_finder_store_recent_searches",
-      "community": 52,
-      "community_name": "FetchResult",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "recent_searches()"
     },
     {
@@ -9267,8 +9267,8 @@
       "source_location": "L833",
       "_origin": "ast",
       "id": "src_parfum_finder_store_scalar",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_scalar()"
     },
     {
@@ -9355,8 +9355,8 @@
       "source_location": "L320",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_320",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 62,
+      "community_name": "snapshot_rows",
       "norm_label": "write a whole scan at once and return how many prices were recorded.      every"
     },
     {
@@ -9366,8 +9366,8 @@
       "source_location": "L371",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_371",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "do the writing, without opening a transaction of its own."
     },
     {
@@ -9377,8 +9377,8 @@
       "source_location": "L472",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_472",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "add a size of a perfume to the basket, and return the basket_item_id.      the p"
     },
     {
@@ -9410,8 +9410,8 @@
       "source_location": "L573",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_573",
-      "community": 11,
-      "community_name": "Basket Store & Pricing",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "return the latest stored price of every size of this perfume, per site.      bra"
     },
     {
@@ -9421,8 +9421,8 @@
       "source_location": "L623",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_623",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "one row of the basket: a size of a perfume, with the identity spelled out."
     },
     {
@@ -9432,8 +9432,8 @@
       "source_location": "L642",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_642",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "one site's latest price for one basket line, only when it has one.      rows wit"
     },
     {
@@ -9443,8 +9443,8 @@
       "source_location": "L658",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_658",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 38,
+      "community_name": "TUI Confirm Dialog",
       "norm_label": "a site the basket screen is willing to show a column for.      deliberately just"
     },
     {
@@ -9465,8 +9465,8 @@
       "source_location": "L704",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_704",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "return the basket price matrix: one row per (line, site) that has a price."
     },
     {
@@ -9487,8 +9487,8 @@
       "source_location": "L769",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_769",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "delete one basket line, and say whether there was one to delete.      returns fa"
     },
     {
@@ -9498,8 +9498,8 @@
       "source_location": "L784",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_784",
-      "community": 96,
-      "community_name": "set_basket_qty",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "set a basket line's quantity, clamped to at least 1, and return it.      the tab"
     },
     {
@@ -9509,8 +9509,8 @@
       "source_location": "L807",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_807",
-      "community": 52,
-      "community_name": "FetchResult",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "remember a query line so the search screen can offer it again.      re-running t"
     },
     {
@@ -9520,8 +9520,8 @@
       "source_location": "L824",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_824",
-      "community": 52,
-      "community_name": "FetchResult",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "the most recently run query lines, newest first, as (text, searched_at)."
     },
     {
@@ -9531,8 +9531,8 @@
       "source_location": "L834",
       "_origin": "ast",
       "id": "src_parfum_finder_store_rationale_834",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "read back the id of a row that was just inserted or already existed.      return"
     },
     {
@@ -9564,8 +9564,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_app",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "tui/app.py"
     },
     {
@@ -9652,8 +9652,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_app_rationale_1",
-      "community": 5,
-      "community_name": "Search Engine per Site",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "the textual app root. handles screen navigation and is the app's default entry p"
     },
     {
@@ -9674,8 +9674,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "basket_screen.py"
     },
     {
@@ -9828,8 +9828,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_py_basketreport",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "basketreport"
     },
     {
@@ -9839,8 +9839,8 @@
       "source_location": "L263",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_basketscreen_render_scenarios",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "._render_scenarios()"
     },
     {
@@ -9850,8 +9850,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_py_prices",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "prices"
     },
     {
@@ -9949,8 +9949,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "change",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_change"
     },
     {
@@ -10037,8 +10037,8 @@
       "source_location": "L413",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_remove",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_remove()"
     },
     {
@@ -10048,8 +10048,8 @@
       "source_location": "L420",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_set_qty",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "_set_qty()"
     },
     {
@@ -10059,8 +10059,8 @@
       "source_location": "L427",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_heading",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "_heading()"
     },
     {
@@ -10070,8 +10070,8 @@
       "source_location": "L437",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_toggle_hint",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "_toggle_hint()"
     },
     {
@@ -10081,8 +10081,8 @@
       "source_location": "L446",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_scenario_block",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "_scenario_block()"
     },
     {
@@ -10092,8 +10092,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_py_sitescenario",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "sitescenario"
     },
     {
@@ -10103,8 +10103,8 @@
       "source_location": "L471",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_leg_block",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "_leg_block()"
     },
     {
@@ -10114,8 +10114,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_py_splitleg",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "splitleg"
     },
     {
@@ -10125,8 +10125,8 @@
       "source_location": "L499",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_split_block",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "_split_block()"
     },
     {
@@ -10136,8 +10136,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_rationale_1",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "the basket screen: the shopping list, a scenario per site, and the best split."
     },
     {
@@ -10158,8 +10158,8 @@
       "source_location": "L428",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_rationale_428",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "a block title plus the blank line that keeps it off the block above it.      the"
     },
     {
@@ -10169,8 +10169,8 @@
       "source_location": "L438",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_rationale_438",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "the one line that says the screen is holding something back, or is not."
     },
     {
@@ -10180,8 +10180,8 @@
       "source_location": "L447",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_rationale_447",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "the two or three lines one site's scenario takes up on screen."
     },
     {
@@ -10191,8 +10191,8 @@
       "source_location": "L478",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_rationale_478",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "one site's share of a split: its assigned items, then its own subtotal.      a s"
     },
     {
@@ -10202,8 +10202,8 @@
       "source_location": "L505",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_basket_screen_rationale_505",
-      "community": 67,
-      "community_name": "test_cached_prices_is_empty_for_a_perfume_nobody_scanned",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "the best-combination block: its legs, grand total, and its honesty checks."
     },
     {
@@ -10213,8 +10213,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen",
-      "community": 2,
-      "community_name": "Title Matcher",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "search_screen.py"
     },
     {
@@ -10224,8 +10224,8 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_confirmscreen",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "confirmscreen"
     },
     {
@@ -10235,8 +10235,8 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_confirmscreen_init",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 39,
+      "community_name": "TUI App Shell",
       "norm_label": ".__init__()"
     },
     {
@@ -10268,8 +10268,8 @@
       "source_location": "L219",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_confirmscreen_on_button_pressed",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": ".on_button_pressed()"
     },
     {
@@ -10279,8 +10279,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "pressed",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "pressed"
     },
     {
@@ -10290,8 +10290,8 @@
       "source_location": "L223",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_confirmscreen_action_confirm",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": ".action_confirm()"
     },
     {
@@ -10301,8 +10301,8 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_confirmscreen_action_cancel",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": ".action_cancel()"
     },
     {
@@ -10323,8 +10323,8 @@
       "source_location": "L268",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_searchscreen_init",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 39,
+      "community_name": "TUI App Shell",
       "norm_label": ".__init__()"
     },
     {
@@ -10334,8 +10334,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_py_path",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 39,
+      "community_name": "TUI App Shell",
       "norm_label": "path"
     },
     {
@@ -10576,8 +10576,8 @@
       "source_location": "L545",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_searchscreen_cache_notice",
-      "community": 99,
-      "community_name": "._cache_notice",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "._cache_notice()"
     },
     {
@@ -10642,8 +10642,8 @@
       "source_location": "L619",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_searchscreen_cells",
-      "community": 37,
-      "community_name": "_trial",
+      "community": 39,
+      "community_name": "TUI App Shell",
       "norm_label": "._cells()"
     },
     {
@@ -10807,8 +10807,8 @@
       "source_location": "L840",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_searchscreen_write_to_sheet",
-      "community": 37,
-      "community_name": "_trial",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "._write_to_sheet()"
     },
     {
@@ -10917,8 +10917,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_rationale_1",
-      "community": 2,
-      "community_name": "Title Matcher",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "the search screen: a progress bar while scanning, one grouped table after.  a pe"
     },
     {
@@ -10928,8 +10928,8 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_rationale_162",
-      "community": 88,
-      "community_name": "ConfirmScreen",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "asks before a low-confidence match is written to the basket.      the two answer"
     },
     {
@@ -10972,8 +10972,8 @@
       "source_location": "L546",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_rationale_546",
-      "community": 99,
-      "community_name": "._cache_notice",
+      "community": 2,
+      "community_name": "Title Matcher",
       "norm_label": "say a perfume came off the record instead of off the shops.          without thi"
     },
     {
@@ -11368,8 +11368,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_validate",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "validate.py"
     },
     {
@@ -11390,8 +11390,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_sitevalidation",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "sitevalidation"
     },
     {
@@ -11401,8 +11401,8 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_sitevalidation_stale",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": ".stale()"
     },
     {
@@ -11412,8 +11412,8 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_sitevalidation_ok",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": ".ok()"
     },
     {
@@ -11423,8 +11423,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_sitevalidation_failure",
-      "community": 34,
-      "community_name": "Fetch Strategy Probing",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": ".failure()"
     },
     {
@@ -11434,8 +11434,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_fixturefetcher",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "_fixturefetcher"
     },
     {
@@ -11478,8 +11478,8 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_fixturefetcher_product_url",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": ".product_url()"
     },
     {
@@ -11489,8 +11489,8 @@
       "source_location": "L183",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_fixturefetcher_search_page",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": ".search_page()"
     },
     {
@@ -11500,8 +11500,8 @@
       "source_location": "L206",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_fixturefetcher_call",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": ".__call__()"
     },
     {
@@ -11511,8 +11511,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_py_strategy",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "strategy"
     },
     {
@@ -11522,8 +11522,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_py_method",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "method"
     },
     {
@@ -11533,8 +11533,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_py_formdata",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "formdata"
     },
     {
@@ -11544,8 +11544,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_py_headers",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "headers"
     },
     {
@@ -11555,8 +11555,8 @@
       "source_location": "L232",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_fixturefetcher_related_options_response",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "._related_options_response()"
     },
     {
@@ -11566,8 +11566,8 @@
       "source_location": "L244",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_path",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "_path()"
     },
     {
@@ -11577,8 +11577,8 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_site_ids",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "site_ids()"
     },
     {
@@ -11588,8 +11588,8 @@
       "source_location": "L254",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_profile_age_days",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "profile_age_days()"
     },
     {
@@ -11599,8 +11599,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_py_datetime",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "datetime"
     },
     {
@@ -11621,8 +11621,8 @@
       "source_location": "L364",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_validate_all_offline",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "validate_all_offline()"
     },
     {
@@ -11632,8 +11632,8 @@
       "source_location": "L399",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_age_of",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "_age_of()"
     },
     {
@@ -11654,8 +11654,8 @@
       "source_location": "L433",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_recordingfetcher_init",
-      "community": 34,
-      "community_name": "Fetch Strategy Probing",
+      "community": 9,
+      "community_name": "Search Engine Core",
       "norm_label": ".__init__()"
     },
     {
@@ -11665,8 +11665,8 @@
       "source_location": "L437",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_recordingfetcher_call",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": ".__call__()"
     },
     {
@@ -11676,8 +11676,8 @@
       "source_location": "L459",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_live_query",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "live_query()"
     },
     {
@@ -11687,8 +11687,8 @@
       "source_location": "L500",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_validate_live",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "validate_live()"
     },
     {
@@ -11753,8 +11753,8 @@
       "source_location": "L746",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_layerunavailable",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "_layerunavailable"
     },
     {
@@ -11764,8 +11764,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_py_exception",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "exception"
     },
     {
@@ -11786,8 +11786,8 @@
       "source_location": "L782",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_validate_all_live",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "validate_all_live()"
     },
     {
@@ -11808,8 +11808,8 @@
       "source_location": "L850",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_age_line",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "_age_line()"
     },
     {
@@ -11819,8 +11819,8 @@
       "source_location": "L872",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_format_live_report",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "format_live_report()"
     },
     {
@@ -11830,8 +11830,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_1",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "profile staleness checks. two modes: offline (against saved fixtures) and live ("
     },
     {
@@ -11852,8 +11852,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_104",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "every check run against one site's profile, in the order they ran.      checks s"
     },
     {
@@ -11863,8 +11863,8 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_131",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "whether the profile is old enough to be worth re-discovering."
     },
     {
@@ -11874,8 +11874,8 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_140",
-      "community": 34,
-      "community_name": "Fetch Strategy Probing",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "the check that broke, or none if the profile is intact."
     },
     {
@@ -11885,8 +11885,8 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_145",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "serves one site's saved capture in place of the network.      only three kinds o"
     },
     {
@@ -11896,8 +11896,8 @@
       "source_location": "L184",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_184",
-      "community": 25,
-      "community_name": "SQLite Store",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "the one real result card that led to the captured product page.          cut out"
     },
     {
@@ -11907,8 +11907,8 @@
       "source_location": "L245",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_245",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "a url's path with no trailing slash, for comparing two spellings of one page."
     },
     {
@@ -11918,8 +11918,8 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_250",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "every site that has a profile, sorted so reports read the same way twice."
     },
     {
@@ -11929,8 +11929,8 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_255",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "whole days between a profile's `discovered_at` and now.      only the exact utc"
     },
     {
@@ -11951,8 +11951,8 @@
       "source_location": "L372",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_372",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "validate every site, or just the ones named.      serial rather than concurrent:"
     },
     {
@@ -11962,8 +11962,8 @@
       "source_location": "L400",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_400",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "the profile's age in days, or none if the file cannot say.      reads the site f"
     },
     {
@@ -11984,8 +11984,8 @@
       "source_location": "L462",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_462",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "the query this site's fixture was captured with, read back out of its url."
     },
     {
@@ -11995,8 +11995,8 @@
       "source_location": "L509",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_509",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "run one site's profile against the real site.      same contract as offline mode"
     },
     {
@@ -12061,8 +12061,8 @@
       "source_location": "L747",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_747",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "this profile carries no configuration for the layer being probed."
     },
     {
@@ -12083,8 +12083,8 @@
       "source_location": "L791",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_791",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "validate every site against the live web, or just the ones named.      serial li"
     },
     {
@@ -12105,8 +12105,8 @@
       "source_location": "L851",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_851",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "the age note for one site, or none when its age is unremarkable.      a profile"
     },
     {
@@ -12116,8 +12116,8 @@
       "source_location": "L875",
       "_origin": "ast",
       "id": "src_parfum_finder_validate_rationale_875",
-      "community": 74,
-      "community_name": "format_age",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "render offline and live results side by side, as app_flow \u00a76 shows them.      bo"
     },
     {
@@ -12127,8 +12127,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_viewmodels",
-      "community": 97,
-      "community_name": "viewmodels.py",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "viewmodels.py"
     },
     {
@@ -12149,8 +12149,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "src_parfum_finder_viewmodels_resultrow_price_per_ml_kurus",
-      "community": 97,
-      "community_name": "viewmodels.py",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": ".price_per_ml_kurus()"
     },
     {
@@ -12160,8 +12160,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_viewmodels_py_decimal",
-      "community": 97,
-      "community_name": "viewmodels.py",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "decimal"
     },
     {
@@ -12182,8 +12182,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_parfum_finder_viewmodels_rationale_1",
-      "community": 97,
-      "community_name": "viewmodels.py",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "row shapes shared between the tui screens and, later, other frontends.  these ar"
     },
     {
@@ -13315,8 +13315,8 @@
       "source_location": "L476",
       "_origin": "ast",
       "id": "tests_test_basket_line",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "_line()"
     },
     {
@@ -13326,8 +13326,8 @@
       "source_location": "L489",
       "_origin": "ast",
       "id": "tests_test_basket_days_ago",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "_days_ago()"
     },
     {
@@ -13337,8 +13337,8 @@
       "source_location": "L494",
       "_origin": "ast",
       "id": "tests_test_basket_basket_price",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "_basket_price()"
     },
     {
@@ -13348,8 +13348,8 @@
       "source_location": "L511",
       "_origin": "ast",
       "id": "tests_test_basket_test_build_basket_rows_drops_out_of_stock_and_excluded_prices",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "test_build_basket_rows_drops_out_of_stock_and_excluded_prices()"
     },
     {
@@ -13359,8 +13359,8 @@
       "source_location": "L524",
       "_origin": "ast",
       "id": "tests_test_basket_test_a_rows_age_is_its_stalest_cell",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "test_a_rows_age_is_its_stalest_cell()"
     },
     {
@@ -13370,8 +13370,8 @@
       "source_location": "L540",
       "_origin": "ast",
       "id": "tests_test_basket_test_basket_inputs_builds_the_price_matrix_from_row_data",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "test_basket_inputs_builds_the_price_matrix_from_row_data()"
     },
     {
@@ -13381,8 +13381,8 @@
       "source_location": "L571",
       "_origin": "ast",
       "id": "tests_test_basket_full_scenario",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "_full_scenario()"
     },
     {
@@ -13392,8 +13392,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_basket_py_sitescenario",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "sitescenario"
     },
     {
@@ -13403,8 +13403,8 @@
       "source_location": "L587",
       "_origin": "ast",
       "id": "tests_test_basket_plan",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "_plan()"
     },
     {
@@ -13414,8 +13414,8 @@
       "source_location": "L593",
       "_origin": "ast",
       "id": "tests_test_basket_test_compare_split_to_best_full_reports_the_cheaper_side",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "test_compare_split_to_best_full_reports_the_cheaper_side()"
     },
     {
@@ -13425,8 +13425,8 @@
       "source_location": "L603",
       "_origin": "ast",
       "id": "tests_test_basket_test_compare_split_to_best_full_with_no_full_coverage_site",
-      "community": 89,
-      "community_name": "BasketReport",
+      "community": 81,
+      "community_name": "ScanStatus.tsx",
       "norm_label": "test_compare_split_to_best_full_with_no_full_coverage_site()"
     },
     {
@@ -13447,8 +13447,8 @@
       "source_location": "L525",
       "_origin": "ast",
       "id": "tests_test_basket_rationale_525",
-      "community": 68,
-      "community_name": "build_basket_rows",
+      "community": 10,
+      "community_name": "Basket Optimizer Core",
       "norm_label": "a row is only as fresh as the oldest price it is comparing.      reporting the n"
     },
     {
@@ -15592,8 +15592,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_engine_py_any",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "any"
     },
     {
@@ -15658,8 +15658,8 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_product_page_that_yields_no_sizes_fails_loudly",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_a_product_page_that_yields_no_sizes_fails_loudly()"
     },
     {
@@ -15680,8 +15680,8 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "tests_test_engine_test_the_named_layer_is_the_only_one_tried",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_the_named_layer_is_the_only_one_tried()"
     },
     {
@@ -15724,8 +15724,8 @@
       "source_location": "L298",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_post_endpoint_missing_a_static_body_field_fails_loudly",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_a_post_endpoint_missing_a_static_body_field_fails_loudly()"
     },
     {
@@ -15746,8 +15746,8 @@
       "source_location": "L376",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_sold_out_page_the_profile_cannot_recognize_still_fails",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_a_sold_out_page_the_profile_cannot_recognize_still_fails()"
     },
     {
@@ -15757,8 +15757,8 @@
       "source_location": "L393",
       "_origin": "ast",
       "id": "tests_test_engine_test_an_endpoint_that_answers_html_fails_loudly",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_an_endpoint_that_answers_html_fails_loudly()"
     },
     {
@@ -15779,8 +15779,8 @@
       "source_location": "L434",
       "_origin": "ast",
       "id": "tests_test_engine_test_rows_without_a_single_price_fail_loudly",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_rows_without_a_single_price_fail_loudly()"
     },
     {
@@ -15790,8 +15790,8 @@
       "source_location": "L452",
       "_origin": "ast",
       "id": "tests_test_engine_test_an_unknown_extraction_layer_is_refused",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_an_unknown_extraction_layer_is_refused()"
     },
     {
@@ -15933,8 +15933,8 @@
       "source_location": "L621",
       "_origin": "ast",
       "id": "tests_test_engine_write_hook",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "_write_hook()"
     },
     {
@@ -15944,8 +15944,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_engine_py_path",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "path"
     },
     {
@@ -15955,8 +15955,8 @@
       "source_location": "L626",
       "_origin": "ast",
       "id": "tests_test_engine_test_before_search_rewrites_the_query_that_is_actually_sent",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_before_search_rewrites_the_query_that_is_actually_sent()"
     },
     {
@@ -15966,8 +15966,8 @@
       "source_location": "L644",
       "_origin": "ast",
       "id": "tests_test_engine_test_after_search_can_drop_a_result_the_selectors_could_not",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_after_search_can_drop_a_result_the_selectors_could_not()"
     },
     {
@@ -15977,8 +15977,8 @@
       "source_location": "L660",
       "_origin": "ast",
       "id": "tests_test_engine_test_parse_variants_takes_over_but_the_profile_still_filters",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_parse_variants_takes_over_but_the_profile_still_filters()"
     },
     {
@@ -15988,8 +15988,8 @@
       "source_location": "L690",
       "_origin": "ast",
       "id": "tests_test_engine_test_parse_variants_returning_none_leaves_the_page_to_the_profile",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_parse_variants_returning_none_leaves_the_page_to_the_profile()"
     },
     {
@@ -15999,8 +15999,8 @@
       "source_location": "L709",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_site_with_no_hook_file_is_driven_by_its_profile_alone",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_a_site_with_no_hook_file_is_driven_by_its_profile_alone()"
     },
     {
@@ -16010,8 +16010,8 @@
       "source_location": "L719",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_before_search_that_returns_no_query_is_refused",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_a_before_search_that_returns_no_query_is_refused()"
     },
     {
@@ -16021,8 +16021,8 @@
       "source_location": "L731",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_hook_that_reads_nothing_is_named_as_the_culprit",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_a_hook_that_reads_nothing_is_named_as_the_culprit()"
     },
     {
@@ -16153,8 +16153,8 @@
       "source_location": "L903",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_broken_hook_is_an_error_not_a_silent_empty",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_a_broken_hook_is_an_error_not_a_silent_empty()"
     },
     {
@@ -16263,8 +16263,8 @@
       "source_location": "L1155",
       "_origin": "ast",
       "id": "tests_test_engine_test_no_sites_is_an_empty_run_not_a_crash",
-      "community": 78,
-      "community_name": "vite.config.ts",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_no_sites_is_an_empty_run_not_a_crash()"
     },
     {
@@ -16285,8 +16285,8 @@
       "source_location": "L1187",
       "_origin": "ast",
       "id": "tests_test_engine_slept",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "slept()"
     },
     {
@@ -16296,8 +16296,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_engine_py_monkeypatch",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "monkeypatch"
     },
     {
@@ -16406,8 +16406,8 @@
       "source_location": "L1356",
       "_origin": "ast",
       "id": "tests_test_engine_norootparser",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "_norootparser"
     },
     {
@@ -16417,8 +16417,8 @@
       "source_location": "L1364",
       "_origin": "ast",
       "id": "tests_test_engine_norootparser_init",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": ".__init__()"
     },
     {
@@ -16428,8 +16428,8 @@
       "source_location": "L1368",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_search_page_with_no_root_names_its_body_size",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "test_a_search_page_with_no_root_names_its_body_size()"
     },
     {
@@ -16439,8 +16439,8 @@
       "source_location": "L1386",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_product_page_with_no_root_names_its_body_size",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "test_a_product_page_with_no_root_names_its_body_size()"
     },
     {
@@ -16450,8 +16450,8 @@
       "source_location": "L1416",
       "_origin": "ast",
       "id": "tests_test_engine_watching_fetcher",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "_watching_fetcher()"
     },
     {
@@ -16461,8 +16461,8 @@
       "source_location": "L1442",
       "_origin": "ast",
       "id": "tests_test_engine_named_profile",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "_named_profile()"
     },
     {
@@ -16472,8 +16472,8 @@
       "source_location": "L1449",
       "_origin": "ast",
       "id": "tests_test_engine_test_a_listing_from_another_house_costs_no_product_request",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_a_listing_from_another_house_costs_no_product_request()"
     },
     {
@@ -16483,8 +16483,8 @@
       "source_location": "L1469",
       "_origin": "ast",
       "id": "tests_test_engine_test_without_a_filter_every_listing_is_still_opened",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_without_a_filter_every_listing_is_still_opened()"
     },
     {
@@ -16516,8 +16516,8 @@
       "source_location": "L1518",
       "_origin": "ast",
       "id": "tests_test_engine_test_one_product_listed_under_two_searches_is_read_once",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_one_product_listed_under_two_searches_is_read_once()"
     },
     {
@@ -16527,8 +16527,8 @@
       "source_location": "L1539",
       "_origin": "ast",
       "id": "tests_test_engine_test_two_shops_sharing_a_url_do_not_read_each_others_pages",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "test_two_shops_sharing_a_url_do_not_read_each_others_pages()"
     },
     {
@@ -16560,8 +16560,8 @@
       "source_location": "L622",
       "_origin": "ast",
       "id": "tests_test_engine_rationale_622",
-      "community": 61,
-      "community_name": "single_site_scenarios",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "give the test profile's site id a hook file. the id is what binds them."
     },
     {
@@ -16571,8 +16571,8 @@
       "source_location": "L1188",
       "_origin": "ast",
       "id": "tests_test_engine_rationale_1188",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "record every delay the engine asks for instead of serving it.      waiting for r"
     },
     {
@@ -16593,8 +16593,8 @@
       "source_location": "L1357",
       "_origin": "ast",
       "id": "tests_test_engine_rationale_1357",
-      "community": 76,
-      "community_name": "FetchResult",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "stands in for htmlparser when a page's markup cannot be read at all.      select"
     },
     {
@@ -16604,8 +16604,8 @@
       "source_location": "L1417",
       "_origin": "ast",
       "id": "tests_test_engine_rationale_1417",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "the real fetcher, with a list of every url it was asked for."
     },
     {
@@ -16615,8 +16615,8 @@
       "source_location": "L1443",
       "_origin": "ast",
       "id": "tests_test_engine_rationale_1443",
-      "community": 90,
-      "community_name": "_named_profile",
+      "community": 17,
+      "community_name": "Offline Profile Validation",
       "norm_label": "a profile whose search page lists two houses' bottles, as shops do."
     },
     {
@@ -16923,8 +16923,8 @@
       "source_location": "L379",
       "_origin": "ast",
       "id": "tests_test_extract_fixture",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "_fixture()"
     },
     {
@@ -16934,8 +16934,8 @@
       "source_location": "L519",
       "_origin": "ast",
       "id": "tests_test_extract_test_jsonld_variants_reports_each_size_and_not_the_parent",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_jsonld_variants_reports_each_size_and_not_the_parent()"
     },
     {
@@ -16945,8 +16945,8 @@
       "source_location": "L530",
       "_origin": "ast",
       "id": "tests_test_extract_test_jsonld_variants_collapses_a_size_listed_twice",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_jsonld_variants_collapses_a_size_listed_twice()"
     },
     {
@@ -16956,8 +16956,8 @@
       "source_location": "L538",
       "_origin": "ast",
       "id": "tests_test_extract_test_jsonld_variants_refuses_a_price_range",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_jsonld_variants_refuses_a_price_range()"
     },
     {
@@ -16967,8 +16967,8 @@
       "source_location": "L548",
       "_origin": "ast",
       "id": "tests_test_extract_test_jsonld_variants_keeps_the_offers_nested_in_a_range",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_jsonld_variants_keeps_the_offers_nested_in_a_range()"
     },
     {
@@ -16978,8 +16978,8 @@
       "source_location": "L557",
       "_origin": "ast",
       "id": "tests_test_extract_test_endpoint_reads_every_size_from_one_response",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "test_endpoint_reads_every_size_from_one_response()"
     },
     {
@@ -16989,8 +16989,8 @@
       "source_location": "L571",
       "_origin": "ast",
       "id": "tests_test_extract_test_endpoint_without_a_field_map_reads_nothing",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 64,
+      "community_name": "validate_live",
       "norm_label": "test_endpoint_without_a_field_map_reads_nothing()"
     },
     {
@@ -17000,8 +17000,8 @@
       "source_location": "L575",
       "_origin": "ast",
       "id": "tests_test_extract_test_embedded_attribute_reads_the_woocommerce_variation_table",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_embedded_attribute_reads_the_woocommerce_variation_table()"
     },
     {
@@ -17011,8 +17011,8 @@
       "source_location": "L591",
       "_origin": "ast",
       "id": "tests_test_extract_test_embedded_attribute_reads_a_second_site_with_the_same_shape",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_embedded_attribute_reads_a_second_site_with_the_same_shape()"
     },
     {
@@ -17022,8 +17022,8 @@
       "source_location": "L606",
       "_origin": "ast",
       "id": "tests_test_extract_test_embedded_marker_reads_a_blob_out_of_a_js_statement",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_embedded_marker_reads_a_blob_out_of_a_js_statement()"
     },
     {
@@ -17033,8 +17033,8 @@
       "source_location": "L625",
       "_origin": "ast",
       "id": "tests_test_extract_test_embedded_json_island_reads_a_deeply_nested_variant_list",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_embedded_json_island_reads_a_deeply_nested_variant_list()"
     },
     {
@@ -17044,8 +17044,8 @@
       "source_location": "L641",
       "_origin": "ast",
       "id": "tests_test_extract_test_embedded_marker_that_matches_nothing_reads_nothing",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_embedded_marker_that_matches_nothing_reads_nothing()"
     },
     {
@@ -17055,8 +17055,8 @@
       "source_location": "L647",
       "_origin": "ast",
       "id": "tests_test_extract_test_embedded_scan_is_not_ended_by_a_brace_inside_a_name",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "test_embedded_scan_is_not_ended_by_a_brace_inside_a_name()"
     },
     {
@@ -17066,8 +17066,8 @@
       "source_location": "L671",
       "_origin": "ast",
       "id": "tests_test_extract_test_css_reads_one_row_per_container",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "test_css_reads_one_row_per_container()"
     },
     {
@@ -17077,8 +17077,8 @@
       "source_location": "L682",
       "_origin": "ast",
       "id": "tests_test_extract_test_css_without_a_container_reads_the_page_as_one_variant",
-      "community": 53,
-      "community_name": "conftest.py",
+      "community": 34,
+      "community_name": "Fetch Strategy Probing",
       "norm_label": "test_css_without_a_container_reads_the_page_as_one_variant()"
     },
     {
@@ -17110,8 +17110,8 @@
       "source_location": "L380",
       "_origin": "ast",
       "id": "tests_test_extract_rationale_380",
-      "community": 57,
-      "community_name": "_FixtureFetcher",
+      "community": 12,
+      "community_name": "JSON-LD Product Extraction",
       "norm_label": "read a captured product page."
     },
     {
@@ -17253,8 +17253,8 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "tests_test_fetch_test_fetch_playwright_no_response_raises_its_own_error_type",
-      "community": 59,
-      "community_name": "_named_profile",
+      "community": 43,
+      "community_name": "FieldConfidence",
       "norm_label": "test_fetch_playwright_no_response_raises_its_own_error_type()"
     },
     {
@@ -17352,8 +17352,8 @@
       "source_location": "L196",
       "_origin": "ast",
       "id": "tests_test_fetch_fakebrowser",
-      "community": 3,
-      "community_name": "HTTP/Browser Fetching",
+      "community": 43,
+      "community_name": "FieldConfidence",
       "norm_label": "_fakebrowser"
     },
     {
@@ -17363,8 +17363,8 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "tests_test_fetch_fakebrowser_init",
-      "community": 3,
-      "community_name": "HTTP/Browser Fetching",
+      "community": 43,
+      "community_name": "FieldConfidence",
       "norm_label": ".__init__()"
     },
     {
@@ -17385,8 +17385,8 @@
       "source_location": "L206",
       "_origin": "ast",
       "id": "tests_test_fetch_fakebrowser_close",
-      "community": 3,
-      "community_name": "HTTP/Browser Fetching",
+      "community": 43,
+      "community_name": "FieldConfidence",
       "norm_label": ".close()"
     },
     {
@@ -18177,8 +18177,8 @@
       "source_location": "L614",
       "_origin": "ast",
       "id": "tests_test_matcher_test_real_shop_titles_reduce_to_the_product_they_are_about",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "test_real_shop_titles_reduce_to_the_product_they_are_about()"
     },
     {
@@ -18188,8 +18188,8 @@
       "source_location": "L620",
       "_origin": "ast",
       "id": "tests_test_matcher_test_every_shops_spelling_of_one_bottle_lands_in_one_block",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "test_every_shops_spelling_of_one_bottle_lands_in_one_block()"
     },
     {
@@ -18199,8 +18199,8 @@
       "source_location": "L632",
       "_origin": "ast",
       "id": "tests_test_matcher_test_a_longer_named_bottle_does_not_join_the_shorter_ones_block",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "test_a_longer_named_bottle_does_not_join_the_shorter_ones_block()"
     },
     {
@@ -18210,8 +18210,8 @@
       "source_location": "L641",
       "_origin": "ast",
       "id": "tests_test_matcher_test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates()"
     },
     {
@@ -18221,8 +18221,8 @@
       "source_location": "L654",
       "_origin": "ast",
       "id": "tests_test_matcher_test_a_title_with_no_product_words_left_has_no_label",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "test_a_title_with_no_product_words_left_has_no_label()"
     },
     {
@@ -18232,8 +18232,8 @@
       "source_location": "L661",
       "_origin": "ast",
       "id": "tests_test_matcher_test_size_tier_labels_do_not_split_one_bottle_into_four_blocks",
-      "community": 83,
-      "community_name": "product_label",
+      "community": 31,
+      "community_name": "Live Profile Validation",
       "norm_label": "test_size_tier_labels_do_not_split_one_bottle_into_four_blocks()"
     },
     {
@@ -18342,8 +18342,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "tests_test_normalize_test_format_age_reads_as_words_not_a_timestamp",
-      "community": 37,
-      "community_name": "_trial",
+      "community": 5,
+      "community_name": "Search Engine per Site",
       "norm_label": "test_format_age_reads_as_words_not_a_timestamp()"
     },
     {
@@ -19568,6 +19568,17 @@
       "norm_label": "test_run_basket_refresh_write_failure_is_reported()"
     },
     {
+      "label": "test_run_basket_refresh_shares_one_fetcher_across_every_row()",
+      "file_type": "code",
+      "source_file": "tests/test_scan_service.py",
+      "source_location": "L451",
+      "_origin": "ast",
+      "id": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
+      "community": 21,
+      "community_name": "Candidate Filtering",
+      "norm_label": "test_run_basket_refresh_shares_one_fetcher_across_every_row()"
+    },
+    {
       "label": "Tests for parfum_finder.services.scan: the event stream a fake SiteRunner drives",
       "file_type": "rationale",
       "source_file": "tests/test_scan_service.py",
@@ -19588,6 +19599,17 @@
       "community": 21,
       "community_name": "Candidate Filtering",
       "norm_label": "a search page that lists the same bottle under two listings (an     overlapping"
+    },
+    {
+      "label": "A refresh reuses one session's fetcher instead of building a fresh one     per r",
+      "file_type": "rationale",
+      "source_file": "tests/test_scan_service.py",
+      "source_location": "L454",
+      "_origin": "ast",
+      "id": "tests_test_scan_service_rationale_454",
+      "community": 21,
+      "community_name": "Candidate Filtering",
+      "norm_label": "a refresh reuses one session's fetcher instead of building a fresh one     per r"
     },
     {
       "label": "test_sheets.py",
@@ -20212,8 +20234,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_test_store",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "test_store.py"
     },
     {
@@ -20245,8 +20267,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "tests_test_store_conn",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "conn()"
     },
     {
@@ -20256,8 +20278,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_store_py_path",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "path"
     },
     {
@@ -20322,8 +20344,8 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "tests_test_store_test_connect_enforces_foreign_keys",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "test_connect_enforces_foreign_keys()"
     },
     {
@@ -20421,8 +20443,8 @@
       "source_location": "L277",
       "_origin": "ast",
       "id": "tests_test_store_test_connect_is_idempotent_on_an_existing_database",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "test_connect_is_idempotent_on_an_existing_database()"
     },
     {
@@ -20630,8 +20652,8 @@
       "source_location": "L716",
       "_origin": "ast",
       "id": "tests_test_store_test_price_history_is_newest_first_and_capped_at_limit",
-      "community": 55,
-      "community_name": "apply_variant_rules",
+      "community": 71,
+      "community_name": "exclude_keywords",
       "norm_label": "test_price_history_is_newest_first_and_capped_at_limit()"
     },
     {
@@ -20652,8 +20674,8 @@
       "source_location": "L766",
       "_origin": "ast",
       "id": "tests_test_store_test_cached_prices_serves_the_latest_reading_of_every_size",
-      "community": 11,
-      "community_name": "Basket Store & Pricing",
+      "community": 55,
+      "community_name": "apply_variant_rules",
       "norm_label": "test_cached_prices_serves_the_latest_reading_of_every_size()"
     },
     {
@@ -20663,8 +20685,8 @@
       "source_location": "L793",
       "_origin": "ast",
       "id": "tests_test_store_test_cached_prices_without_a_concentration_returns_every_one",
-      "community": 11,
-      "community_name": "Basket Store & Pricing",
+      "community": 55,
+      "community_name": "apply_variant_rules",
       "norm_label": "test_cached_prices_without_a_concentration_returns_every_one()"
     },
     {
@@ -20674,8 +20696,8 @@
       "source_location": "L815",
       "_origin": "ast",
       "id": "tests_test_store_test_cached_prices_leaves_out_a_disabled_site",
-      "community": 11,
-      "community_name": "Basket Store & Pricing",
+      "community": 55,
+      "community_name": "apply_variant_rules",
       "norm_label": "test_cached_prices_leaves_out_a_disabled_site()"
     },
     {
@@ -20696,8 +20718,8 @@
       "source_location": "L849",
       "_origin": "ast",
       "id": "tests_test_store_test_a_scanned_perfume_can_be_read_back_by_basket_and_history",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 62,
+      "community_name": "snapshot_rows",
       "norm_label": "test_a_scanned_perfume_can_be_read_back_by_basket_and_history()"
     },
     {
@@ -20729,8 +20751,8 @@
       "source_location": "L978",
       "_origin": "ast",
       "id": "tests_test_store_test_basket_prices_has_no_row_for_a_line_no_site_prices",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "test_basket_prices_has_no_row_for_a_line_no_site_prices()"
     },
     {
@@ -20740,8 +20762,8 @@
       "source_location": "L1006",
       "_origin": "ast",
       "id": "tests_test_store_test_basket_prices_reports_only_the_latest_snapshot",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "test_basket_prices_reports_only_the_latest_snapshot()"
     },
     {
@@ -20751,8 +20773,8 @@
       "source_location": "L1029",
       "_origin": "ast",
       "id": "tests_test_store_test_basket_prices_joins_on_the_exact_integer_size",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "test_basket_prices_joins_on_the_exact_integer_size()"
     },
     {
@@ -20762,8 +20784,8 @@
       "source_location": "L1047",
       "_origin": "ast",
       "id": "tests_test_store_test_basket_prices_keeps_out_of_stock_rows_with_in_stock_false",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "test_basket_prices_keeps_out_of_stock_rows_with_in_stock_false()"
     },
     {
@@ -20773,8 +20795,8 @@
       "source_location": "L1067",
       "_origin": "ast",
       "id": "tests_test_store_test_basket_sites_omits_a_disabled_site_and_keeps_one_that_prices_nothing",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "test_basket_sites_omits_a_disabled_site_and_keeps_one_that_prices_nothing()"
     },
     {
@@ -20784,8 +20806,8 @@
       "source_location": "L1095",
       "_origin": "ast",
       "id": "tests_test_store_test_basket_sites_preserves_a_null_free_shipping_threshold_as_none",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "test_basket_sites_preserves_a_null_free_shipping_threshold_as_none()"
     },
     {
@@ -20817,8 +20839,8 @@
       "source_location": "L1157",
       "_origin": "ast",
       "id": "tests_test_store_test_set_basket_qty_on_an_unknown_id_raises",
-      "community": 96,
-      "community_name": "set_basket_qty",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "test_set_basket_qty_on_an_unknown_id_raises()"
     },
     {
@@ -20850,8 +20872,8 @@
       "source_location": "L1251",
       "_origin": "ast",
       "id": "tests_test_store_test_rerunning_a_search_moves_it_up_instead_of_adding_a_second_copy",
-      "community": 52,
-      "community_name": "FetchResult",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "test_rerunning_a_search_moves_it_up_instead_of_adding_a_second_copy()"
     },
     {
@@ -20861,8 +20883,8 @@
       "source_location": "L1269",
       "_origin": "ast",
       "id": "tests_test_store_test_recent_searches_stops_at_the_limit",
-      "community": 52,
-      "community_name": "FetchResult",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "test_recent_searches_stops_at_the_limit()"
     },
     {
@@ -20872,8 +20894,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_test_store_rationale_1",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "tests for parfum_finder.store: the timestamp helper and the schema.  the one har"
     },
     {
@@ -20894,8 +20916,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "tests_test_store_rationale_143",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "a snapshot pointing at a variant that doesn't exist has to be rejected.      sql"
     },
     {
@@ -20949,8 +20971,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "tests_test_store_rationale_278",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "reopening an existing database must not wipe or re-raise on its schema."
     },
     {
@@ -21158,8 +21180,8 @@
       "source_location": "L719",
       "_origin": "ast",
       "id": "tests_test_store_rationale_719",
-      "community": 55,
-      "community_name": "apply_variant_rules",
+      "community": 71,
+      "community_name": "exclude_keywords",
       "norm_label": "the trend panel reads row 0 as the latest reading, so order is the point.      a"
     },
     {
@@ -21180,8 +21202,8 @@
       "source_location": "L769",
       "_origin": "ast",
       "id": "tests_test_store_rationale_769",
-      "community": 11,
-      "community_name": "Basket Store & Pricing",
+      "community": 55,
+      "community_name": "apply_variant_rules",
       "norm_label": "the search screen's second search must be answered with today's numbers.      tw"
     },
     {
@@ -21191,8 +21213,8 @@
       "source_location": "L796",
       "_origin": "ast",
       "id": "tests_test_store_rationale_796",
-      "community": 11,
-      "community_name": "Basket Store & Pricing",
+      "community": 55,
+      "community_name": "apply_variant_rules",
       "norm_label": "a search that named no concentration is asking for all of them.      \"\" means \"a"
     },
     {
@@ -21202,8 +21224,8 @@
       "source_location": "L816",
       "_origin": "ast",
       "id": "tests_test_store_rationale_816",
-      "community": 11,
-      "community_name": "Basket Store & Pricing",
+      "community": 55,
+      "community_name": "apply_variant_rules",
       "norm_label": "a price nobody will scan again may not be offered as a result.      refreshing i"
     },
     {
@@ -21224,8 +21246,8 @@
       "source_location": "L852",
       "_origin": "ast",
       "id": "tests_test_store_rationale_852",
-      "community": 71,
-      "community_name": "exclude_keywords",
+      "community": 62,
+      "community_name": "snapshot_rows",
       "norm_label": "the identity a real scan writes must be the identity these lookups accept."
     },
     {
@@ -21257,8 +21279,8 @@
       "source_location": "L981",
       "_origin": "ast",
       "id": "tests_test_store_rationale_981",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "a basket line nobody sells must still be visible via basket_lines.      basket_p"
     },
     {
@@ -21268,8 +21290,8 @@
       "source_location": "L1009",
       "_origin": "ast",
       "id": "tests_test_store_rationale_1009",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "a stale reading must never outrank the one taken after it.      latest_prices al"
     },
     {
@@ -21279,8 +21301,8 @@
       "source_location": "L1032",
       "_origin": "ast",
       "id": "tests_test_store_rationale_1032",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "a 10 ml listing must never fill a basket line asking for 5 ml.      the matrix j"
     },
     {
@@ -21290,8 +21312,8 @@
       "source_location": "L1050",
       "_origin": "ast",
       "id": "tests_test_store_rationale_1050",
-      "community": 85,
-      "community_name": "basket_prices",
+      "community": 49,
+      "community_name": "_RecordingFetcher",
       "norm_label": "whether an out-of-stock price counts as missing is the caller's call.      dropp"
     },
     {
@@ -21301,8 +21323,8 @@
       "source_location": "L1070",
       "_origin": "ast",
       "id": "tests_test_store_rationale_1070",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "a disabled site loses its basket column, but an enabled quiet one keeps one."
     },
     {
@@ -21312,8 +21334,8 @@
       "source_location": "L1098",
       "_origin": "ast",
       "id": "tests_test_store_rationale_1098",
-      "community": 49,
-      "community_name": "_RecordingFetcher",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "null means the site has no free shipping tier at all, not a threshold of zero."
     },
     {
@@ -21345,8 +21367,8 @@
       "source_location": "L1158",
       "_origin": "ast",
       "id": "tests_test_store_rationale_1158",
-      "community": 96,
-      "community_name": "set_basket_qty",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "an update aimed at a row that isn't there means the caller is out of sync."
     },
     {
@@ -21378,8 +21400,8 @@
       "source_location": "L1254",
       "_origin": "ast",
       "id": "tests_test_store_rationale_1254",
-      "community": 52,
-      "community_name": "FetchResult",
+      "community": 11,
+      "community_name": "Basket Store & Pricing",
       "norm_label": "the recents list has five slots, so a repeat must not consume two.      someone"
     },
     {
@@ -23149,8 +23171,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "tests_test_validate_test_every_real_profile_passes_against_its_own_fixtures",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_every_real_profile_passes_against_its_own_fixtures()"
     },
     {
@@ -23259,8 +23281,8 @@
       "source_location": "L238",
       "_origin": "ast",
       "id": "tests_test_validate_fakesite",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "_fakesite"
     },
     {
@@ -23270,8 +23292,8 @@
       "source_location": "L247",
       "_origin": "ast",
       "id": "tests_test_validate_fakesite_init",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": ".__init__()"
     },
     {
@@ -23281,8 +23303,8 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "tests_test_validate_fakesite_call",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": ".__call__()"
     },
     {
@@ -23292,8 +23314,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_validate_py_strategy",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "strategy"
     },
     {
@@ -23303,8 +23325,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_validate_py_method",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "method"
     },
     {
@@ -23314,8 +23336,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_validate_py_formdata",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "formdata"
     },
     {
@@ -23325,8 +23347,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "tests_test_validate_py_headers",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "headers"
     },
     {
@@ -23336,8 +23358,8 @@
       "source_location": "L272",
       "_origin": "ast",
       "id": "tests_test_validate_deadsite",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "_deadsite"
     },
     {
@@ -23347,8 +23369,8 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "tests_test_validate_deadsite_call",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": ".__call__()"
     },
     {
@@ -23358,8 +23380,8 @@
       "source_location": "L288",
       "_origin": "ast",
       "id": "tests_test_validate_fixture_site",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "_fixture_site()"
     },
     {
@@ -23369,8 +23391,8 @@
       "source_location": "L296",
       "_origin": "ast",
       "id": "tests_test_validate_test_every_profile_can_read_its_captured_query_back",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_every_profile_can_read_its_captured_query_back()"
     },
     {
@@ -23380,8 +23402,8 @@
       "source_location": "L324",
       "_origin": "ast",
       "id": "tests_test_validate_test_a_search_template_that_cannot_produce_the_captured_url_fails_loud",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_a_search_template_that_cannot_produce_the_captured_url_fails_loud()"
     },
     {
@@ -23391,8 +23413,8 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "tests_test_validate_test_a_working_profile_passes_against_a_site_that_still_answers",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_a_working_profile_passes_against_a_site_that_still_answers()"
     },
     {
@@ -23402,8 +23424,8 @@
       "source_location": "L350",
       "_origin": "ast",
       "id": "tests_test_validate_test_an_unreachable_site_is_not_reported_as_a_broken_profile",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_an_unreachable_site_is_not_reported_as_a_broken_profile()"
     },
     {
@@ -23413,8 +23435,8 @@
       "source_location": "L362",
       "_origin": "ast",
       "id": "tests_test_validate_test_zero_results_on_a_full_page_blames_the_result_selector",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_zero_results_on_a_full_page_blames_the_result_selector()"
     },
     {
@@ -23424,8 +23446,8 @@
       "source_location": "L376",
       "_origin": "ast",
       "id": "tests_test_validate_test_zero_results_on_a_thin_page_blames_the_site_not_the_profile",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_zero_results_on_a_thin_page_blames_the_site_not_the_profile()"
     },
     {
@@ -23435,8 +23457,8 @@
       "source_location": "L389",
       "_origin": "ast",
       "id": "tests_test_validate_test_a_broken_layer_reports_which_other_layer_could_take_over",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_a_broken_layer_reports_which_other_layer_could_take_over()"
     },
     {
@@ -23457,8 +23479,8 @@
       "source_location": "L469",
       "_origin": "ast",
       "id": "tests_test_validate_test_profile_age_is_counted_in_whole_days_from_the_schema_timestamp",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_profile_age_is_counted_in_whole_days_from_the_schema_timestamp()"
     },
     {
@@ -23468,8 +23490,8 @@
       "source_location": "L480",
       "_origin": "ast",
       "id": "tests_test_validate_test_a_timestamp_that_is_not_the_schema_format_is_rejected",
-      "community": 47,
-      "community_name": "JsonLdProduct",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "test_a_timestamp_that_is_not_the_schema_format_is_rejected()"
     },
     {
@@ -23556,8 +23578,8 @@
       "source_location": "L239",
       "_origin": "ast",
       "id": "tests_test_validate_rationale_239",
-      "community": 73,
-      "community_name": "Headers",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "a stand-in for one live site, answering the search page then the rest.      live"
     },
     {
@@ -23567,8 +23589,8 @@
       "source_location": "L273",
       "_origin": "ast",
       "id": "tests_test_validate_rationale_273",
-      "community": 79,
-      "community_name": ".__call__",
+      "community": 50,
+      "community_name": "Profile Age Checks",
       "norm_label": "a host that cannot be reached at all."
     },
     {
@@ -23578,8 +23600,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_e2e_backend",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "backend.py"
     },
     {
@@ -23589,8 +23611,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "ui_e2e_backend_profile",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "_profile()"
     },
     {
@@ -23600,8 +23622,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ui_e2e_backend_py_any",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "any"
     },
     {
@@ -23611,8 +23633,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "ui_e2e_backend_matching_product",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "_matching_product()"
     },
     {
@@ -23622,8 +23644,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "ui_e2e_backend_fake_runner",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "_fake_runner()"
     },
     {
@@ -23633,8 +23655,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "ui_e2e_backend_main",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "main()"
     },
     {
@@ -23644,8 +23666,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_e2e_backend_rationale_1",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "the backend playwright drives: the real app, with the shops stubbed out.  everyt"
     },
     {
@@ -23655,8 +23677,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "ui_e2e_backend_rationale_77",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "a profile that passes schema validation and is never actually fetched."
     },
     {
@@ -23666,8 +23688,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "ui_e2e_backend_rationale_106",
-      "community": 4,
-      "community_name": "Search/Basket Domain Models",
+      "community": 25,
+      "community_name": "SQLite Store",
       "norm_label": "which catalogue product a typed query is about, by its leading words.      delib"
     },
     {
@@ -25162,8 +25184,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_app_test",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "app.test.tsx"
     },
     {
@@ -25239,8 +25261,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ui_tests_helpers_fixtures_resultrow",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "resultrow()"
     },
     {
@@ -25250,8 +25272,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "ui_tests_helpers_fixtures_basketrow",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "basketrow()"
     },
     {
@@ -25272,8 +25294,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "ui_tests_helpers_fixtures_basket",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "basket()"
     },
     {
@@ -25393,8 +25415,8 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "ui_tests_helpers_server_no_update",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "no_update"
     },
     {
@@ -25470,8 +25492,8 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "ui_tests_helpers_server_fakewebsocket",
-      "community": 95,
-      "community_name": "FakeWebSocket",
+      "community": 57,
+      "community_name": "_FixtureFetcher",
       "norm_label": "fakewebsocket"
     },
     {
@@ -25481,8 +25503,8 @@
       "source_location": "L211",
       "_origin": "ast",
       "id": "ui_tests_helpers_server_fakewebsocket_constructor",
-      "community": 95,
-      "community_name": "FakeWebSocket",
+      "community": 57,
+      "community_name": "_FixtureFetcher",
       "norm_label": ".constructor()"
     },
     {
@@ -25492,8 +25514,8 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "ui_tests_helpers_server_fakewebsocket_close",
-      "community": 95,
-      "community_name": "FakeWebSocket",
+      "community": 57,
+      "community_name": "_FixtureFetcher",
       "norm_label": ".close()"
     },
     {
@@ -25503,8 +25525,8 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "ui_tests_helpers_server_fakewebsocket_emit",
-      "community": 95,
-      "community_name": "FakeWebSocket",
+      "community": 57,
+      "community_name": "_FixtureFetcher",
       "norm_label": ".emit()"
     },
     {
@@ -25514,8 +25536,8 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "ui_tests_helpers_server_fakewebsocket_refuse",
-      "community": 95,
-      "community_name": "FakeWebSocket",
+      "community": 57,
+      "community_name": "_FixtureFetcher",
       "norm_label": ".refuse()"
     },
     {
@@ -25613,8 +25635,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_screens_resultsscreen_test",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "resultsscreen.test.tsx"
     },
     {
@@ -25624,8 +25646,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ui_tests_screens_resultsscreen_test_renderscreen",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "renderscreen()"
     },
     {
@@ -25635,8 +25657,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "ui_tests_screens_resultsscreen_test_recommendedrow",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "recommendedrow()"
     },
     {
@@ -25646,8 +25668,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "ui_tests_screens_resultsscreen_test_rowaddbuttons",
-      "community": 91,
-      "community_name": "ResultsScreen.test.tsx",
+      "community": 47,
+      "community_name": "JsonLdProduct",
       "norm_label": "rowaddbuttons()"
     },
     {
@@ -41750,7 +41772,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/parfum_finder/services/scan.py",
-      "source_location": "L564",
+      "source_location": "L569",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_parfum_finder_services_scan_run_basket_refresh",
@@ -49521,6 +49543,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/parfum_finder/services/scan.py",
+      "source_location": "L609",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_parfum_finder_services_scan_run_basket_refresh",
+      "target": "src_parfum_finder_fetch_browser_session",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/parfum_finder/services/scan.py",
       "source_location": "L445",
       "weight": 1.0,
       "_origin": "ast",
@@ -50676,7 +50710,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/parfum_finder/services/scan.py",
-      "source_location": "L551",
+      "source_location": "L556",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_parfum_finder_services_scan_run_basket_refresh",
@@ -58716,7 +58750,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/parfum_finder/services/scan.py",
-      "source_location": "L536",
+      "source_location": "L541",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_parfum_finder_services_scan_run_basket_refresh",
@@ -59035,7 +59069,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "src/parfum_finder/services/scan.py",
-      "source_location": "L611",
+      "source_location": "L619",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_parfum_finder_services_scan_run_basket_refresh",
@@ -59138,7 +59172,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/parfum_finder/services/scan.py",
-      "source_location": "L538",
+      "source_location": "L543",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_parfum_finder_services_scan_run_basket_refresh",
@@ -59185,7 +59219,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/parfum_finder/services/scan.py",
-      "source_location": "L582",
+      "source_location": "L587",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_parfum_finder_services_scan_run_basket_refresh",
@@ -59238,6 +59272,18 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_scan_service_test_run_basket_refresh_excludes_an_empty_answer_silently",
+      "target": "src_parfum_finder_services_scan_run_basket_refresh"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_scan_service.py",
+      "source_location": "L472",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
       "target": "src_parfum_finder_services_scan_run_basket_refresh"
     },
     {
@@ -88387,6 +88433,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_scan_service.py",
+      "source_location": "L451",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_scan_service",
+      "target": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_scan_service.py",
       "source_location": "L429",
       "weight": 1.0,
       "_origin": "ast",
@@ -88530,6 +88587,18 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_scan_service_test_run_basket_refresh_excludes_an_empty_answer_silently",
+      "target": "tests_test_scan_service_profile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_scan_service.py",
+      "source_location": "L474",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
       "target": "tests_test_scan_service_profile",
       "confidence_score": 1.0
     },
@@ -88742,6 +88811,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_scan_service.py",
+      "source_location": "L475",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
+      "target": "tests_test_scan_service_ok_result",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_scan_service.py",
       "source_location": "L441",
       "weight": 1.0,
       "_origin": "ast",
@@ -88910,6 +88991,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_scan_service.py",
+      "source_location": "L471",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
+      "target": "tests_test_scan_service_collect",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_scan_service.py",
       "source_location": "L437",
       "weight": 1.0,
       "_origin": "ast",
@@ -89042,6 +89135,18 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_scan_service.py",
+      "source_location": "L451",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
+      "target": "tests_test_scan_service_py_path",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_scan_service.py",
       "source_location": "L429",
       "weight": 1.0,
       "_origin": "ast",
@@ -89137,11 +89242,34 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_scan_service.py",
+      "source_location": "L473",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
+      "target": "tests_test_scan_service_basket_row",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_scan_service.py",
       "source_location": "L439",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_scan_service_test_run_basket_refresh_write_failure_is_reported",
       "target": "tests_test_scan_service_basket_row",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_scan_service.py",
+      "source_location": "L454",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_scan_service_rationale_454",
+      "target": "tests_test_scan_service_test_run_basket_refresh_shares_one_fetcher_across_every_row",
       "confidence_score": 1.0
     },
     {
@@ -105686,5 +105814,5 @@
       "source_file": "ARCHITECTURE.md"
     }
   ],
-  "built_at_commit": "e1a79d5f7d5ca4cac07826021be5682f854122c4"
+  "built_at_commit": "09c9da288f029a124bf7c889f2f88a2be54dc45d"
 }

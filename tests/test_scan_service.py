@@ -446,3 +446,38 @@ async def test_run_basket_refresh_write_failure_is_reported(
 
     failed = next(e for e in events if isinstance(e, BasketWriteFailed))
     assert "database is locked" in failed.notice
+
+
+async def test_run_basket_refresh_shares_one_fetcher_across_every_row(
+    tmp_path: Path,
+) -> None:
+    """A refresh reuses one session's fetcher instead of building a fresh one
+    per row, the same guarantee run_scan already gives one search's several
+    perfumes. A site whose search page needs a real browser must pay for
+    that browser once per refresh, not once per basket line -- a refresh
+    that launched one per row would get slower exactly as the basket grows.
+    """
+    seen: list[Any] = []
+
+    def _fetcher_recording_runner(results: dict[str, SiteResult]) -> SiteRunner:
+        async def runner(
+            profile: dict[str, Any], query: str, *, fetcher: Any = None, **_: Any
+        ) -> SiteResult:
+            seen.append(fetcher)
+            return results[profile["id"]]
+
+        return runner
+
+    await _collect(
+        run_basket_refresh(
+            [_basket_row(1), _basket_row(2), _basket_row(3)],
+            [_profile("site-a", "Site A")],
+            runner=_fetcher_recording_runner({"site-a": _ok_result("site-a")}),
+            db_path=tmp_path / "db.sqlite3",
+            write_lock=asyncio.Lock(),
+        )
+    )
+
+    assert len(seen) == 3
+    assert seen[0] is not None
+    assert all(fetcher is seen[0] for fetcher in seen)
