@@ -6,6 +6,14 @@ on:
     tags: ["v*"]
   workflow_dispatch: {}
 
+# Two runs racing on the same tag (a rerun overlapping the original, or a
+# manual dispatch alongside the tag push) would both see the release
+# missing and both try to create it, so only one wins and the other gets
+# "already exists". Queuing same-ref runs instead of letting them run in
+# parallel removes that race at the source.
+concurrency:
+  group: build-windows-${{ github.ref }}
+
 jobs:
   build:
     runs-on: windows-latest
@@ -129,15 +137,22 @@ jobs:
       # never creates one -- pushing a tag alone doesn't create a GitHub
       # Release, so without this the upload step fails with "release not
       # found" on every tag's first run.
+      # Creating unconditionally rather than checking first with `gh release
+      # view` avoids a check-then-act race: two runs on the same tag could
+      # both see "missing" and both try to create, and the loser would fail
+      # with "already exists" even though the release ends up in the right
+      # state either way. So attempt the create and only fail on errors that
+      # aren't that one.
       - name: Ensure the release exists
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release view "$env:RELEASE_TAG" 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --generate-notes
+          $output = gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --generate-notes 2>&1
+          if ($LASTEXITCODE -ne 0 -and $output -notmatch 'already exists') {
+            Write-Host $output
+            throw "gh release create failed"
           }
 
       - name: Attach installer to the release
