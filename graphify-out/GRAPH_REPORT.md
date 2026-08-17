@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8a8f32cb`
+- Built from commit: `0fde9de9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -94,8 +94,8 @@
 - enum
 - _collect_products
 - .__call__
+- exclude_keywords
 - ScanStatus.tsx
-- enum
 - _collect_products
 
 ## God Nodes (most connected - your core abstractions)
@@ -123,16 +123,16 @@
   tests/test_engine.py → src/parfum_finder/engine.py
 
 ## Import Cycles
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/logging_setup.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
-- 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 
 ## Hyperedges (group relationships)
 - **Sites Implementing Variant Pattern C (embedded JSON)** — docs_discovery_report_venco_site, docs_discovery_report_decantall_site, docs_discovery_report_luxurydekant_site, docs_discovery_report_ruxangroup_site, architecture_md_variant_pattern_c [EXTRACTED 1.00]
@@ -270,8 +270,8 @@ Cohesion: 0.14
 Nodes (22): _canonical(), _covers(), _ends_with(), _index_of(), _match_text(), _own_identity(), Perfume matching: brand and concentration are mandatory; fuzzy matching only app, What a clone's own title says the bottle is, in the shape a query has.      Buil (+14 more)
 
 ### Community 32 - "Variant Extraction Fields"
-Cohesion: 0.11
-Nodes (18): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+10 more)
+Cohesion: 0.10
+Nodes (20): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+12 more)
 
 ### Community 33 - "_ResultRow"
 Cohesion: 0.10
@@ -282,8 +282,8 @@ Cohesion: 0.13
 Nodes (17): Check, _count_result_cards(), _first_result_url(), _no_results_check(), _probe_layer(), _probe_other_layers(), Any, Path (+9 more)
 
 ### Community 35 - "Platform Field Mapping"
-Cohesion: 0.12
-Nodes (16): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+8 more)
+Cohesion: 0.18
+Nodes (11): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+3 more)
 
 ### Community 36 - "Shipping Config Schema"
 Cohesion: 0.14
@@ -306,8 +306,8 @@ Cohesion: 0.14
 Nodes (14): curl_cffi, httpx, playwright, result_item, result_title, result_url, strategy, url_template (+6 more)
 
 ### Community 41 - "HTTP Request Schema"
-Cohesion: 0.14
-Nodes (14): GET, POST, properties, default, enum, type, type, type (+6 more)
+Cohesion: 0.12
+Nodes (17): GET, POST, additionalProperties, allOf, description, properties, type, default (+9 more)
 
 ### Community 42 - "Fixture Fetcher (Tests)"
 Cohesion: 0.05
@@ -418,8 +418,8 @@ Cohesion: 0.11
 Nodes (28): _load_profiles(), Any, Path, _recent_searches(), _record_search(), _remove_basket_item(), _set_basket_qty(), _site_summary() (+20 more)
 
 ### Community 72 - "_scenario_block"
-Cohesion: 0.50
-Nodes (3): The template this site's profile would be based on, if any., Which of the matching templates gets applied, or None for none of them.      One, _resolve_platform()
+Cohesion: 0.25
+Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules, additionalProperties, required, type
 
 ### Community 73 - "Headers"
 Cohesion: 0.27
@@ -430,8 +430,8 @@ Cohesion: 0.22
 Nodes (8): _age_line(), format_live_report(), Every check run against one site's profile, in the order they ran.      Checks s, Whether the profile is old enough to be worth re-discovering., The age note for one site, or None when its age is unremarkable.      A profile, Render offline and live results side by side, as APP_FLOW §6 shows them.      Bo, SiteValidation, test_the_live_report_names_the_edit_that_would_repair_the_profile()
 
 ### Community 75 - "_NoRootParser"
-Cohesion: 0.25
-Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules, additionalProperties, required, type
+Cohesion: 0.33
+Nodes (6): css, embedded_json, endpoint, jsonld, enum, extraction
 
 ### Community 76 - "enum"
 Cohesion: 0.40
@@ -445,13 +445,13 @@ Nodes (7): price_history(), Row, Return one variant's past readings, newest firs
 Cohesion: 0.31
 Nodes (7): _DeadSite, FormData, Headers, Method, Strategy, A host that cannot be reached at all., test_an_unreachable_site_is_not_reported_as_a_broken_profile()
 
+### Community 80 - "exclude_keywords"
+Cohesion: 0.50
+Nodes (3): The template this site's profile would be based on, if any., Which of the matching templates gets applied, or None for none of them.      One, _resolve_platform()
+
 ### Community 81 - "ScanStatus.tsx"
 Cohesion: 0.67
 Nodes (3): _LayerUnavailable, Exception, This profile carries no configuration for the layer being probed.
-
-### Community 82 - "enum"
-Cohesion: 0.33
-Nodes (6): css, embedded_json, endpoint, jsonld, enum, extraction
 
 ### Community 83 - "_collect_products"
 Cohesion: 0.50

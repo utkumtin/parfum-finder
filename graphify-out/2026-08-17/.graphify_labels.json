@@ -79,13 +79,10 @@
   "77": "_collect_products",
   "78": "vite.config.ts",
   "79": ".__call__",
-  "80": "_LayerUnavailable",
+  "80": "exclude_keywords",
   "81": "ScanStatus.tsx",
   "82": "enum",
   "83": "_collect_products",
-  "84": "Badge.tsx",
-  "85": "AddButton.tsx",
-  "86": "ConfirmDialog.tsx",
-  "87": "ProgressBar.tsx",
-  "88": "ScanStatus.tsx"
+  "84": "ConfirmDialog.tsx",
+  "85": "ScanStatus.tsx"
 }

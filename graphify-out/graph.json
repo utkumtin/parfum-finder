@@ -797,8 +797,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "schema_site_schema_properties_extraction",
-      "community": 82,
-      "community_name": "enum",
+      "community": 75,
+      "community_name": "_NoRootParser",
       "norm_label": "extraction"
     },
     {
@@ -808,8 +808,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "schema_site_schema_extraction_enum",
-      "community": 82,
-      "community_name": "enum",
+      "community": 75,
+      "community_name": "_NoRootParser",
       "norm_label": "enum"
     },
     {
@@ -819,8 +819,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ref_jsonld",
-      "community": 82,
-      "community_name": "enum",
+      "community": 75,
+      "community_name": "_NoRootParser",
       "norm_label": "jsonld"
     },
     {
@@ -830,8 +830,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ref_endpoint",
-      "community": 82,
-      "community_name": "enum",
+      "community": 75,
+      "community_name": "_NoRootParser",
       "norm_label": "endpoint"
     },
     {
@@ -841,8 +841,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ref_embedded_json",
-      "community": 82,
-      "community_name": "enum",
+      "community": 75,
+      "community_name": "_NoRootParser",
       "norm_label": "embedded_json"
     },
     {
@@ -852,8 +852,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ref_css",
-      "community": 82,
-      "community_name": "enum",
+      "community": 75,
+      "community_name": "_NoRootParser",
       "norm_label": "css"
     },
     {
@@ -1402,8 +1402,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "schema_site_schema_properties_endpoint",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 41,
+      "community_name": "HTTP Request Schema",
       "norm_label": "endpoint"
     },
     {
@@ -1413,8 +1413,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "schema_site_schema_endpoint_description",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 41,
+      "community_name": "HTTP Request Schema",
       "norm_label": "description"
     },
     {
@@ -1424,8 +1424,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "schema_site_schema_endpoint_type",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 41,
+      "community_name": "HTTP Request Schema",
       "norm_label": "type"
     },
     {
@@ -1435,8 +1435,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "schema_site_schema_endpoint_additionalproperties",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 41,
+      "community_name": "HTTP Request Schema",
       "norm_label": "additionalproperties"
     },
     {
@@ -1611,8 +1611,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "schema_site_schema_properties_variants_path",
-      "community": 41,
-      "community_name": "HTTP Request Schema",
+      "community": 32,
+      "community_name": "Variant Extraction Fields",
       "norm_label": "variants_path"
     },
     {
@@ -1622,8 +1622,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "schema_site_schema_variants_path_type",
-      "community": 41,
-      "community_name": "HTTP Request Schema",
+      "community": 32,
+      "community_name": "Variant Extraction Fields",
       "norm_label": "type"
     },
     {
@@ -1831,8 +1831,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "schema_site_schema_endpoint_allof",
-      "community": 35,
-      "community_name": "Platform Field Mapping",
+      "community": 41,
+      "community_name": "HTTP Request Schema",
       "norm_label": "allof"
     },
     {
@@ -2040,8 +2040,8 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "schema_site_schema_properties_variant_rules",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 72,
+      "community_name": "_scenario_block",
       "norm_label": "variant_rules"
     },
     {
@@ -2051,8 +2051,8 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "schema_site_schema_variant_rules_type",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 72,
+      "community_name": "_scenario_block",
       "norm_label": "type"
     },
     {
@@ -2062,8 +2062,8 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "schema_site_schema_variant_rules_additionalproperties",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 72,
+      "community_name": "_scenario_block",
       "norm_label": "additionalproperties"
     },
     {
@@ -2238,8 +2238,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "schema_site_schema_variant_rules_required",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 72,
+      "community_name": "_scenario_block",
       "norm_label": "required"
     },
     {
@@ -2249,8 +2249,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "ref_size_from",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 72,
+      "community_name": "_scenario_block",
       "norm_label": "size_from"
     },
     {
@@ -2260,8 +2260,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "ref_size_pattern",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 72,
+      "community_name": "_scenario_block",
       "norm_label": "size_pattern"
     },
     {
@@ -2271,8 +2271,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "ref_exclude_keywords",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 72,
+      "community_name": "_scenario_block",
       "norm_label": "exclude_keywords"
     },
     {
@@ -2282,8 +2282,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "ref_max_size_ml",
-      "community": 75,
-      "community_name": "_NoRootParser",
+      "community": 72,
+      "community_name": "_scenario_block",
       "norm_label": "max_size_ml"
     },
     {
@@ -3888,8 +3888,8 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "src_parfum_finder_discover_discoveryreport_platform",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 80,
+      "community_name": "exclude_keywords",
       "norm_label": ".platform()"
     },
     {
@@ -3921,8 +3921,8 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "src_parfum_finder_discover_resolve_platform",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 80,
+      "community_name": "exclude_keywords",
       "norm_label": "_resolve_platform()"
     },
     {
@@ -4284,8 +4284,8 @@
       "source_location": "L175",
       "_origin": "ast",
       "id": "src_parfum_finder_discover_rationale_175",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 80,
+      "community_name": "exclude_keywords",
       "norm_label": "the template this site's profile would be based on, if any."
     },
     {
@@ -4317,8 +4317,8 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "src_parfum_finder_discover_rationale_195",
-      "community": 72,
-      "community_name": "_scenario_block",
+      "community": 80,
+      "community_name": "exclude_keywords",
       "norm_label": "which of the matching templates gets applied, or none for none of them.      one"
     },
     {
@@ -102344,5 +102344,5 @@
       "source_file": "ARCHITECTURE.md"
     }
   ],
-  "built_at_commit": "8a8f32cb260b192a7bef4fb1b76cad4ffd24d008"
+  "built_at_commit": "0fde9de9da065538c15a225468573d5acc39b813"
 }
