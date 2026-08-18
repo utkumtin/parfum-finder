@@ -72,6 +72,18 @@ async function rowAddButtons(): Promise<HTMLElement[]> {
   return within(table).getAllByRole("button", { name: "Sepete ekle" });
 }
 
+/**
+ * The recommendation card's own "Sepete ekle" button, scoped to the verdict
+ * card for the same reason rowAddButtons() is scoped to the table: the two
+ * buttons share an accessible name, and an unscoped query would be about
+ * whichever one testing-library happens to find first.
+ */
+function verdictAddButton(): HTMLElement {
+  const card = screen.getByText(/^En iyi .* fiyatı$/).closest(".verdict");
+  if (card === null) throw new Error("the verdict card is not in the document");
+  return within(card as HTMLElement).getByRole("button", { name: "Sepete ekle" });
+}
+
 describe("ResultsScreen blocks", () => {
   it("keeps the server's order and groups neighbouring rows into one block", async () => {
     // ranking.py orders every row at once and keeps (query_index, product) as
@@ -293,6 +305,36 @@ describe("ResultsScreen basket", () => {
     await waitFor(() => expect(buttons[0]).toHaveClass("done"));
     // Same perfume, different size: a different basket line, so still a plus.
     expect(buttons[1]).not.toHaveClass("done");
+  });
+
+  it("marks the recommendation card's own button from the same basket state", async () => {
+    // The headline verdict has a second, separate "Sepete ekle" button next
+    // to the table's. It reads the basket the same real way, not a timer, so
+    // a line added elsewhere still shows the check here on load.
+    server.reply(
+      "GET /api/basket",
+      basket([basketRow({ brand: "Dior", name: "Sauvage", concentration: "EDP" })]),
+    );
+    renderScreen([resultRow()]);
+
+    await screen.findByText(/^En iyi .* fiyatı$/);
+    await waitFor(() => expect(verdictAddButton()).toHaveClass("done"));
+  });
+
+  it("turns the recommendation card's plus into a check once the add succeeds", async () => {
+    // The task this button exists for: pressing it must show the same
+    // confirmation the table's plus-to-check button shows, not just fire the
+    // request silently.
+    server.reply("POST /api/basket/items", { basket_item_id: 1 });
+    renderScreen([resultRow()]);
+
+    await screen.findByText(/^En iyi .* fiyatı$/);
+    const button = verdictAddButton();
+    expect(button).not.toHaveClass("done");
+
+    await userEvent.click(button);
+
+    await waitFor(() => expect(verdictAddButton()).toHaveClass("done"));
   });
 });
 

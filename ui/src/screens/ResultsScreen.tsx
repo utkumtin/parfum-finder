@@ -390,7 +390,10 @@ export function ResultsScreen({
                           · {formatAge(headline.age_days)}
                         </span>
                       </span>
-                      <VerdictAddButton onAdd={() => void addToBasket(headline, false)} />
+                      <VerdictAddButton
+                        onAdd={() => addToBasket(headline, false)}
+                        inBasket={basketKeys.has(basketKey(headline))}
+                      />
                     </div>
                   </div>
                 </div>

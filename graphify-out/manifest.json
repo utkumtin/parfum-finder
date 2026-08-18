@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1787049329.5381334,
-    "ast_hash": "5e86fc04ae113cad80376bb3ccf9aadd",
+    "mtime": 1787051993.017209,
+    "ast_hash": "d6e336478bd2a5eef06ffd310e5382fa",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/ResultsScreen.test.tsx": {
-    "mtime": 1786973835.3211615,
-    "ast_hash": "10a73f7ea7b15f9a415ba3fd71492d40",
+    "mtime": 1787052327.715205,
+    "ast_hash": "e2dc89a1b8c42d9376133e50d1491bef",
     "semantic_hash": ""
   },
   "ui/tests/screens/SearchScreen.test.tsx": {
@@ -710,8 +710,8 @@
     "semantic_hash": ""
   },
   "ui/src/components/VerdictAddButton.tsx": {
-    "mtime": 1787049271.1802404,
-    "ast_hash": "3da611b502519b58a0f24479cc88917b",
+    "mtime": 1787054422.2170682,
+    "ast_hash": "e321668c4df75febf5047196807cdc52",
     "semantic_hash": ""
   }
 }

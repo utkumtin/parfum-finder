@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1786973866.7781994,
-    "ast_hash": "36fb9dc47e0d3af917862e74d544dea5",
+    "mtime": 1787051993.017209,
+    "ast_hash": "d6e336478bd2a5eef06ffd310e5382fa",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/build-windows.yml": {
-    "mtime": 1786905035.6135514,
-    "ast_hash": "cdc8bfed9ea4bfdbd3da98487ad5660c",
+    "mtime": 1786988941.6084394,
+    "ast_hash": "07867dacd7e4c21e0b39941a68f5ca2e",
     "semantic_hash": ""
   },
   "playwright-error.jpeg": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/ResultsScreen.test.tsx": {
-    "mtime": 1786973835.3211615,
-    "ast_hash": "10a73f7ea7b15f9a415ba3fd71492d40",
+    "mtime": 1787052327.715205,
+    "ast_hash": "e2dc89a1b8c42d9376133e50d1491bef",
     "semantic_hash": ""
   },
   "ui/tests/screens/SearchScreen.test.tsx": {
@@ -707,6 +707,11 @@
   "ui/TESTING.md": {
     "mtime": 1786973103.9639516,
     "ast_hash": "f9c97b7c9bd900cd088502d5aee636d7",
+    "semantic_hash": ""
+  },
+  "ui/src/components/VerdictAddButton.tsx": {
+    "mtime": 1787051972.364931,
+    "ast_hash": "c948b0a2cee91ec026576c769f22cdd3",
     "semantic_hash": ""
   }
 }

@@ -408,7 +408,11 @@ input {
   padding: 0.5rem 0.5rem 0.5rem 1.125rem;
   cursor: pointer;
   box-shadow: 0 0 0 0 rgba(242, 236, 228, 0);
-  transition: box-shadow 0.5s var(--ease);
+  transition:
+    box-shadow 0.5s var(--ease),
+    background 0.45s var(--ease),
+    color 0.45s var(--ease),
+    border-color 0.45s var(--ease);
 }
 /* The highlight is a shadow ring, not a background swap, a scale or a lift:
    this button and its plus glyph used to move on two different transforms
@@ -416,13 +420,26 @@ input {
    step with each other, and that drift is what read as the plus blurring
    and slipping off-center mid-hover. Nothing here changes position or size,
    so there is nothing to resample and nothing that can fall out of sync. */
-.verdict-add:hover {
+.verdict-add:hover:not(:disabled) {
   box-shadow:
     0 0 0 0.1875rem rgba(242, 236, 228, 0.16),
     var(--shadow-lift);
 }
 .verdict-add:active {
   box-shadow: none;
+}
+.verdict-add:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+/* Once the headline row is in the basket, the button reads the same way the
+   table's own add-button does for the same state, down to fading into green
+   instead of snapping: no more highlight to chase, just the settled
+   confirmation. */
+.verdict-add.done {
+  color: var(--good);
+  background: var(--good-dim);
+  border-color: rgba(147, 183, 158, 0.38);
 }
 
 .verdict-add-pip {
@@ -433,12 +450,14 @@ input {
   background: rgba(20, 16, 15, 0.1);
   display: grid;
   place-items: center;
-  /* Flex centers this against the label's line box, but Segoe UI's ascent
-     carries more headroom above the cap-height than "Sepete ekle" ever
-     uses, so the line-box center sits above the letters' own visual
-     center. This nudges the circle down to the label's actual ink center
-     instead. */
-  transform: translateY(0.125rem);
+  /* No manual nudge here: the flex row's own align-items: center already
+     lines the circle up with the label's line box, and a guessed offset on
+     top of that is exactly what previously pushed the circle visibly below
+     the text and the button's own middle. */
+  transition: background 0.45s var(--ease);
+}
+.verdict-add.done .verdict-add-pip {
+  background: rgba(147, 183, 158, 0.22);
 }
 .verdict-add-pip svg {
   width: 0.75rem;
@@ -448,9 +467,17 @@ input {
 }
 /* The rotation lives on the glyph itself, not on the circle around it: a
    spinning fill-and-edge is exactly what used to smear on this button, so
-   the circle stays completely still and only the stroke inside it turns. */
-.verdict-add:hover .verdict-add-pip svg {
+   the circle stays completely still and only the stroke inside it turns.
+   Skipped once done: the glyph is a checkmark by then, and a spinning check
+   would read as the confirmation undoing itself. */
+.verdict-add:hover:not(.done) .verdict-add-pip svg {
   transform: rotate(360deg);
+}
+/* The plus-to-check swap pops in on the glyph alone, the same motion and
+   duration as the table's own add-button, so the two confirmations read as
+   one shared language instead of two unrelated animations. */
+.verdict-add.done .verdict-add-icon {
+  animation: add-icon-pop 0.35s var(--ease);
 }
 
 .button.quiet {
