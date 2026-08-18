@@ -400,9 +400,10 @@ olarak kullanır: site `empty` döndüyse sıradaki yazımla bir kez daha sorar,
 dolu cevapta durur. Her yazım küçük bir dükkana bir istek daha demek, ve o istek
 ancak dükkan "bende yok" dedikten sonra harcanır.
 
-**Kapsam dışı:** sepet **Tazele** akışı (`run_basket_refresh`) hâlâ tek yazımla
-sorar. Kayıtlı marka zaten kanonik, dolayısıyla yalnızca kısaltmayla yazan bir
-dükkan orada görünmez.
+Sepet **Tazele** akışı (`run_basket_refresh`) aynı fallback'i kullanır. Sepet
+satırı markayı kanonik haliyle sakladığı için, kısaltmayla yazan bir dükkan onu
+her tazelemede boş yanıtlar ve satır o dükkanda "artık yok" görünürdü — aynı
+parfümü tarama orada bulurken.
 
 ### Klon/orijinal ayrımı
 

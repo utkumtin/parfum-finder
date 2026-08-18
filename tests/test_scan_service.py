@@ -559,3 +559,53 @@ async def test_a_shop_that_answers_the_typed_spelling_is_not_asked_twice(
     )
 
     assert asked == ["Dolce Gabbana Light Blue"]
+
+
+async def test_a_refresh_asks_an_empty_shop_with_the_brands_other_spelling(
+    tmp_path: Path,
+) -> None:
+    # The basket stores the house the canonical way, so a shop whose catalog
+    # only says "D&G" answers every refresh empty and the row looks like
+    # something it stopped carrying. A scan of the same perfume finds it there.
+    db_path = tmp_path / "db.sqlite3"
+    profiles = [_profile("site-a", "Site A")]
+    line = BasketLine(
+        basket_item_id=1,
+        perfume_id=1,
+        brand="dolce",
+        name="gabbana light blue",
+        concentration="",
+        size_ml_x10=50,
+        qty=1,
+        added_at=now_iso(),
+    )
+    row = build_basket_rows([line], [BasketPrice(1, "site-a", 25000, True, now_iso())])[
+        0
+    ]
+    asked: list[str] = []
+
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
+        asked.append(query)
+        return SiteResult("site-a", "empty", (), "site-a: nothing")
+
+    conn = connect(db_path)
+    try:
+        sync_to_db(conn, profiles, synced_at=now_iso())
+    finally:
+        conn.close()
+
+    await _collect(
+        run_basket_refresh(
+            [row],
+            profiles,
+            runner=runner,
+            db_path=db_path,
+            write_lock=asyncio.Lock(),
+        )
+    )
+
+    assert asked == [
+        "dolce gabbana light blue",
+        "D&G light blue",
+        "DG light blue",
+    ]

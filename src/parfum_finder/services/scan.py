@@ -547,7 +547,8 @@ async def run_basket_refresh(
 
     Policy, unchanged: a site that errors or comes back suspect excludes
     that (site, row) cell and shows a warning; a site that answers empty
-    excludes it silently.
+    excludes it silently -- after it has been asked again with the other
+    spellings of the row's brand, the same way a scan asks.
     """
     enabled = [p for p in profiles if p.get("enabled", True)]
     yield BasketRefreshStarted(total=len(enabled) * len(rows))
@@ -576,7 +577,16 @@ async def run_basket_refresh(
             # integer join.
             text = f"{row.line.brand} {row.line.name} {row.line.concentration}".strip()
             try:
-                result = await runner(profile, text, fetcher=fetcher)
+                # Same fallback a scan makes, and for the same reason: the
+                # stored identity spells the house the canonical way, so a
+                # shop whose catalog only ever says "D&G" answers it with an
+                # empty page. Without the second ask a basket row would be
+                # excluded from that shop on every refresh, while a scan of
+                # the same perfume finds it there.
+                for spelling in search_spellings(text):
+                    result = await runner(profile, spelling, fetcher=fetcher)
+                    if result.status != "empty":
+                        break
             except Exception as e:
                 result = SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
             if result.status in ("error", "suspect"):
