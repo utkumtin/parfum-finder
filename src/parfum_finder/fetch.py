@@ -28,7 +28,7 @@ import contextlib
 import sys
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, get_args
 
 import httpx
@@ -50,6 +50,16 @@ DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
+
+
+def _folded(headers: Any) -> Headers:
+    """Read a response's headers into a plain dict with lowercased names.
+
+    Each strategy hands these back in its own type, and header names are
+    case-insensitive, so a caller looking for "Retry-After" would otherwise have
+    to know which library answered to know how it was spelled.
+    """
+    return {str(name).lower(): str(value) for name, value in dict(headers).items()}
 
 
 class PlaywrightNotInstalled(RuntimeError):
@@ -85,6 +95,13 @@ class FetchResult:
     status_code: int
     html: str
     strategy: Strategy
+    # What the server sent back, keys lowercased. Header names are
+    # case-insensitive and the three strategies disagree about how they spell
+    # them, so folding here is what lets a reader look one up by a fixed name
+    # instead of guessing which casing arrived. Defaulted because almost nothing
+    # reads these: a page is judged on its body, and the one caller that needs a
+    # header is the retry loop asking a 429 how long it should wait.
+    headers: Headers = field(default_factory=dict)
 
 
 class Fetcher(Protocol):
@@ -173,6 +190,7 @@ async def _fetch_httpx(
         status_code=response.status_code,
         html=response.text,
         strategy="httpx",
+        headers=_folded(response.headers),
     )
 
 
@@ -210,6 +228,7 @@ async def _fetch_curl_cffi(
         status_code=response.status_code,
         html=response.text,
         strategy="curl_cffi",
+        headers=_folded(response.headers),
     )
 
 
@@ -310,6 +329,7 @@ async def _read_in_browser(
         status_code=response.status,
         html=html,
         strategy="playwright",
+        headers=_folded(response.headers),
     )
 
 

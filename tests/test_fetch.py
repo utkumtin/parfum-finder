@@ -186,7 +186,7 @@ class _FakePage:
     # async def as a missed asyncio.timeout.
     async def goto(self, url: str, **_: Any) -> Any:
         self.url = url
-        return SimpleNamespace(url=url, status=200)
+        return SimpleNamespace(url=url, status=200, headers={})
 
     async def content(self) -> str:
         return self._html

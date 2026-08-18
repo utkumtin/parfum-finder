@@ -11,7 +11,9 @@ handling and the URL resolution are all real, with no network.
 import asyncio
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from email.utils import format_datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +49,10 @@ def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:
         "id": "testsite",
         "base_url": server_url,
         "strategy": "httpx",
+        # No pacing unless a case asks for it. The cases that are about pacing
+        # set their own rate_limit_ms; for every other one the default 800 ms is
+        # wall clock spent proving nothing.
+        "rate_limit_ms": 0,
         "extraction": "embedded_json",
         "timeout_s": 10,
         "search": {
@@ -885,7 +891,7 @@ async def test_a_profile_that_reads_nothing_is_suspect_not_empty(
 
 
 async def test_an_unreachable_site_is_an_error_and_does_not_raise(
-    unused_tcp_port: int,
+    unused_tcp_port: int, slept: list[float]
 ) -> None:
     # Fault isolation: one dead site becomes a row in the report instead of an
     # exception that ends the run for the sites that were fine.
@@ -1135,7 +1141,7 @@ async def test_sites_run_in_parallel_and_report_in_profile_order(
 
 
 async def test_a_dead_site_does_not_take_the_others_down(
-    server_url: str, unused_tcp_port: int
+    server_url: str, unused_tcp_port: int, slept: list[float]
 ) -> None:
     # The whole reason run_site swallows: inside a TaskGroup a raising task
     # cancels its siblings, and one shop being offline would then erase the
@@ -1183,23 +1189,6 @@ async def test_a_profile_that_breaks_on_setup_is_contained_too(
 # number of times before the site is given up on.
 
 
-@pytest.fixture
-def slept(monkeypatch: pytest.MonkeyPatch) -> list[float]:
-    """Record every delay the engine asks for instead of serving it.
-
-    Waiting for real would make the suite pay the pacing it is checking, and it
-    would push these cases into asserting on elapsed wall clock, which measures
-    how busy the machine is more than what the code decided.
-    """
-    delays: list[float] = []
-
-    async def record(seconds: float) -> None:
-        delays.append(seconds)
-
-    monkeypatch.setattr(engine, "_sleep", record)
-    return delays
-
-
 def _counting_fetcher(
     results: Sequence[FetchResult | Exception],
 ) -> tuple[Fetcher, list[str]]:
@@ -1235,8 +1224,11 @@ async def test_a_sites_requests_are_spaced_by_its_own_rate_limit(
     assert result.status == "ok"
     assert len(slept) == 2
     # Measured from when the previous request finished, so a slow page shortens
-    # the wait that follows it rather than being chased immediately.
-    assert all(0 < delay <= 0.25 for delay in slept)
+    # the wait that follows it rather than being chased immediately. The ceiling
+    # carries the jitter: it is only ever added to a wait, so the site's own
+    # limit stays the floor and never the thing that gets shortened.
+    ceiling = 0.25 + engine.JITTER_MS[1] / 1000
+    assert all(0 < delay <= ceiling for delay in slept)
 
 
 async def test_one_site_waiting_does_not_hold_up_another(
@@ -1278,7 +1270,9 @@ async def test_a_request_that_failed_once_is_retried_and_the_site_is_fine(
     # either: that is spacing between requests that worked, this is recovering
     # from one that was refused, and a profile setting it to 0 must not turn a
     # refusal into three requests back to back.
-    assert slept == [engine.RETRY_BACKOFF_MS / 1000]
+    backoff = engine.RETRY_BACKOFF_MS / 1000
+    assert len(slept) == 1
+    assert backoff <= slept[0] <= backoff + engine.JITTER_MS[1] / 1000
 
 
 async def test_a_shop_that_keeps_refusing_is_given_up_on(slept: list[float]) -> None:
@@ -1293,7 +1287,14 @@ async def test_a_shop_that_keeps_refusing_is_given_up_on(slept: list[float]) -> 
     assert result.status == "error"
     assert "TimeoutError" in str(result.detail)
     assert len(sent) == engine.MAX_ATTEMPTS
-    assert slept == [1.0, 2.0]
+    # Doubling, with jitter riding on top of each. Asserting a range rather than
+    # the two exact numbers still fails if the doubling goes, if the backoff
+    # turns into the site's own rate_limit_ms (0 here), or if jitter ever starts
+    # subtracting.
+    top = engine.JITTER_MS[1] / 1000
+    assert len(slept) == 2
+    assert 1.0 <= slept[0] <= 1.0 + top
+    assert 2.0 <= slept[1] <= 2.0 + top
 
 
 async def test_a_shop_asking_for_a_pause_is_asked_again_after_one(
@@ -1315,6 +1316,239 @@ async def test_a_shop_asking_for_a_pause_is_asked_again_after_one(
 
     assert result.status == "empty"
     assert len(sent) == 2
+
+
+async def test_a_second_perfume_at_one_shop_still_waits_its_turn(
+    slept: list[float],
+) -> None:
+    # The politeness claim across a whole scan, not just inside one query. A scan
+    # asks each shop about every perfume in turn, and a pacer that died with the
+    # call let the first request of every one of those leave with no gap in front
+    # of it: ten perfumes meant ten unpaced requests per shop, which is the burst
+    # shape rate_limit_ms exists to prevent.
+    page = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([page])
+    profile = _profile("https://x.test", rate_limit_ms=200)
+    profile["search"]["result_item"] = ".none"
+    pacers: dict[str, engine.SitePace] = {}
+
+    for _ in range(3):
+        await run_site(profile, "test parfum", fetcher=fetcher, pacers=pacers)
+
+    # One search request each, and the two that followed the first had to wait.
+    assert len(sent) == 3
+    assert len(slept) == 2
+    assert all(delay >= 0.2 for delay in slept)
+
+
+async def test_run_sites_carries_one_pacer_per_site_across_perfumes(
+    slept: list[float],
+) -> None:
+    # run_sites is what the CLI search drives, and it asks about one perfume at a
+    # time. Without the pacer surviving between those calls, every perfume opened
+    # with a request that waited for nothing, so the command that sends the real
+    # traffic was the one least paced.
+    page = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([page])
+    first = _profile("https://x.test", id="bir", rate_limit_ms=200)
+    first["search"]["result_item"] = ".none"
+    second = _profile("https://x.test", id="iki", rate_limit_ms=200)
+    second["search"]["result_item"] = ".none"
+    pacers: dict[str, engine.SitePace] = {}
+
+    for _ in range(3):
+        await run_sites([first, second], "test parfum", fetcher=fetcher, pacers=pacers)
+
+    # Two sites, three perfumes: six requests, and the four that were not a
+    # site's first had to wait. Sites still do not pace each other, so it is four
+    # and not five.
+    assert len(sent) == 6
+    assert len(slept) == 4
+    assert all(delay >= 0.2 for delay in slept)
+
+
+async def test_without_a_shared_pacer_each_call_starts_fresh(
+    slept: list[float],
+) -> None:
+    # The compatibility half, pinned. Passing no pacers has to keep meaning what
+    # it meant before there were any: this call spaces its own requests and
+    # carries nothing into the next one, which is what every caller that has not
+    # opted in still relies on.
+    page = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, _ = _counting_fetcher([page])
+    profile = _profile("https://x.test", rate_limit_ms=200)
+    profile["search"]["result_item"] = ".none"
+
+    for _ in range(3):
+        await run_site(profile, "test parfum", fetcher=fetcher)
+
+    assert slept == []
+
+
+async def test_a_profile_asking_for_no_pacing_gets_none_jitter_included(
+    slept: list[float],
+) -> None:
+    # rate_limit_ms 0 means it. Jitter is there to break a cadence, and a site
+    # with no cadence to break must not acquire one, or the setting stops being
+    # something a profile can rely on.
+    page = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([page])
+    profile = _profile("https://x.test", rate_limit_ms=0)
+    profile["search"]["result_item"] = ".none"
+    pacers: dict[str, engine.SitePace] = {}
+
+    for _ in range(3):
+        await run_site(profile, "test parfum", fetcher=fetcher, pacers=pacers)
+
+    assert len(sent) == 3
+    assert slept == []
+
+
+async def test_jitter_is_added_to_a_wait_and_never_taken_off_it(
+    monkeypatch: pytest.MonkeyPatch, slept: list[float]
+) -> None:
+    # The one-directional rule. rate_limit_ms is the floor a shop is owed, so
+    # jitter that could come off a wait would quietly spend what the profile set
+    # aside and nothing would look wrong except the traffic.
+    monkeypatch.setattr(engine, "_jitter", lambda low, high: low)
+    page = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, _ = _counting_fetcher([page])
+    profile = _profile("https://x.test", rate_limit_ms=200)
+    profile["search"]["result_item"] = ".none"
+    pacers: dict[str, engine.SitePace] = {}
+
+    await run_site(profile, "test parfum", fetcher=fetcher, pacers=pacers)
+    await run_site(profile, "test parfum", fetcher=fetcher, pacers=pacers)
+
+    # Drawn at its smallest, the jitter still pushes the wait past the site's own
+    # gap, which is the whole one-directional claim: what is left of the limit is
+    # never what jitter comes out of. The upper bound is that same claim from the
+    # other side, since a minimum draw cannot add more than the minimum.
+    assert len(slept) == 1
+    assert 0.2 < slept[0] <= 0.2 + engine.JITTER_MS[0] / 1000
+
+
+async def test_a_shop_naming_its_own_pause_is_waited_out_for_exactly_that(
+    slept: list[float],
+) -> None:
+    # A 429 may say how long. Guessing a backoff next to an answer the shop
+    # already gave is both ruder and slower than reading it.
+    refusal = FetchResult(
+        url="https://x.test/",
+        status_code=429,
+        html="slow down",
+        strategy="httpx",
+        headers={"retry-after": "5"},
+    )
+    empty = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([refusal, empty])
+    profile = _profile("https://x.test", rate_limit_ms=0)
+    profile["search"]["result_item"] = ".none"
+
+    result = await run_site(profile, "test parfum", fetcher=fetcher)
+
+    assert result.status == "empty"
+    assert len(sent) == 2
+    # Exactly what was asked for, with no jitter on top: the number came from the
+    # shop, and padding it would be answering a request with something else.
+    assert slept == [5.0]
+
+
+async def test_a_pause_named_as_a_date_is_read_the_same_way(
+    slept: list[float],
+) -> None:
+    # Both spellings are in use, and a shop writing the date form is not asking
+    # for anything different from one writing seconds.
+    when = datetime.now(UTC) + timedelta(seconds=8)
+    refusal = FetchResult(
+        url="https://x.test/",
+        status_code=429,
+        html="",
+        strategy="httpx",
+        headers={"retry-after": format_datetime(when, usegmt=True)},
+    )
+    empty = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([refusal, empty])
+    profile = _profile("https://x.test", rate_limit_ms=0)
+    profile["search"]["result_item"] = ".none"
+
+    result = await run_site(profile, "test parfum", fetcher=fetcher)
+
+    assert result.status == "empty"
+    assert len(sent) == 2
+    # A whole-second header and a clock mean this lands near eight, not on it.
+    assert len(slept) == 1
+    assert 6.0 <= slept[0] <= 8.0
+
+
+async def test_a_refusal_that_names_nothing_readable_falls_back_to_the_backoff(
+    slept: list[float],
+) -> None:
+    # A header nobody can parse is a reason not to trust it, not a reason to stop
+    # retrying. Dropping to the ordinary backoff is what keeps a shop with a
+    # broken header behaving exactly as one that sent none.
+    refusal = FetchResult(
+        url="https://x.test/",
+        status_code=429,
+        html="",
+        strategy="httpx",
+        headers={"retry-after": "when we feel like it"},
+    )
+    empty = FetchResult(
+        url="https://x.test/", status_code=200, html="", strategy="httpx"
+    )
+    fetcher, sent = _counting_fetcher([refusal, empty])
+    profile = _profile("https://x.test", rate_limit_ms=0)
+    profile["search"]["result_item"] = ".none"
+
+    result = await run_site(profile, "test parfum", fetcher=fetcher)
+
+    assert result.status == "empty"
+    assert len(sent) == 2
+    backoff = engine.RETRY_BACKOFF_MS / 1000
+    assert len(slept) == 1
+    assert backoff <= slept[0] <= backoff + engine.JITTER_MS[1] / 1000
+
+
+async def test_a_shop_asking_for_longer_than_we_will_wait_is_taken_at_its_word(
+    slept: list[float],
+) -> None:
+    # A shop naming an hour has said no. Sitting through it would hold the scan
+    # open on one shop, and asking again sooner would ignore what it asked for,
+    # so the refusal becomes the answer and the run carries on with the others.
+    refusal = FetchResult(
+        url="https://x.test/",
+        status_code=429,
+        html="",
+        strategy="httpx",
+        headers={"retry-after": str(int(engine.MAX_RETRY_AFTER_S) + 1)},
+    )
+    fetcher, sent = _counting_fetcher([refusal])
+    profile = _profile("https://x.test", rate_limit_ms=0)
+    profile["search"]["result_item"] = ".none"
+
+    result = await run_site(profile, "test parfum", fetcher=fetcher)
+
+    # Asked once, not retried, and nothing slept through.
+    assert len(sent) == 1
+    assert slept == []
+    # The 429 body is handed on as the page it is, so the profile answers for it
+    # the same way it would for any page it cannot read.
+    assert result.status == "empty"
 
 
 async def test_a_page_that_is_simply_missing_is_not_asked_for_again(
@@ -1534,6 +1768,50 @@ async def test_one_product_listed_under_two_searches_is_read_once(
     # Both searches still went out. It is the product pages that are shared, not
     # the results page, which is different text for a different perfume.
     assert sum("engine-search-named" in url for url in sent) == 2
+
+
+async def test_the_product_cache_keeps_what_a_page_said_not_the_page(
+    server_url: str,
+) -> None:
+    # What a scan holds on to while it runs. The two questions a product page has
+    # to answer are settled the moment it is read, so keeping the markup after
+    # that buys nothing and costs the whole page: at a few hundred kilobytes
+    # each, a scan that opens a hundred and fifty of them would be carrying the
+    # entire catalog it walked past.
+    cache: dict[Any, Any] = {}
+    profile = _named_profile(server_url)
+
+    await search_site(profile, "dior sauvage edp", variants_cache=cache)
+
+    assert cache
+    for rows, evidence in cache.values():
+        assert isinstance(evidence, engine.PageEvidence)
+        assert isinstance(rows, tuple)
+    # Belt and braces on the type check: markup is the one thing that could put
+    # the size back, and a page is orders of magnitude larger than this.
+    assert len(repr(list(cache.values()))) < 4000
+
+
+async def test_a_cached_page_is_still_checked_against_its_size_picker(
+    server_url: str,
+) -> None:
+    # The fail-loud check has to survive the cache. Two perfumes at one shop
+    # routinely list the same product, and the second one is served from memory,
+    # so a check that only ran on a fresh read would go quiet exactly when a scan
+    # gets wider. The page here offers four sizes and prices two.
+    profile = _profile(server_url, variant_control=_VARIANT_CONTROL)
+    profile["search"]["url_template"] = "{base_url}/engine-search-half?q={query}"
+    cache: dict[Any, Any] = {}
+
+    first = await run_site(profile, "test parfum", variants_cache=cache)
+    second = await run_site(profile, "another parfum", variants_cache=cache)
+
+    assert first.status == "suspect"
+    # Answered off the cache, and still suspect. Reading it as anything else
+    # would mean a shop stops being flagged the moment a second perfume finds it.
+    assert second.status == "suspect"
+    assert "4 sizes" in str(second.detail)
+    assert "read 2" in str(second.detail)
 
 
 async def test_two_shops_sharing_a_url_do_not_read_each_others_pages(

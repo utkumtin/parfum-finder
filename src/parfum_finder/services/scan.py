@@ -18,6 +18,7 @@ from typing import Any
 
 from parfum_finder.engine import (
     CacheKey,
+    SitePace,
     SiteResult,
     SiteRunner,
     SiteStatus,
@@ -372,6 +373,11 @@ async def run_scan(
     # one shop routinely list the same product, and a second read costs a
     # request and a rate-limit wait to learn what is already known.
     variants_cache: dict[CacheKey, VariantsRead] = {}
+    # One pacer per site for the whole scan, not per perfume. Built here for the
+    # same reason the cache is: a site is asked about every perfume in turn, and
+    # a pacer that only lived as long as one of those questions let the next one
+    # open with a request that waited for nothing.
+    pacers: dict[str, SitePace] = {}
 
     async def scan_site(profile: dict[str, Any], fetcher: Fetcher) -> None:
         nonlocal error_count
@@ -394,6 +400,7 @@ async def run_scan(
                         fetcher=fetcher,
                         keep_candidate=listing_filter(search.query),
                         variants_cache=variants_cache,
+                        pacers=pacers,
                     )
                     if result.status != "empty":
                         break
@@ -557,6 +564,9 @@ async def run_basket_refresh(
         return
 
     queue: asyncio.Queue[BasketRefreshEvent] = asyncio.Queue()
+    # Shared across every row a site is asked about, so a basket of ten does not
+    # get ten requests that each skipped the wait in front of them.
+    pacers: dict[str, SitePace] = {}
 
     async def refresh_site(profile: dict[str, Any], fetcher: Fetcher) -> None:
         site_id = str(profile["id"])
@@ -584,7 +594,9 @@ async def run_basket_refresh(
                 # excluded from that shop on every refresh, while a scan of
                 # the same perfume finds it there.
                 for spelling in search_spellings(text):
-                    result = await runner(profile, spelling, fetcher=fetcher)
+                    result = await runner(
+                        profile, spelling, fetcher=fetcher, pacers=pacers
+                    )
                     if result.status != "empty":
                         break
             except Exception as e:

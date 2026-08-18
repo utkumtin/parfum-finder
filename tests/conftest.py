@@ -15,6 +15,7 @@ from urllib.parse import parse_qs
 
 import pytest
 
+from parfum_finder import engine
 from parfum_finder.fetch import (
     DEFAULT_USER_AGENT,
     PlaywrightNoResponse,
@@ -565,6 +566,23 @@ class _Handler(BaseHTTPRequestHandler):
 
     def log_message(self, *args: object) -> None:
         pass  # keep test output clean, the server's own logging isn't under test
+
+
+@pytest.fixture
+def slept(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Record every delay the engine asks for instead of serving it.
+
+    Waiting for real would make the suite pay the pacing it is checking, and it
+    would push these cases into asserting on elapsed wall clock, which measures
+    how busy the machine is more than what the code decided.
+    """
+    delays: list[float] = []
+
+    async def record(seconds: float) -> None:
+        delays.append(seconds)
+
+    monkeypatch.setattr(engine, "_sleep", record)
+    return delays
 
 
 @pytest.fixture

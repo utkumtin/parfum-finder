@@ -105,6 +105,19 @@ CREATE INDEX IF NOT EXISTS idx_variants_product
 CREATE INDEX IF NOT EXISTS idx_products_perfume
     ON products         (perfume_id);
 
+-- Dropped before it is created. A view body is metadata, and CREATE VIEW IF NOT
+-- EXISTS will not replace one that already exists, so editing the text below
+-- without this line would leave every database opened by an earlier version on
+-- that version's view forever, with nothing anywhere saying so. Dropping a view
+-- touches no rows.
+DROP VIEW IF EXISTS latest_prices;
+
+-- Driven from product_variants rather than from price_snapshots, so the work is
+-- one indexed lookup per variant instead of a walk over the whole price history.
+-- price_snapshots is append-only, so the old shape got slower every time anything
+-- was scanned, while the number of answers it produced stayed the same. A filter
+-- the caller adds, one perfume or one basket line, now also narrows the variants
+-- before any snapshot is looked at.
 CREATE VIEW IF NOT EXISTS latest_prices AS
 SELECT
     p.site_id,
@@ -118,13 +131,12 @@ SELECT
     s.in_stock,
     s.fetched_at,
     CAST(s.price_kurus AS REAL) * 10.0 / v.size_ml_x10 AS price_per_ml_kurus
-FROM price_snapshots s
-JOIN product_variants v USING (variant_id)
+FROM product_variants v
 JOIN products         p USING (product_id)
-WHERE s.snapshot_id = (
+JOIN price_snapshots  s ON s.snapshot_id = (
     SELECT s2.snapshot_id
     FROM price_snapshots s2
-    WHERE s2.variant_id = s.variant_id
+    WHERE s2.variant_id = v.variant_id
     ORDER BY s2.fetched_at DESC, s2.snapshot_id DESC
     LIMIT 1
 );

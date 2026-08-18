@@ -37,6 +37,7 @@ from parfum_finder.discover import discover
 from parfum_finder.discover import format_report as format_discovery_report
 from parfum_finder.engine import (
     CacheKey,
+    SitePace,
     SiteResult,
     VariantsRead,
     run_sites,
@@ -179,6 +180,11 @@ async def _scan_all(
     # Product pages read once for the whole run, keyed by site and URL. Two
     # perfumes at one shop routinely list the same product.
     cache: dict[CacheKey, VariantsRead] = {}
+    # One pacer per site for the whole run, for the same reason it outlives a
+    # single query everywhere else: the loop below asks each shop about every
+    # perfume in turn, and a pacer that ended with the query let the first
+    # request of each one leave with no gap in front of it.
+    pacers: dict[str, SitePace] = {}
     written = 0
     async with browser_session() as fetcher:
         for text, query in queries:
@@ -190,6 +196,7 @@ async def _scan_all(
                 fetcher=fetcher,
                 keep_candidate=listing_filter(query),
                 variants_cache=cache,
+                pacers=pacers,
             )
             for result in results:
                 written += _store_site_result(conn, result, query)

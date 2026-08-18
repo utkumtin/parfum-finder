@@ -57,6 +57,93 @@ def test_now_iso_string_order_matches_chronological_order() -> None:
     assert earlier_str < later_str
 
 
+# The view exactly as earlier versions wrote it. A test that reopens a database
+# carrying this is the only thing standing between a rewritten view and shipping
+# a change that never reaches anybody: CREATE VIEW IF NOT EXISTS will not replace
+# a view that is already there, and a suite that only ever sees fresh databases
+# passes either way.
+_OLD_LATEST_PRICES_SQL = """
+CREATE VIEW IF NOT EXISTS latest_prices AS
+SELECT
+    p.site_id,
+    p.perfume_id,
+    p.match_score,
+    v.variant_id,
+    v.size_ml_x10,
+    v.raw_title,
+    v.product_url,
+    s.price_kurus,
+    s.in_stock,
+    s.fetched_at,
+    CAST(s.price_kurus AS REAL) * 10.0 / v.size_ml_x10 AS price_per_ml_kurus
+FROM price_snapshots s
+JOIN product_variants v USING (variant_id)
+JOIN products         p USING (product_id)
+WHERE s.snapshot_id = (
+    SELECT s2.snapshot_id
+    FROM price_snapshots s2
+    WHERE s2.variant_id = s.variant_id
+    ORDER BY s2.fetched_at DESC, s2.snapshot_id DESC
+    LIMIT 1
+);
+"""
+
+
+def test_reopening_an_old_database_replaces_the_view_it_carries(
+    tmp_path: Path,
+) -> None:
+    # The whole point of the DROP. Without it this passes on a fresh database and
+    # fails on every one that exists, which is the worst possible split: nobody
+    # would find out until a basket screen got slow enough to notice.
+    db_path = tmp_path / "old.db"
+    stale = sqlite3.connect(db_path)
+    stale.executescript(_OLD_LATEST_PRICES_SQL)
+    stale.commit()
+    stale.close()
+
+    conn = connect(db_path)
+    try:
+        sql = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE name = 'latest_prices'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    assert "FROM product_variants" in sql
+    assert "FROM price_snapshots s\nJOIN" not in sql
+
+
+def test_the_newest_snapshot_wins_even_when_two_share_a_timestamp(
+    conn: sqlite3.Connection,
+) -> None:
+    # What the view is for, and the part a rewrite could quietly get wrong. Two
+    # readings in the same second are not hypothetical: the timestamp's own
+    # resolution is one second, and a refresh that writes twice within one is a
+    # normal Tuesday. Falling back on snapshot_id is what keeps "latest" meaning
+    # the one written last rather than whichever row the join happened to reach.
+    variant_id = _seed_variant(conn)
+    same_second = "2026-08-08T10:00:00Z"
+    for price in (10_000, 20_000, 30_000):
+        conn.execute(
+            "INSERT INTO price_snapshots (variant_id, fetched_at, price_kurus,"
+            " in_stock) VALUES (?, ?, ?, 1)",
+            (variant_id, same_second, price),
+        )
+    # An older reading written afterwards must not win on insertion order alone.
+    conn.execute(
+        "INSERT INTO price_snapshots (variant_id, fetched_at, price_kurus,"
+        " in_stock) VALUES (?, '2026-08-01T10:00:00Z', 99_999, 1)",
+        (variant_id,),
+    )
+    conn.commit()
+
+    rows = conn.execute(
+        "SELECT price_kurus FROM latest_prices WHERE variant_id = ?", (variant_id,)
+    ).fetchall()
+
+    assert [row["price_kurus"] for row in rows] == [30_000]
+
+
 @pytest.fixture
 def conn(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     connection = connect(tmp_path / "test.db")

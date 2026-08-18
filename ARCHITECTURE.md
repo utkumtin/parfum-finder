@@ -248,7 +248,18 @@ Tam otomatik selector çıkarımı güvenilir değildir. `discover`:
 
 - **Siteler arası paralel** — `asyncio.TaskGroup`, her site bağımsız task
 - **Site içinde seri** — site başına `asyncio.Semaphore(1)` + `rate_limit_ms` gecikme
-- **Retry** — geçici hatalarda üstel backoff, sınırlı deneme
+- **Sorgular arası da seri** — pacer (`SitePace`) çağrıyı aşar: `run_site`'a
+  `pacers` sözlüğü verilirse semafor ve son-istek damgası tüm tarama boyunca o
+  sitede kalır. Verilmezse eskisi gibi çağrı başına yenisi kurulur.
+- **Jitter** — bekleyen her isteğe `JITTER_MS` kadar rastgele ek. Sadece **eklenir**,
+  hiç düşülmez: `rate_limit_ms` dükkana borçlu olunan taban, jitter ise metronom
+  düzenini kıran şey. `rate_limit_ms` 0 ise jitter da yok.
+- **Retry** — geçici hatalarda üstel backoff (jitter'lı), sınırlı deneme
+- **`Retry-After`** — dükkan süreyi kendi söylediyse tam o kadar beklenir, üzerine
+  jitter konmaz. Sadece 429 değil, retry edilen her statü için geçerli: başlığı
+  taşıyan bir 503 de ne zaman döneceğini söylüyordur. `MAX_RETRY_AFTER_S`'ten uzun
+  bir süre istenirse retry biter ve cevabın kendisi geri döner: o kadar bekleme
+  isteyen dükkan hayır demiştir.
 
 **Gerekçe:** Hedef siteler küçük butikler. Paralel istek yağmuru hem etik değil hem de
 IP banı ile sonuçlanır — ve `curl_cffi` bir rate-limit banını **kurtarmaz**.
@@ -262,9 +273,14 @@ Arama satırı ` - ` ile ayrılmış birden fazla parfüm alır (`matcher.split_
 en fazla `MAX_QUERIES`). Boşluk şartı var, yoksa `Jean-Paul Gaultier` bölünürdü.
 
 Tarama şekli Tazele ile aynı: **site başına bir task, site içinde parfümler seri.**
-`run_site` pacer'ını her çağrıda kendisi kurar, dolayısıyla bir sitenin parfümlerini
-paralel başlatmak bütün `rate_limit_ms` gecikmelerini paralele alır ve dükkana tam
-olarak engellemeye çalıştığımız isteği patlamasını gönderir.
+Bir sitenin parfümlerini paralel başlatmak bütün `rate_limit_ms` gecikmelerini
+paralele alır ve dükkana tam olarak engellemeye çalıştığımız istek patlamasını
+gönderir.
+
+Pacer'ı `run_scan` ve `run_basket_refresh` kurar ve site başına tek bir tane olarak
+her sorguya taşır. Eskiden pacer'ı `run_site` her çağrıda kendisi kurardı; o zaman
+her parfümün **ilk** isteği önünde hiç boşluk olmadan çıkıyordu, yani on parfümlük
+bir tarama her dükkana on tane aralıksız istek gönderiyordu.
 
 ### Tarama süresi — nereye gidiyor
 

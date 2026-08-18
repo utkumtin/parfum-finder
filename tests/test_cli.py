@@ -492,6 +492,7 @@ def test_search_stores_the_healthy_sites_when_one_site_is_broken(
     unused_tcp_port: int,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    slept: list[float],
 ) -> None:
     # The milestone's whole claim in one test: a run writes snapshots for every
     # site that answered, and the one that blew up is a line in the report rather

@@ -38,11 +38,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import re
 import time
 from collections.abc import Awaitable, Callable, Mapping, MutableMapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol
 from urllib.parse import quote, urljoin
@@ -84,10 +87,6 @@ MAX_ATTEMPTS = 3
 # in one place.
 CandidateFilter = Callable[[str | None], bool]
 
-# One product read: the raw size rows, and the product page's markup when a page
-# was opened at all.
-VariantsRead = tuple[tuple[RawVariant, ...], str | None]
-
 # Site id and product URL. The site id is in the key so one cache can be shared
 # by a whole scan without two shops reading each other's pages.
 CacheKey = tuple[str, str]
@@ -102,6 +101,23 @@ RETRY_BACKOFF_MS = 1000
 # asking directly; the 5xx ones are it having a bad moment. A 403 or a 404 is an
 # answer, and repeating the request cannot change it.
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+
+# The longest pause a shop may ask for and still be waited out. A refusal can
+# name its own delay, and honouring it is the polite thing right up until the
+# number is larger than the run has any business sitting through: a shop asking
+# for an hour has said no, and holding a scan open to ask it again is neither
+# useful to the person waiting nor kinder to the shop. Past this it is handed back
+# as the answer, and the extraction layer already knows how to call a page it
+# cannot read suspect.
+MAX_RETRY_AFTER_S = 30.0
+
+# How much a request may be held back beyond its site's own spacing, in
+# milliseconds. Added to a wait, never subtracted from one: rate_limit_ms is the
+# floor a shop is owed, and jitter allowed to shorten it would quietly spend what
+# the profile set aside. What it buys is a run that does not arrive on a
+# metronome, which is the part of looking like a person that fixed spacing alone
+# cannot do.
+JITTER_MS = (50.0, 200.0)
 
 # How much product-shaped markup a search page has to carry before a run with no
 # results off it is read as a dead selector rather than an honest "not sold here".
@@ -146,6 +162,16 @@ _NO_RESULTS_SELECTOR = ", ".join(
 # and asserting on elapsed wall clock instead measures how busy the machine is.
 _sleep = asyncio.sleep
 
+# Bound for the same reason, and it matters more here: a test that rolls real
+# dice cannot say what the code decided, only what it happened to draw.
+_jitter = random.uniform
+
+
+def _jitter_s() -> float:
+    """A small random addition to a wait, in seconds."""
+    low, high = JITTER_MS
+    return _jitter(low, high) / 1000
+
 
 class ExtractionFailed(RuntimeError):
     """A page answered but gave up nothing, where something was expected.
@@ -159,6 +185,33 @@ class ExtractionFailed(RuntimeError):
     The message names the page and the layer, because the next thing anyone does
     with this is open that page and check that one selector.
     """
+
+
+@dataclass(frozen=True)
+class PageEvidence:
+    """What a product page said about its own sizes, kept instead of the page.
+
+    Both answers are read off the markup once, while the page is in hand, and the
+    page is then let go. Keeping the markup instead would hold every product a
+    scan opened in memory for as long as the scan runs, so that two questions
+    whose answers cannot change could be asked again off the same bytes.
+
+    `offers_sizes` is whether this page had a size list for the layer to fail at,
+    which is what separates a profile that went blind from a catalog that sells
+    this perfume in one piece. A page nothing can be read off answers True, since
+    the check it feeds has to fail loudly by default.
+
+    `control_options` is how many sizes the page's own picker offered, or None
+    when there was no page to count on or the profile names no picker. None means
+    there is nothing to say, not that the page offered none.
+    """
+
+    offers_sizes: bool
+    control_options: int | None
+
+
+# One product read: the raw size rows, and what the page they came off showed.
+VariantsRead = tuple[tuple[RawVariant, ...], PageEvidence]
 
 
 @dataclass(frozen=True)
@@ -236,13 +289,72 @@ class SiteResult:
     detail: str | None
 
 
-def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
+@dataclass
+class SitePace:
+    """One site's pacing state, for as long as whoever holds it says.
+
+    The gate and the stamp are one object because the wait has to be decided
+    while holding the gate. Sharing a bare timestamp instead would put the
+    decision outside any shared lock, and two callers reading the same stamp both
+    conclude the wait is over and send together.
+
+    Held by the caller so it can outlive one request and one query. A scan asks
+    each shop about several perfumes, and state that resets between them lets the
+    first request of every perfume leave with no gap in front of it, which is a
+    burst of exactly the shape the spacing exists to prevent.
+    """
+
+    gate: asyncio.Semaphore = field(default_factory=lambda: asyncio.Semaphore(1))
+    last_finished: float | None = None
+
+
+def _retry_after_s(result: FetchResult) -> float | None:
+    """How long the shop asked to be left alone, or None if it did not say.
+
+    A refusal may name its own delay, in seconds or as a date, and both spellings
+    are in use. Reading it is how a retry becomes the thing the shop asked for
+    rather than a guess that happens to land near it.
+
+    Read off any status worth retrying, not only a 429. A 503 carrying the header
+    is a shop saying when it will be back, and there is no reason to honour that
+    from one status and guess at it from another.
+
+    Anything unparseable answers None and falls back to the ordinary backoff. A
+    header nobody can read is not a reason to stop retrying; it is only a reason
+    not to trust it.
+
+    A date already in the past comes back as zero rather than negative, since a
+    shop saying "after a moment that has passed" is saying to go ahead.
+    """
+    raw = result.headers.get("retry-after")
+    if raw is None:
+        return None
+    raw = raw.strip()
+    try:
+        return max(0.0, float(int(raw)))
+    except ValueError:
+        pass
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return max(0.0, (when - datetime.now(UTC)).total_seconds())
+
+
+def _paced_fetcher(
+    profile: dict[str, Any], fetcher: Fetcher, pace: SitePace
+) -> Fetcher:
     """Wrap a fetcher so one site's requests go out one at a time, spaced apart.
 
-    The state lives in this closure, so it is per call and per site. Two sites
-    running side by side never wait on each other, which is the whole point of
-    starting them together; a module-level gate would quietly turn the run serial
-    and nothing would look wrong except the clock.
+    The state is `pace`, and it belongs to the caller rather than to this
+    closure. Two sites running side by side get one each and never wait on each
+    other, which is the whole point of starting them together; a module-level
+    gate would quietly turn the run serial and nothing would look wrong except
+    the clock. A caller handing the same one back across several queries is what
+    keeps a shop from being asked about the next perfume the instant the last one
+    finished.
 
     The semaphore is the seriality guarantee rather than a throughput knob: the
     flow through one site is already sequential, but a hook is free to fire
@@ -255,8 +367,13 @@ def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
 
     Spacing is measured from when the previous request finished, not when it
     started, so a slow page is not followed immediately by the next one. The
-    first request of a site waits for nothing, since there is nothing to be
+    first request against a shop waits for nothing, since there is nothing to be
     polite about yet.
+
+    A wait that happens carries a little jitter on top, so a run does not arrive
+    on a metronome. It is only ever added, and only to a wait there already was:
+    a profile asking for no spacing gets none, which is what keeps the setting
+    meaning what it says.
 
     Retries cover the transient half only. A refused connection, a timeout, a 429
     or a 5xx get another go after a backoff; a missing playwright install, an
@@ -265,10 +382,15 @@ def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
     A status this gives up on is handed back as it is, unraised: reading what a
     503 page contains is the extraction layer's business, and it already knows
     how to call an unreadable page suspect.
+
+    A refusal naming its own delay is waited out for exactly that, with no
+    jitter added: the number came from the shop, and padding it would be
+    answering a request with something else. That covers any retryable status
+    carrying the header, a 503 as much as a 429. One longer than
+    MAX_RETRY_AFTER_S ends the retries instead, since a shop asking for that much
+    has said no.
     """
-    gate = asyncio.Semaphore(1)
     rate_limit_s = int(profile.get("rate_limit_ms", 800)) / 1000
-    last_finished: float | None = None
 
     async def attempt(
         url: str,
@@ -279,11 +401,10 @@ def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
         headers: Headers | None,
         timeout_s: int,
     ) -> FetchResult:
-        nonlocal last_finished
-        if last_finished is not None:
-            waited = time.monotonic() - last_finished
+        if pace.last_finished is not None:
+            waited = time.monotonic() - pace.last_finished
             if waited < rate_limit_s:
-                await _sleep(rate_limit_s - waited)
+                await _sleep(rate_limit_s - waited + _jitter_s())
         try:
             return await fetcher(
                 url,
@@ -294,7 +415,7 @@ def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
                 timeout_s=timeout_s,
             )
         finally:
-            last_finished = time.monotonic()
+            pace.last_finished = time.monotonic()
 
     async def paced(
         url: str,
@@ -305,8 +426,8 @@ def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
         headers: Headers | None = None,
         timeout_s: int = 20,
     ) -> FetchResult:
-        async with gate:
-            for retries_left in range(MAX_ATTEMPTS - 1, 0, -1):
+        async with pace.gate:
+            for attempts_made in range(MAX_ATTEMPTS - 1):
                 try:
                     result = await attempt(
                         url,
@@ -323,8 +444,15 @@ def _paced_fetcher(profile: dict[str, Any], fetcher: Fetcher) -> Fetcher:
                 else:
                     if result.status_code not in RETRY_STATUS:
                         return result
-                attempts_made = MAX_ATTEMPTS - 1 - retries_left
-                await _sleep(RETRY_BACKOFF_MS * 2**attempts_made / 1000)
+                    asked = _retry_after_s(result)
+                    if asked is not None:
+                        if asked > MAX_RETRY_AFTER_S:
+                            return result
+                        await _sleep(asked)
+                        continue
+                # The guess, for a shop that refused without saying how long.
+                # Jittered like the spacing is, and for the same reason.
+                await _sleep(RETRY_BACKOFF_MS * 2**attempts_made / 1000 + _jitter_s())
             # The last attempt is unguarded on purpose: whatever it gives is the
             # answer, so a caller sees the real exception rather than one this
             # wrapper reworded.
@@ -358,6 +486,7 @@ class SiteRunner(Protocol):
         fetcher: Fetcher = ...,
         keep_candidate: CandidateFilter | None = ...,
         variants_cache: MutableMapping[CacheKey, VariantsRead] | None = ...,
+        pacers: MutableMapping[str, SitePace] | None = ...,
     ) -> Awaitable[SiteResult]: ...
 
 
@@ -369,6 +498,7 @@ async def run_site(
     fetcher: Fetcher = fetch,
     keep_candidate: CandidateFilter | None = None,
     variants_cache: MutableMapping[CacheKey, VariantsRead] | None = None,
+    pacers: MutableMapping[str, SitePace] | None = None,
 ) -> SiteResult:
     """Run one site and classify what came back instead of raising.
 
@@ -401,6 +531,12 @@ async def run_site(
     against one site, so a product listed under two of them is read once. It is
     keyed by site as well as URL, so one dict can be handed to every site of a
     scan without two shops ever reading each other's pages.
+
+    `pacers` is the same idea for politeness. Passing none gives this call a
+    pacer of its own, which spaces the requests within it and nothing further;
+    handing the same dict back for the next perfume is what makes the spacing
+    hold across a whole scan instead of restarting at every query, where the
+    first request of each one leaves with no gap in front of it.
     """
     # Only the id is read outside the boundary, because it is what a report row
     # is addressed by: a profile without one is not a site this can speak about,
@@ -419,8 +555,9 @@ async def run_site(
             skipped += 1
         return keep
 
+    pace = pacers.setdefault(site_id, SitePace()) if pacers is not None else SitePace()
     try:
-        paced = _paced_fetcher(profile, fetcher)
+        paced = _paced_fetcher(profile, fetcher, pace)
         hits = await search_site(
             profile,
             query,
@@ -460,6 +597,7 @@ async def run_sites(
     fetcher: Fetcher = fetch,
     keep_candidate: CandidateFilter | None = None,
     variants_cache: MutableMapping[CacheKey, VariantsRead] | None = None,
+    pacers: MutableMapping[str, SitePace] | None = None,
 ) -> tuple[SiteResult, ...]:
     """Run every site against one query, all at once, and report each separately.
 
@@ -497,6 +635,7 @@ async def run_sites(
                     fetcher=fetcher,
                     keep_candidate=keep_candidate,
                     variants_cache=variants_cache,
+                    pacers=pacers,
                 ),
                 name=f"site:{profile['id']}",
             )
@@ -619,14 +758,14 @@ async def search_site(
     extracted_a_price = False
     opened_a_page_with_sizes = False
     for candidate in opened:
-        rows, page_html = await _read_variants(
+        rows, evidence = await _read_variants(
             profile, candidate, hooks, fetcher, variants_cache
         )
-        _check_variant_control(profile, candidate, rows, page_html)
+        _check_variant_control(profile, candidate, rows, evidence)
         # Rows without prices are the loudest evidence of all: the layer read the
         # size list and lost only the price, so the page plainly had one and no
         # amount of missing markup argues otherwise.
-        opened_a_page_with_sizes |= bool(rows) or _page_offers_sizes(profile, page_html)
+        opened_a_page_with_sizes |= bool(rows) or evidence.offers_sizes
         rows = tuple(_with_candidate_identity(row, candidate) for row in rows)
         extracted_a_price |= any(row.price is not None for row in rows)
         variants = apply_variant_rules(rows, rules)
@@ -727,7 +866,7 @@ def _check_variant_control(
     profile: dict[str, Any],
     candidate: ProductCandidate,
     rows: Sequence[RawVariant],
-    page_html: str | None,
+    evidence: PageEvidence,
 ) -> None:
     """Fail when the page's size picker offers more sizes than the layer read.
 
@@ -747,24 +886,60 @@ def _check_variant_control(
 
     Options that read as empty do not count either: a picker's first entry is
     usually a "choose a size" placeholder with no value behind it.
+
+    The counting itself happened when the page was read, so a product listed under
+    two of a scan's perfumes is checked both times off one reading of it.
     """
-    selector = profile.get("variant_control")
-    if not selector or page_html is None:
-        return
-    root = HTMLParser(page_html).root
-    if root is None:
-        return
-    options = [value for value in select_all(root, str(selector)) if value.strip()]
-    if len(options) <= len(rows):
+    options = evidence.control_options
+    if options is None or options <= len(rows):
         return
     raise ExtractionFailed(
-        f"{profile['id']}: {candidate.url} offers {len(options)} sizes "
-        f"({selector!r}) but the {profile['extraction']!r} layer read "
-        f"{len(rows)}, so the sizes it missed would be priced by nobody"
+        f"{profile['id']}: {candidate.url} offers {options} sizes "
+        f"({profile.get('variant_control')!r}) but the {profile['extraction']!r} "
+        f"layer read {len(rows)}, so the sizes it missed would be priced by nobody"
     )
 
 
-def _page_offers_sizes(profile: dict[str, Any], page_html: str | None) -> bool:
+def _root(html: str | None) -> Node | None:
+    """Parse a page once, or say there is no page to parse.
+
+    Both ways of having no markup answer the same here, because everything
+    downstream treats them the same: either no page was opened, or one was and it
+    parsed to nothing.
+    """
+    return HTMLParser(html).root if html is not None else None
+
+
+def _page_evidence(profile: dict[str, Any], root: Node | None) -> PageEvidence:
+    """Read both facts a product page can offer about its sizes, in one pass.
+
+    The only place a PageEvidence is built, so the two questions are always
+    answered off the same reading of the same page and cannot drift apart. Every
+    path that produces a product read comes through here, the ones that give up
+    early included: a POST body with no options to post and a page carrying no
+    size picker are different facts, and answering one with the other is exactly
+    the confusion this exists to prevent.
+
+    A page nothing can be read off answers `offers_sizes` True and counts no
+    options. That is the fail-loud default, since nothing here is able to clear a
+    profile: a layer that read no price off a page nobody can judge still has to
+    answer for it.
+    """
+    if root is None:
+        return PageEvidence(offers_sizes=True, control_options=None)
+    selector = profile.get("variant_control")
+    options = (
+        len([value for value in select_all(root, str(selector)) if value.strip()])
+        if selector
+        else None
+    )
+    return PageEvidence(
+        offers_sizes=_page_offers_sizes(profile, root),
+        control_options=options,
+    )
+
+
+def _page_offers_sizes(profile: dict[str, Any], root: Node) -> bool:
     """Whether this product page had a size list for the layer to fail at.
 
     The question the site-level "read no priced size" check needs answered, and
@@ -776,24 +951,17 @@ def _page_offers_sizes(profile: dict[str, Any], page_html: str | None) -> bool:
     listed but unbuyable, and several shops stop writing the markup that prices
     them, which is a stock fact about one perfume rather than anything about the
     profile. A page with no size-picker markup at all is the second: a plain full
-    bottle. Everything else answers yes, including a page this cannot judge,
-    because the check it feeds is the one that has to fail loudly by default.
+    bottle. Everything else answers yes.
 
-    That last part is why a GET endpoint profile, which answers from a URL and
-    never opens the product page unless it named a `variant_control`, keeps
-    failing exactly as it did before: with no markup in hand there is nothing to
-    clear the profile with.
+    Only ever asked about a page that parsed. A page there is no markup for at all
+    is the caller's case to answer, and it answers yes there for the same reason:
+    the check this feeds has to fail loudly when nothing can clear a profile.
 
     The picker is looked for in the shop's own markup and never through the
     profile's selectors. A profile whose blob key was renamed also reads zero
     sizes off its own selector, so answering with it would excuse precisely the
     break this exists to catch.
     """
-    if page_html is None:
-        return True
-    root = HTMLParser(page_html).root
-    if root is None:
-        return True
     if _page_says_sold_out(profile, root):
         return False
     return bool(root.css(_VARIANT_CONTROL_SELECTOR))
@@ -1075,12 +1243,14 @@ async def _read_variants(
     runs as usual. That is what lets a hook cover only the one product shape it
     was written for instead of having to reimplement the normal case as well.
 
-    The product page's markup comes back next to the rows, because the size
-    picker that says how many sizes there should be lives in it and not in
-    whatever the layer read. A GET endpoint profile normally never opens that
-    page at all, so one is fetched here only when such a profile asks for the
-    check by naming a `variant_control`. That is a second request per product
-    on those sites, which is why it is opt-in rather than always on.
+    What the product page said comes back next to the rows, because the size
+    picker that says how many sizes there should be lives in the page and not in
+    whatever the layer read. It is read off the markup once and kept as the two
+    answers rather than as the page, so a scan holds what it learned and not
+    every document it learned it from. A GET endpoint profile normally never
+    opens that page at all, so one is fetched here only when such a profile asks
+    for the check by naming a `variant_control`. That is a second request per
+    product on those sites, which is why it is opt-in rather than always on.
     """
     if cache is None:
         return await _read_product(profile, candidate, hooks, fetcher)
@@ -1099,7 +1269,30 @@ async def _read_product(
     hooks: SiteHooks,
     fetcher: Fetcher,
 ) -> VariantsRead:
-    """Do the reading _read_variants may serve from its cache instead."""
+    """Do the reading _read_variants may serve from its cache instead.
+
+    The page is read for what it says about its sizes here, once, and then let
+    go. Every branch below hands back the markup it worked from, so the one
+    `_page_evidence` call at the end is what every path is judged by, and no
+    branch gets to answer for a page out of the reason it took that branch.
+    """
+    rows, root = await _read_product_rows(profile, candidate, hooks, fetcher)
+    return rows, _page_evidence(profile, root)
+
+
+async def _read_product_rows(
+    profile: dict[str, Any],
+    candidate: ProductCandidate,
+    hooks: SiteHooks,
+    fetcher: Fetcher,
+) -> tuple[tuple[RawVariant, ...], Node | None]:
+    """Read one product's size rows, next to the markup they were read off.
+
+    The markup comes back parsed rather than as text: the POST endpoint branch
+    has already had to parse it to find the size options, and handing the tree on
+    is what keeps the page from being parsed a second time to answer two
+    questions about it.
+    """
     layer = profile["extraction"]
     page: FetchResult | None = None
     if hooks.parse_variants is not None:
@@ -1108,25 +1301,27 @@ async def _read_product(
         )
         rows = await hooks.parse_variants(profile, candidate, page.html)
         if rows is not None:
-            return tuple(rows), page.html
+            return tuple(rows), _root(page.html)
 
     if layer == "endpoint":
-        endpoint_rows, endpoint_page = await _read_endpoint_variants(
+        return await _read_endpoint_variants(
             profile, candidate, hooks_page=page, fetcher=fetcher
         )
-        return endpoint_rows, endpoint_page
     if page is None:
         page = await _fetch_page(
             profile, candidate.url, role="product", fetcher=fetcher
         )
     if layer == "jsonld":
-        return extract_jsonld_variants(page.html), page.html
+        return extract_jsonld_variants(page.html), _root(page.html)
     if layer == "embedded_json":
-        return extract_embedded_variants(page.html, profile["embedded_json"]), page.html
+        return (
+            extract_embedded_variants(page.html, profile["embedded_json"]),
+            _root(page.html),
+        )
     if layer == "css":
         return (
             extract_css_variants(page.html, profile.get("product") or {}),
-            page.html,
+            _root(page.html),
         )
     raise ExtractionFailed(
         f"{profile['id']}: unknown extraction layer {layer!r}, "
@@ -1140,7 +1335,7 @@ async def _read_endpoint_variants(
     *,
     hooks_page: FetchResult | None,
     fetcher: Fetcher,
-) -> tuple[tuple[RawVariant, ...], str | None]:
+) -> tuple[tuple[RawVariant, ...], Node | None]:
     """Ask a platform's variant endpoint for every size.
 
     A GET endpoint answers everything in one request built from the profile's
@@ -1168,7 +1363,7 @@ async def _read_endpoint_variants(
         page = await _fetch_page(
             profile, candidate.url, role="product", fetcher=fetcher
         )
-    return rows, page.html if page is not None else None
+    return rows, _root(page.html) if page is not None else None
 
 
 async def _read_endpoint_variants_post(
@@ -1176,7 +1371,7 @@ async def _read_endpoint_variants_post(
     config: Mapping[str, Any],
     candidate: ProductCandidate,
     fetcher: Fetcher,
-) -> tuple[tuple[RawVariant, ...], str | None]:
+) -> tuple[tuple[RawVariant, ...], Node | None]:
     """Drive a platform's POST variant endpoint, one size option per request.
 
     `body` names the endpoint's static form fields and, for each, the selector
@@ -1206,9 +1401,9 @@ async def _read_endpoint_variants_post(
         )
     option_ids = select_all(root, str(config["option_selector"]))
     if not option_ids:
-        return (), page.html
+        return (), root
     body: dict[str, str] = {}
-    for field, selector in config["body"].items():
+    for name, selector in config["body"].items():
         value = select_field(root, str(selector))
         if value is None:
             if _page_says_sold_out(profile, root):
@@ -1219,12 +1414,12 @@ async def _read_endpoint_variants_post(
                 # post: the same nothing as the full bottle above, arrived at for
                 # a stock reason instead of a catalog one. Both perfumes this hit
                 # in the field were out of stock, not unreadable.
-                return (), page.html
+                return (), root
             raise ExtractionFailed(
-                f"{profile['id']}: could not read the POST field {field!r} "
+                f"{profile['id']}: could not read the POST field {name!r} "
                 f"({selector!r}) off {candidate.url}"
             )
-        body[field] = value
+        body[name] = value
     option_key = str(config["option_body_key"])
     url = str(config["product_json"]).format(base_url=profile["base_url"])
     rows: list[RawVariant] = []
@@ -1238,7 +1433,7 @@ async def _read_endpoint_variants_post(
             data={**body, option_key: option_id},
         )
         rows.extend(_parse_endpoint_document(profile["id"], url, result.html, config))
-    return tuple(rows), page.html
+    return tuple(rows), root
 
 
 def _parse_endpoint_document(
