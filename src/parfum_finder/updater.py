@@ -209,8 +209,14 @@ def launch_installer(installer: Path, *, app_exe: Path | None = None) -> None:
     )
     creationflags = 0
     if sys.platform == "win32":
+        # CREATE_BREAKAWAY_FROM_JOB, gui.py'nin kurduğu job object yüzünden
+        # şart: o job kapanırken içindeki her şeyi öldürüyor ve bu zincir tam
+        # da uygulama kapandıktan sonra çalışmak üzere var. DETACHED_PROCESS
+        # tek başına job'dan çıkarmaz, sadece konsoldan ayırır.
         creationflags = (
-            subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            subprocess.DETACHED_PROCESS
+            | subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.CREATE_BREAKAWAY_FROM_JOB
         )
     subprocess.Popen(command, creationflags=creationflags, close_fds=True)  # noqa: S603
 

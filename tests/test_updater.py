@@ -17,6 +17,7 @@ from typing import Any
 import httpx
 import pytest
 
+from parfum_finder import updater as updater_module
 from parfum_finder.updater import (
     DownloadProgress,
     ReleaseInfo,
@@ -25,6 +26,7 @@ from parfum_finder.updater import (
     fetch_latest_release,
     handoff_command,
     is_newer,
+    launch_installer,
     parse_version,
 )
 
@@ -321,6 +323,39 @@ def test_the_handoff_waits_before_installing_and_reopens_the_app() -> None:
     # Boşluklu yollar tek tırnak çiftiyle sarılmalı: cmd.exe kaçırılmış
     # tırnağı (\") anlamıyor ve zinciri ilk yolda kırıyor.
     assert '\\"' not in command
+
+
+def test_the_handoff_breaks_out_of_the_apps_job_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Uygulama kapanınca kurulum zincirinin de ölmemesi buna bağlı.
+
+    gui.py, playwright'in açtığı tarayıcı süreçlerinin geride kalmaması için
+    süreci öldüğünde içindekileri sonlandıran bir job object'e alıyor. Kurulumu
+    yapan cmd zinciri ise tam da uygulama kapandıktan sonra çalışıyor, yani
+    job'dan çıkmak zorunda: bayrak düşerse güncelleme, hiçbir hata vermeden,
+    hiç kurulmaz.
+    """
+    recorded: dict[str, int] = {}
+
+    def fake_popen(command: str, **kwargs: Any) -> None:
+        recorded["creationflags"] = kwargs["creationflags"]
+
+    monkeypatch.setattr(updater_module.sys, "platform", "win32")
+    # Üçü de subprocess'te yalnızca Windows'ta var; değerler gerçek olanlarla
+    # aynı, testin baktığı da zaten hangisinin bayrağa girdiği.
+    for name, value in (
+        ("CREATE_BREAKAWAY_FROM_JOB", 0x01000000),
+        ("DETACHED_PROCESS", 0x00000008),
+        ("CREATE_NEW_PROCESS_GROUP", 0x00000200),
+    ):
+        monkeypatch.setattr(updater_module.subprocess, name, value, raising=False)
+    monkeypatch.setattr(updater_module.subprocess, "Popen", fake_popen)
+
+    launch_installer(Path("setup.exe"), app_exe=Path("parfum-finder.exe"))
+
+    assert recorded["creationflags"] & 0x01000000
+    assert recorded["creationflags"] & 0x00000008
 
 
 def test_install_refuses_before_anything_has_been_downloaded(tmp_path: Path) -> None:

@@ -24,6 +24,7 @@ one.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sys
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
@@ -230,8 +231,7 @@ async def _fetch_playwright(
             browser, url, headers=headers, timeout_s=timeout_s
         )
     finally:
-        await browser.close()
-        await playwright.stop()
+        await _close_browser(playwright, browser)
 
 
 async def _launch_browser() -> tuple[Any, Any]:
@@ -370,13 +370,50 @@ async def browser_session() -> AsyncIterator[Fetcher]:
         yield session_fetch
     finally:
         if "browser" in state:
-            # Shielded, because the common way a scan ends early is the person
-            # starting another one, which cancels this. An unshielded await here
-            # would raise before the close ran and leave a browser process behind
-            # for every search someone changed their mind about.
-            await asyncio.shield(_close_browser(state))
+            await _close_session_browser(state)
 
 
-async def _close_browser(state: dict[str, Any]) -> None:
-    await state["browser"].close()
-    await state["playwright"].stop()
+# How long a cancelled scan's browser gets to go down. Long enough for a
+# healthy one, short enough that a wedged one cannot hold a closing app open.
+_BROWSER_CLOSE_TIMEOUT_S = 10.0
+
+
+async def _close_session_browser(state: dict[str, Any]) -> None:
+    """Close the session's browser, including when the scan was cancelled.
+
+    The usual way a scan ends early is the person starting another one or
+    closing the window, and both arrive here as cancellation. Awaiting the
+    close plainly would raise before it ran; awaiting it through `shield()`
+    returns just as early and leaves the close running in a task nobody waits
+    for, which is fine until the reason for the cancellation is the app
+    shutting down -- then the loop stops first and the browser outlives the
+    process that started it. So the close is its own task and gets waited for
+    either way, under a bound in case it is the browser that is stuck.
+    """
+    closing = asyncio.ensure_future(
+        _close_browser(state["playwright"], state["browser"])
+    )
+    try:
+        await asyncio.shield(closing)
+    except asyncio.CancelledError:
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.wait({closing}, timeout=_BROWSER_CLOSE_TIMEOUT_S)
+        if closing.done() and not closing.cancelled():
+            # Reading it keeps asyncio from logging an unretrieved exception.
+            # This scan is being torn down anyway; a close that failed has
+            # nobody left to report to.
+            closing.exception()
+        raise
+
+
+async def _close_browser(playwright: Any, browser: Any) -> None:
+    """Close the browser, and stop the driver whatever the browser does.
+
+    Two processes, not one: the driver is node, and it is what holds the
+    browser. Letting a failed `browser.close()` skip `stop()` would leave the
+    expensive half running with nothing left to drive.
+    """
+    try:
+        await browser.close()
+    finally:
+        await playwright.stop()

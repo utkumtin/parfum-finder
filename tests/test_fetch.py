@@ -7,7 +7,9 @@ extra or the browser binary it drives is missing; its "clear error when missing"
 behavior is tested separately via import injection.
 """
 
+import asyncio
 import sys
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
 
@@ -197,6 +199,8 @@ class _FakeBrowser:
     def __init__(self) -> None:
         self.pages: list[_FakePage] = []
         self.closed = False
+        # The driver is a second process, stopped separately from the browser.
+        self.driver_stopped = False
 
     async def new_page(self, **_: Any) -> _FakePage:
         page = _FakePage("<html><body>rendered</body></html>")
@@ -207,17 +211,21 @@ class _FakeBrowser:
         self.closed = True
 
 
-def _fake_launch(monkeypatch: pytest.MonkeyPatch) -> list[_FakeBrowser]:
+def _fake_launch(
+    monkeypatch: pytest.MonkeyPatch,
+    browser_factory: Callable[[], _FakeBrowser] = _FakeBrowser,
+) -> list[_FakeBrowser]:
     """Stand in for the browser process, and count how many were started."""
     started: list[_FakeBrowser] = []
 
     async def launch() -> tuple[Any, Any]:
-        browser = _FakeBrowser()
+        browser = browser_factory()
         started.append(browser)
-        return SimpleNamespace(stop=_noop), browser
 
-    async def _noop() -> None:
-        return None
+        async def stop() -> None:
+            browser.driver_stopped = True
+
+        return SimpleNamespace(stop=stop), browser
 
     monkeypatch.setattr(fetch_module, "_launch_browser", launch)
     return started
@@ -281,6 +289,97 @@ async def test_a_session_closes_the_browser_when_the_scan_blows_up(
             raise RuntimeError("scan died")
 
     assert started[0].closed
+
+
+async def _read_one_page_then_hang(
+    server_url: str, reading_done: asyncio.Event
+) -> None:
+    async with browser_session() as fetcher:
+        await fetcher(f"{server_url}/page", "playwright")
+        reading_done.set()
+        await asyncio.Event().wait()
+
+
+async def test_a_session_closes_the_browser_when_the_scan_is_cancelled(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Cancellation is the ordinary way a scan ends early: someone starts
+    # another search, or closes the window. Both the browser and the driver
+    # behind it are processes, and nothing else in the app knows they exist.
+    started = _fake_launch(monkeypatch)
+    reading_done = asyncio.Event()
+
+    task = asyncio.create_task(_read_one_page_then_hang(server_url, reading_done))
+    await reading_done.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert started[0].closed
+    assert started[0].driver_stopped
+
+
+async def test_a_session_finishes_a_close_that_is_cancelled_again(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Closing the window cancels the scan, and the shutdown behind it can
+    # cancel again while the browser is still going down. Returning at that
+    # point leaves the close half-run in a task nobody waits for, and the app
+    # is on its way out: the loop stops first and the browser survives the
+    # process. So what matters is not that the close eventually happens, it is
+    # that it has happened by the time the session's teardown returns.
+    closing = asyncio.Event()
+    let_it_close = asyncio.Event()
+
+    class _SlowBrowser(_FakeBrowser):
+        async def close(self) -> None:
+            closing.set()
+            await let_it_close.wait()
+            await super().close()
+
+    started = _fake_launch(monkeypatch, _SlowBrowser)
+    reading_done = asyncio.Event()
+    done_on_teardown: list[bool] = []
+
+    async def scan() -> None:
+        try:
+            await _read_one_page_then_hang(server_url, reading_done)
+        except asyncio.CancelledError:
+            done_on_teardown.append(started[0].closed and started[0].driver_stopped)
+            raise
+
+    task = asyncio.create_task(scan())
+    await reading_done.wait()
+    task.cancel()
+    await closing.wait()
+    task.cancel()
+    # A few turns for the second cancellation to land, so releasing the browser
+    # cannot be what rescues a teardown that had already given up on it.
+    for _ in range(3):
+        await asyncio.sleep(0)
+    let_it_close.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert done_on_teardown == [True]
+
+
+async def test_the_driver_stops_even_when_closing_the_browser_fails(
+    server_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The driver is the process that holds the browser, so skipping it
+    # because the browser refused to close leaves the whole tree running.
+    class _StuckBrowser(_FakeBrowser):
+        async def close(self) -> None:
+            raise RuntimeError("browser refused to close")
+
+    started = _fake_launch(monkeypatch, _StuckBrowser)
+
+    with pytest.raises(RuntimeError, match="refused to close"):
+        async with browser_session() as fetcher:
+            await fetcher(f"{server_url}/page", "playwright")
+
+    assert started[0].driver_stopped
 
 
 async def test_a_session_refuses_a_browser_driven_post_like_fetch_does() -> None:
