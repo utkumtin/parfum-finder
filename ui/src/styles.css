@@ -387,6 +387,72 @@ input {
   display: block;
 }
 
+/* The verdict card's own add-to-basket button. Not .button.primary /
+   .button-pip: those are shared with the search button and the confirm
+   dialog, and this button's hover motion is deliberately its own. */
+.verdict-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--on-accent);
+  background: var(--text);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  /* Left padding balances the trailing circle optically: the circle is
+     1.5rem with 0.5rem to its right, so its visual weight matches the
+     1.125rem on the left. */
+  padding: 0.5rem 0.5rem 0.5rem 1.125rem;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(242, 236, 228, 0);
+  transition: box-shadow 0.5s var(--ease);
+}
+/* The highlight is a shadow ring, not a background swap, a scale or a lift:
+   this button and its plus glyph used to move on two different transforms
+   (a translateY on the button, a scale on the icon) that finished out of
+   step with each other, and that drift is what read as the plus blurring
+   and slipping off-center mid-hover. Nothing here changes position or size,
+   so there is nothing to resample and nothing that can fall out of sync. */
+.verdict-add:hover {
+  box-shadow:
+    0 0 0 0.1875rem rgba(242, 236, 228, 0.16),
+    var(--shadow-lift);
+}
+.verdict-add:active {
+  box-shadow: none;
+}
+
+.verdict-add-pip {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  border-radius: 999px;
+  background: rgba(20, 16, 15, 0.1);
+  display: grid;
+  place-items: center;
+  /* Flex centers this against the label's line box, but Segoe UI's ascent
+     carries more headroom above the cap-height than "Sepete ekle" ever
+     uses, so the line-box center sits above the letters' own visual
+     center. This nudges the circle down to the label's actual ink center
+     instead. */
+  transform: translateY(0.125rem);
+}
+.verdict-add-pip svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  display: block;
+  transition: transform 0.5s var(--ease);
+}
+/* The rotation lives on the glyph itself, not on the circle around it: a
+   spinning fill-and-edge is exactly what used to smear on this button, so
+   the circle stays completely still and only the stroke inside it turns. */
+.verdict-add:hover .verdict-add-pip svg {
+  transform: rotate(360deg);
+}
+
 .button.quiet {
   background: transparent;
   border-color: var(--line);

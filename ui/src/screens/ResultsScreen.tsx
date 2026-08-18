@@ -5,6 +5,7 @@ import { AddButton } from "../components/AddButton";
 import { Badge } from "../components/Badge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ScanStatus } from "../components/ScanStatus";
+import { VerdictAddButton } from "../components/VerdictAddButton";
 import { formatAge, formatMl, formatPerMl, formatPrice } from "../lib/format";
 import type {
   AcceptedSearch,
@@ -389,18 +390,7 @@ export function ResultsScreen({
                           · {formatAge(headline.age_days)}
                         </span>
                       </span>
-                      <button
-                        type="button"
-                        className="button primary"
-                        onClick={() => void addToBasket(headline, false)}
-                      >
-                        Sepete ekle
-                        <span className="button-pip" aria-hidden="true">
-                          <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                            <path d="M6 2.5v7M2.5 6h7" />
-                          </svg>
-                        </span>
-                      </button>
+                      <VerdictAddButton onAdd={() => void addToBasket(headline, false)} />
                     </div>
                   </div>
                 </div>
