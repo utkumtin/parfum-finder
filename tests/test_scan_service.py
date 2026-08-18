@@ -481,3 +481,81 @@ async def test_run_basket_refresh_shares_one_fetcher_across_every_row(
     assert len(seen) == 3
     assert seen[0] is not None
     assert all(fetcher is seen[0] for fetcher in seen)
+
+
+async def test_an_empty_answer_is_asked_again_with_the_brands_other_spelling(
+    tmp_path: Path,
+) -> None:
+    # The shop writes Dolce & Gabbana as "D&G", so its own search engine has
+    # nothing to say about the typed spelling. Without the second ask the
+    # perfume looks like something this shop does not carry.
+    db_path = tmp_path / "db.sqlite3"
+    profiles = [_profile("site-a", "Site A")]
+    search = Search(
+        index=0,
+        text="Dolce Gabbana Light Blue",
+        query=PerfumeQuery(brand="dolce", name="gabbana light blue"),
+    )
+    variant = Variant(
+        size_ml_x10=50,
+        raw_title="D&G Light Blue Dekant 5 ml",
+        product_url="https://example.com/p",
+        price_kurus=25000,
+        in_stock=True,
+    )
+    hit = SearchHit(
+        ProductCandidate(raw_title="D&G Light Blue", url="https://example.com/p"),
+        (variant,),
+    )
+    asked: list[str] = []
+
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
+        asked.append(query)
+        if "D&G" not in query:
+            return SiteResult("site-a", "empty", (), "site-a: nothing")
+        return SiteResult("site-a", "ok", (hit,), "site-a: ok")
+
+    conn = connect(db_path)
+    try:
+        sync_to_db(conn, profiles, synced_at=now_iso())
+    finally:
+        conn.close()
+
+    events = await _collect(
+        run_scan(
+            [search],
+            profiles,
+            runner=runner,
+            db_path=db_path,
+            write_lock=asyncio.Lock(),
+        )
+    )
+
+    assert asked == ["Dolce Gabbana Light Blue", "D&G Light Blue"]
+    finished = next(e for e in events if isinstance(e, SiteFinished))
+    assert finished.status == "ok"
+    assert finished.has_rows is True
+
+
+async def test_a_shop_that_answers_the_typed_spelling_is_not_asked_twice(
+    tmp_path: Path,
+) -> None:
+    # The other spellings cost one search request each against a small shop, so
+    # they are only worth spending once the shop has said it has nothing.
+    asked: list[str] = []
+
+    async def runner(profile: dict[str, Any], query: str, **_: Any) -> SiteResult:
+        asked.append(query)
+        return _ok_result("site-a")
+
+    await _collect(
+        run_scan(
+            [_search(0, "Dolce Gabbana Light Blue")],
+            [_profile("site-a", "Site A")],
+            runner=runner,
+            db_path=tmp_path / "db.sqlite3",
+            write_lock=asyncio.Lock(),
+        )
+    )
+
+    assert asked == ["Dolce Gabbana Light Blue"]

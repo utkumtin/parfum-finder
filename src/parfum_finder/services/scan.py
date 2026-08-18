@@ -30,6 +30,7 @@ from parfum_finder.matcher import (
     PerfumeQuery,
     listing_filter,
     product_label,
+    search_spellings,
 )
 from parfum_finder.store import (
     CachedPrice,
@@ -378,13 +379,24 @@ async def run_scan(
         await queue.put(SiteStarted(site_id=site_id))
         for search in to_scan:
             try:
-                result = await runner(
-                    profile,
-                    search.text,
-                    fetcher=fetcher,
-                    keep_candidate=listing_filter(search.query),
-                    variants_cache=variants_cache,
-                )
+                # A shop that writes the house differently ("D&G" for Dolce &
+                # Gabbana) answers the typed spelling with an empty results
+                # page, and nothing downstream can recover from a page with no
+                # products on it. So an empty answer is asked again with the
+                # other spellings of that brand, and only an empty answer:
+                # asking every spelling every time would multiply the requests
+                # rate_limit_ms exists to hold down, against shops that are
+                # small.
+                for text in search_spellings(search.text):
+                    result = await runner(
+                        profile,
+                        text,
+                        fetcher=fetcher,
+                        keep_candidate=listing_filter(search.query),
+                        variants_cache=variants_cache,
+                    )
+                    if result.status != "empty":
+                        break
             except Exception as e:
                 result = SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
             try:

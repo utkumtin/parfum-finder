@@ -47,6 +47,33 @@ from rapidfuzz import fuzz
 
 from parfum_finder.normalize import casefold_tr
 
+# The spellings one house is written with, the canonical one first. Meant to be
+# edited by hand, which is why it sits at the top of the file.
+#
+# Shops abbreviate. "D&G Light Blue" and "MFK Baccarat Rouge 540" are the same
+# bottles as the ones written out in full, and a search for the full name used to
+# return neither: the brand check demands every word of the searched brand appear
+# in the title, and an abbreviation shares none of them. That is a rejection, not
+# a low score, so those rows never reached the table at all.
+#
+# Punctuation is not what this is for. "Dolce & Gabbana", "Dolce&Gabbana" and
+# "Dolce Gabbana" already tokenize the same way, since anything that is not a
+# letter or a digit is a separator. What is listed here is abbreviations and
+# shortened house names, which is what folding cannot reach.
+#
+# Carolina Herrera is deliberately absent. "CH" is that house's own product line
+# ("CH Men"), so folding it into the brand would rewrite the perfume's name as
+# well as the house's and turn a title into "carolina herrera carolina herrera
+# men".
+_BRAND_SPELLINGS: tuple[tuple[str, ...], ...] = (
+    ("Dolce & Gabbana", "D&G", "DG"),
+    ("Maison Francis Kurkdjian", "MFK", "Francis Kurkdjian"),
+    ("Yves Saint Laurent", "YSL"),
+    ("Jean Paul Gaultier", "JPG"),
+    ("Tom Ford", "TF"),
+    ("Parfums de Marly", "PDM"),
+)
+
 # A run of letters or a run of digits, never a mix. Anything else, punctuation
 # included, is a separator.
 _WORD_PATTERN = re.compile(r"[^\W\d_]+|\d+")
@@ -249,6 +276,39 @@ def split_queries(text: str) -> list[str]:
         seen.add(key)
         queries.append(part)
     return queries
+
+
+def search_spellings(text: str) -> tuple[str, ...]:
+    """One search line, then the same line with the brand written the other ways.
+
+    The typed text always comes first, and the rest are only worth asking for
+    when it found nothing: a shop whose catalog says "D&G" answers a search for
+    "Dolce Gabbana" with an empty results page, and no amount of matching fixes a
+    page that has nothing on it. Only the brand is swapped, the rest of the line
+    stays exactly as it was typed, because the perfume's own name is not
+    something this knows anything about.
+
+    Only the first house found in the line is swapped. A line names one brand,
+    and rewriting a second occurrence would just be the same request again.
+
+    The list is short on purpose. Each spelling past the first is one more search
+    request against a small shop, and the caller only spends it after the shop
+    has already answered that it has nothing.
+    """
+    spellings = [text]
+    for house, patterns in zip(_BRAND_SPELLINGS, _BRAND_SEARCH_PATTERNS, strict=True):
+        for pattern, spelling in patterns:
+            found = pattern.search(text)
+            if found is None:
+                continue
+            for other in house:
+                if other == spelling:
+                    continue
+                rewritten = text[: found.start()] + other + text[found.end() :]
+                if rewritten not in spellings:
+                    spellings.append(rewritten)
+            return tuple(spellings)
+    return tuple(spellings)
 
 
 def parse_query(text: str) -> PerfumeQuery:
@@ -495,7 +555,21 @@ def _match_text(raw_title: str, query: PerfumeQuery, *, threshold: int) -> Match
 
 
 def _tokenize(text: str) -> tuple[str, ...]:
-    """Fold, cut a size out, split into words and numbers, and drop noise.
+    """Fold, cut a size out, split into words, drop noise, and settle the brand.
+
+    Every comparison in this module runs on what comes back from here, so a shop
+    abbreviating a house and a person writing it out in full have to meet at this
+    step or they never meet at all.
+    """
+    return _canonical_brands(_raw_tokens(text))
+
+
+def _raw_tokens(text: str) -> tuple[str, ...]:
+    """The words of the text, folded and stripped of size and noise.
+
+    Kept apart from _tokenize because the alias table is built by tokenizing the
+    spellings in _BRAND_SPELLINGS, and going through _tokenize for that would ask
+    the table to exist while it is still being built.
 
     A size span ("5 ml", "2,7 ml", "30mldekant") is cut out of the folded text
     first, before the text is split into words at all, because by the time "ml"
@@ -513,6 +587,78 @@ def _tokenize(text: str) -> tuple[str, ...]:
     folded = _SIZE_SPAN.sub(" ", folded)
     words = _WORD_PATTERN.findall(folded)
     return tuple(word for word in words if word not in _NOISE)
+
+
+def _canonical_brands(tokens: tuple[str, ...]) -> tuple[str, ...]:
+    """Rewrite any brand spelled another way into that house's canonical words.
+
+    One point of change for both directions of matching. Everything downstream --
+    the brand check, the end-of-title check, the fuzzy score, the product heading,
+    the identity a row is stored under -- reads these tokens, so a shop writing
+    "D&G" and a person typing "Dolce Gabbana" meet here or nowhere.
+
+    An alias has to sit in the title as a contiguous run of words, which is what
+    keeps a two-letter one honest: matched as unordered membership, ("d", "g")
+    would make Dolce & Gabbana out of any title with a stray "g" in it, and a
+    wrong match that scores high is the failure this module exists to prevent.
+
+    Longest first, and the matched run is stepped over rather than rescanned, so
+    "maison francis kurkdjian" is read as the whole house name instead of having
+    its last two words expanded a second time.
+    """
+    out: list[str] = []
+    index = 0
+    while index < len(tokens):
+        for alias, canonical in _BRAND_ALIASES:
+            if tokens[index : index + len(alias)] == alias:
+                out.extend(canonical)
+                index += len(alias)
+                break
+        else:
+            out.append(tokens[index])
+            index += 1
+    return tuple(out)
+
+
+def _brand_pattern(spelling: str) -> re.Pattern[str]:
+    """Find one brand spelling in raw text, however the writer punctuated it.
+
+    Built from the spelling's own words with anything non-word allowed between
+    them, so "D&G", "D & G", "D-G" and "DG" are one pattern rather than four
+    table entries. The word boundaries at both ends are what keep it from firing
+    inside a longer word.
+    """
+    words = _raw_tokens(spelling)
+    return re.compile(
+        r"\b" + r"\W*".join(re.escape(word) for word in words) + r"\b",
+        re.IGNORECASE,
+    )
+
+
+# One row per house, in the same order as _BRAND_SPELLINGS, so a match tells the
+# caller both which spelling was found and which house it belongs to.
+_BRAND_SEARCH_PATTERNS: tuple[tuple[tuple[re.Pattern[str], str], ...], ...] = tuple(
+    tuple((_brand_pattern(spelling), spelling) for spelling in house)
+    for house in _BRAND_SPELLINGS
+)
+
+
+# Every spelling of every house, canonical ones included, paired with the words
+# it is written as. The canonical spelling maps to itself on purpose: it is what
+# makes "Maison Francis Kurkdjian" match before the "Francis Kurkdjian" entry
+# nested inside it. Longest alias first, since a shorter one contained in a
+# longer must never win.
+_BRAND_ALIASES: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = tuple(
+    sorted(
+        (
+            (_raw_tokens(spelling), _raw_tokens(house[0]))
+            for house in _BRAND_SPELLINGS
+            for spelling in house
+        ),
+        key=lambda pair: len(pair[0]),
+        reverse=True,
+    )
+)
 
 
 def _covers(title_tokens: tuple[str, ...], brand_tokens: tuple[str, ...]) -> bool:

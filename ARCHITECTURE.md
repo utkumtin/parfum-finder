@@ -42,7 +42,7 @@ src/parfum_finder/
 ├── probe.py          # strateji ölçümü: her stratejiyi dener, kanıtlı rapor üretir
 ├── extract.py        # çıkarım merdiveni: jsonld → endpoint → embedded → css
 ├── engine.py         # async orchestration, rate limiting, hata izolasyonu
-├── matcher.py        # marka+konsantrasyon zorunlu + fuzzy isim
+├── matcher.py        # marka+konsantrasyon zorunlu + fuzzy isim, marka yazım tablosu
 ├── store.py          # SQLite
 ├── basket.py         # sepet optimizasyonu (saf fonksiyon)
 ├── ranking.py        # sonuç tablosunun sıralama/gruplama kuralları (saf fonksiyon)
@@ -346,11 +346,12 @@ eşleşmemekten kötüdür — ucuz fiyat gibi görünür ve sepete yanlış ür
 0. Başlığı parantez sınırından AYIR: dışarısı ürünün kendi ismi, içerisi
    taklit ettiği orijinalin referansı (bkz. Klon/orijinal ayrımı)
 1. Başlığı normalize et (küçült, TR karakter katlama, gürültü kelimelerini at:
-   "dekant", "decant", "parfüm", "ml", "orijinal", "tester")
+   "dekant", "decant", "parfüm", "ml", "orijinal", "tester"), sonra markayı
+   kanonik yazımına çevir (bkz. Marka yazım varyantları)
 2. Konsantrasyonu ÇIKAR ve AYIR: EDT | EDP | EDC | Parfum | Extrait | Elixir
 3. Markayı ÇIKAR ve AYIR
 4. ZORUNLU eşleşme:
-      marka         == aranan marka           (exact, normalize sonrası)
+      marka         == aranan marka           (exact, kanonikleştirme sonrası)
       konsantrasyon == aranan konsantrasyon   (belirtilmişse)
 5. Kalan isim kısmına rapidfuzz.token_sort_ratio
 6. Skor eşiğinin altı → aday listesine girer ama DÜŞÜK GÜVEN işaretlenir
@@ -367,6 +368,41 @@ eşleşmemekten kötüdür — ucuz fiyat gibi görünür ve sepete yanlış ür
 eşleşme sayar; `Sauvage` araması `Eau Sauvage` başlığını 100 ile döndürür ve farklı
 bir parfümü tam güvenle verir. Sıralama, fazladan kelimeye bir bedel ödetir. Başlık
 yine listede görünür, sadece onay isteyecek şekilde işaretlenir.
+
+### Marka yazım varyantları
+
+Dükkanlar markayı kısaltıyor: `D&G Light Blue`, `MFK Baccarat Rouge 540`. Marka
+kontrolü aranan markanın **her kelimesinin** başlıkta geçmesini istediği için bu
+satırlar düşük skor değil, doğrudan `None` alıyordu — yani tabloya hiç girmiyordu.
+
+Noktalama zaten sorun değil: `&` bir ayraç, dolayısıyla `Dolce & Gabbana`,
+`Dolce&Gabbana` ve `Dolce Gabbana` aynı token'lara iniyor. Tabloya giren şey
+kısaltmalar ve eksik yazılmış ev adları.
+
+`matcher._BRAND_SPELLINGS` her ev için yazımları, kanonik olan başta olmak üzere
+tutar. `_tokenize` sonunda **bitişik** bir alias öbeği kanonik kelimelerle
+değiştirilir. Tek nokta olduğu için marka kontrolü, skor, `product_label` başlığı
+ve satırın kaydedildiği kimlik hepsi aynı yazımı görür: iki dükkanın farklı yazdığı
+şişe tek blokta toplanır, `MFK` yazıp arayan da kanonik kimlik altına kaydedilir.
+
+Bitişiklik şart. `("d", "g")` sırasız üyelik olarak aransaydı içinde başıboş bir
+"g" geçen her başlık Dolce & Gabbana olurdu, ve bu tam olarak bu modülün
+engellemek için var olduğu hata.
+
+Carolina Herrera / `CH` bilerek tabloda değil: `CH Men` markanın kendi ürün
+serisinin adı, ikame markayı düzeltirken parfümün ismini bozardı.
+
+**Dışarı giden arama metni.** Kataloğunu `D&G` diye yazan dükkanın kendi arama
+motoru `Dolce Gabbana` için boş sayfa döndürür ve boş sayfadan eşleştirme ile bir
+şey kurtarılamaz. `matcher.search_spellings` yazıldığı hali ve markanın diğer
+yazımlarını sırayla verir; `services/scan.py` bunu **fan-out değil fallback**
+olarak kullanır: site `empty` döndüyse sıradaki yazımla bir kez daha sorar, ilk
+dolu cevapta durur. Her yazım küçük bir dükkana bir istek daha demek, ve o istek
+ancak dükkan "bende yok" dedikten sonra harcanır.
+
+**Kapsam dışı:** sepet **Tazele** akışı (`run_basket_refresh`) hâlâ tek yazımla
+sorar. Kayıtlı marka zaten kanonik, dolayısıyla yalnızca kısaltmayla yazan bir
+dükkan orada görünmez.
 
 ### Klon/orijinal ayrımı
 

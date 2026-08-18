@@ -16,6 +16,7 @@ from parfum_finder.matcher import (
     match_title,
     parse_query,
     product_label,
+    search_spellings,
     split_queries,
     title_could_match,
 )
@@ -678,3 +679,87 @@ def test_a_size_tier_label_does_not_stop_a_search_from_matching() -> None:
     assert match is not None
     assert match.confident
     assert match.score == 100
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "D&G Light Blue EDT 5 ml dekant",
+        "Dolce&Gabbana Light Blue EDT",
+        "DG Light Blue EDT",
+        "Dolce & Gabbana Light Blue EDT",
+    ],
+)
+def test_a_house_written_short_is_still_that_house(title: str) -> None:
+    # Four shops, four spellings, one bottle. The abbreviations used to be
+    # rejected outright rather than scored low: the brand check wants every
+    # word of the searched brand in the title, and "D&G" shares none of them.
+    match = match_title(title, parse_query("Dolce Gabbana Light Blue EDT"))
+    assert match is not None
+    assert match.confident
+    assert match.score == 100
+
+
+def test_a_shortened_house_name_matches_the_full_one() -> None:
+    # "Francis Kurkdjian Baccarat Rouge 540" is the same perfume as the one
+    # under the full house name, and dropping "Maison" is how half the shops
+    # write it.
+    query = parse_query("Maison Francis Kurkdjian Baccarat Rouge 540")
+    for title in (
+        "MFK Baccarat Rouge 540 EDP",
+        "Francis Kurkdjian Baccarat Rouge 540 EDP",
+        "Maison Francis Kurkdjian Baccarat Rouge 540 EDP",
+    ):
+        match = match_title(title, query)
+        assert match is not None, title
+        assert match.confident, title
+
+
+def test_the_full_house_name_is_not_expanded_twice() -> None:
+    # "Francis Kurkdjian" is an entry of its own and sits inside "Maison
+    # Francis Kurkdjian". Read as the shorter one, the title would come out
+    # saying the house twice and stop being the perfume that was searched for.
+    assert product_label("Maison Francis Kurkdjian Baccarat Rouge 540 EDP") == (
+        "Maison Francis Kurkdjian Baccarat Rouge 540 EDP"
+    )
+
+
+def test_a_stray_letter_does_not_make_a_title_that_house() -> None:
+    # The price of a two-letter abbreviation. Matched as loose membership
+    # instead of as a run of words, "d" and "g" appearing anywhere would hand
+    # back a different house's bottle at full confidence.
+    query = parse_query("Dolce Gabbana Light Blue")
+    assert match_title("Chanel Bleu G Edition D Serisi", query) is None
+
+
+def test_a_perfume_typed_short_is_stored_under_the_full_house_name() -> None:
+    # Typing "MFK" one day and the house's full name the next has to reach one
+    # perfume, not two price histories that each know half the prices.
+    assert parse_query("MFK Baccarat Rouge 540") == parse_query(
+        "Maison Francis Kurkdjian Baccarat Rouge 540"
+    )
+
+
+def test_one_bottle_spelled_two_ways_lands_in_one_block() -> None:
+    # The results table groups rows by this label, so a shop abbreviating the
+    # house must not open a second block for the same bottle.
+    assert product_label("D&G Light Blue EDT 5 ml") == product_label(
+        "Dolce & Gabbana Light Blue EDT"
+    )
+
+
+def test_the_typed_spelling_is_asked_first_and_the_rest_only_follow() -> None:
+    # A shop's own search engine finds nothing for a spelling its catalog does
+    # not use, and no matching fixes an empty results page. The typed line
+    # still goes first: it is what the person asked for.
+    assert search_spellings("Dolce Gabbana Light Blue") == (
+        "Dolce Gabbana Light Blue",
+        "D&G Light Blue",
+        "DG Light Blue",
+    )
+
+
+def test_a_brand_nobody_abbreviates_is_asked_for_once() -> None:
+    # No table entry, no second request. Every extra spelling is one more
+    # search against a small shop.
+    assert search_spellings("Dior Sauvage EDP") == ("Dior Sauvage EDP",)

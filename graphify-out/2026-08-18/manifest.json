@@ -575,8 +575,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/gui.py": {
-    "mtime": 1787055317.4722323,
-    "ast_hash": "c5bd1a3e014a0ca98872b9d2ab11c4d2",
+    "mtime": 1787055956.8181338,
+    "ast_hash": "b4119f07d1619dd5c250dbcbb14710b1",
     "semantic_hash": ""
   },
   "tests/test_gui.py": {
