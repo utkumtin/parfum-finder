@@ -110,8 +110,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/cli.py": {
-    "mtime": 1786796416.806507,
-    "ast_hash": "3dda28c32926d35216d45c1283160eca",
+    "mtime": 1787078247.215997,
+    "ast_hash": "28a9f542eb19fbedc47d2ef77013b8f0",
     "semantic_hash": ""
   },
   "src/parfum_finder/discover.py": {
@@ -120,8 +120,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/engine.py": {
-    "mtime": 1787076642.6006656,
-    "ast_hash": "1089f92f210d81a1d798ffec913789f8",
+    "mtime": 1787078294.911658,
+    "ast_hash": "266b840931777260e90081b21b95a056",
     "semantic_hash": ""
   },
   "src/parfum_finder/extract.py": {
@@ -210,8 +210,8 @@
     "semantic_hash": "42b0c7e3955252e746d75f8c304c691f"
   },
   "tests/test_engine.py": {
-    "mtime": 1787077672.6686084,
-    "ast_hash": "13aea8bb03fa94dd1b949d10ad30c234",
+    "mtime": 1787078307.514245,
+    "ast_hash": "8f49f04d2605eb75975de1e77678f750",
     "semantic_hash": ""
   },
   "tests/test_extract.py": {
@@ -280,8 +280,8 @@
     "semantic_hash": ""
   },
   "ARCHITECTURE.md": {
-    "mtime": 1787077773.0524936,
-    "ast_hash": "15e9209f8b2c23ad60bb400e6ea926d5",
+    "mtime": 1787078287.0595562,
+    "ast_hash": "bdf8fbd16ee1e88bb5f48e388316a8b0",
     "semantic_hash": ""
   },
   "README.md": {
