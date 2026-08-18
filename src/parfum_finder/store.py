@@ -104,20 +104,29 @@ CREATE INDEX IF NOT EXISTS idx_variants_product
     ON product_variants (product_id);
 CREATE INDEX IF NOT EXISTS idx_products_perfume
     ON products         (perfume_id);
+"""
 
--- Dropped before it is created. A view body is metadata, and CREATE VIEW IF NOT
--- EXISTS will not replace one that already exists, so editing the text below
--- without this line would leave every database opened by an earlier version on
--- that version's view forever, with nothing anywhere saying so. Dropping a view
--- touches no rows.
-DROP VIEW IF EXISTS latest_prices;
+# Kept apart from SCHEMA_SQL and applied through its own explicit transaction in
+# connect(), instead of executescript(): every connect() call drops and recreates
+# this view (see the comment below), and executescript runs each statement as its
+# own auto-committed step. Two connections opening the pool at the same time could
+# then land one of them between the DROP and the CREATE, and see "no such table:
+# latest_prices" on an otherwise fully migrated database.
+#
+# Dropped before it is created. A view body is metadata, and CREATE VIEW IF NOT
+# EXISTS will not replace one that already exists, so editing the text below
+# without this line would leave every database opened by an earlier version on
+# that version's view forever, with nothing anywhere saying so. Dropping a view
+# touches no rows.
+_DROP_LATEST_PRICES_VIEW_SQL = "DROP VIEW IF EXISTS latest_prices"
 
--- Driven from product_variants rather than from price_snapshots, so the work is
--- one indexed lookup per variant instead of a walk over the whole price history.
--- price_snapshots is append-only, so the old shape got slower every time anything
--- was scanned, while the number of answers it produced stayed the same. A filter
--- the caller adds, one perfume or one basket line, now also narrows the variants
--- before any snapshot is looked at.
+# Driven from product_variants rather than from price_snapshots, so the work is
+# one indexed lookup per variant instead of a walk over the whole price history.
+# price_snapshots is append-only, so the old shape got slower every time anything
+# was scanned, while the number of answers it produced stayed the same. A filter
+# the caller adds, one perfume or one basket line, now also narrows the variants
+# before any snapshot is looked at.
+_CREATE_LATEST_PRICES_VIEW_SQL = """
 CREATE VIEW IF NOT EXISTS latest_prices AS
 SELECT
     p.site_id,
@@ -139,7 +148,7 @@ JOIN price_snapshots  s ON s.snapshot_id = (
     WHERE s2.variant_id = v.variant_id
     ORDER BY s2.fetched_at DESC, s2.snapshot_id DESC
     LIMIT 1
-);
+)
 """
 
 
@@ -155,6 +164,16 @@ def connect(db_path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA_SQL)
+    conn.commit()
+    # One explicit transaction for both statements, so a concurrent connection
+    # never observes the moment between the DROP and the CREATE.
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute(_DROP_LATEST_PRICES_VIEW_SQL)
+        conn.execute(_CREATE_LATEST_PRICES_VIEW_SQL)
+    except BaseException:
+        conn.rollback()
+        raise
     conn.commit()
     return conn
 
