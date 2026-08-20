@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1786972417.6677327,
-    "ast_hash": "c00ed7b525388be9488d20eb7443ed46",
+    "mtime": 1787264000.9340632,
+    "ast_hash": "d6d0a2e515ae5b2a8ce0d48a5fa3caac",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {

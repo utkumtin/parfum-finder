@@ -20,7 +20,7 @@ export function tab(page: Page, name: "Arama" | "Sonuçlar" | "Sepet"): Locator 
  */
 export async function openApp(page: Page): Promise<void> {
   await page.goto("/");
-  await expect(page.getByText("parfum-finder")).toBeVisible();
+  await expect(searchButton(page)).toBeVisible();
 }
 
 /** The button that starts a scan. Exact, because the Arama tab is also "Ara…". */
