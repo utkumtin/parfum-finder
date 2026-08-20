@@ -625,8 +625,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/helpers.ts": {
-    "mtime": 1786972767.926135,
-    "ast_hash": "e998f19b646d7709194e149b0a734a58",
+    "mtime": 1787264515.6377752,
+    "ast_hash": "5371625cf5ec0eda93d1a6b3b26cfb08",
     "semantic_hash": ""
   },
   "ui/e2e/search.spec.ts": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1787264000.9340632,
-    "ast_hash": "d6d0a2e515ae5b2a8ce0d48a5fa3caac",
+    "mtime": 1787264905.3677595,
+    "ast_hash": "0bbbf04ef1a1b050dea014c2c96726cd",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {

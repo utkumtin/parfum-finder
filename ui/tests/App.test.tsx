@@ -27,7 +27,7 @@ describe("App startup", () => {
     // keep a second copy of them, which is how the two sides drift apart.
     render(<App />);
     expect(screen.getByText("Yükleniyor…")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Ara", exact: true })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Ara$/ })).toBeInTheDocument();
   });
 
   it("says the backend could not be reached rather than showing an empty app", async () => {
@@ -41,7 +41,7 @@ describe("App startup", () => {
     // refuses to open, which is why the check is not part of the startup read.
     server.on("GET /api/update", () => ({ status: 503 }));
     render(<App />);
-    expect(await screen.findByRole("button", { name: "Ara", exact: true })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Ara$/ })).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -49,7 +49,7 @@ describe("App startup", () => {
     // A count nobody could read is a missing convenience, not a broken screen.
     server.on("GET /api/basket", () => ({ status: 500 }));
     render(<App />);
-    await screen.findByRole("button", { name: "Ara", exact: true });
+    await screen.findByRole("button", { name: /^Ara$/ });
     expect(screen.getByRole("button", { name: "Sepet" })).toBeInTheDocument();
   });
 });
@@ -57,14 +57,14 @@ describe("App startup", () => {
 describe("App tabs", () => {
   it("keeps the results tab shut until there is a search to show", async () => {
     render(<App />);
-    await screen.findByRole("button", { name: "Ara", exact: true });
+    await screen.findByRole("button", { name: /^Ara$/ });
     expect(screen.getByRole("button", { name: "Sonuçlar" })).toBeDisabled();
   });
 
   it("opens the results the moment a search starts", async () => {
     server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
     render(<App />);
-    await screen.findByRole("button", { name: "Ara", exact: true });
+    await screen.findByRole("button", { name: /^Ara$/ });
 
     await userEvent.type(
       screen.getByLabelText("Aranacak parfümler"),
@@ -106,7 +106,7 @@ describe("App tabs", () => {
     }));
     server.reply("POST /api/basket/items", { basket_item_id: 2 });
     render(<App />);
-    await screen.findByRole("button", { name: "Ara", exact: true });
+    await screen.findByRole("button", { name: /^Ara$/ });
 
     const tab = screen.getByRole("button", { name: /Sepet/ });
     await waitFor(() => expect(tab).toHaveTextContent("1"));
@@ -130,7 +130,7 @@ describe("App tabs", () => {
         : { status: 401 },
     );
     render(<App />);
-    await screen.findByRole("button", { name: "Ara", exact: true });
+    await screen.findByRole("button", { name: /^Ara$/ });
 
     await userEvent.click(screen.getByRole("button", { name: /Sepet/ }));
     expect(await screen.findByText("sepet okunamadı")).toBeInTheDocument();

@@ -1633,8 +1633,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "schema_site_schema_properties_field_map",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 65,
+      "community_name": "_named_profile",
       "norm_label": "field_map"
     },
     {
@@ -1644,8 +1644,8 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "schema_site_schema_field_map_type",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 65,
+      "community_name": "_named_profile",
       "norm_label": "type"
     },
     {
@@ -1655,8 +1655,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "schema_site_schema_field_map_additionalproperties",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 65,
+      "community_name": "_named_profile",
       "norm_label": "additionalproperties"
     },
     {
@@ -1743,8 +1743,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "schema_site_schema_field_map_required",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 65,
+      "community_name": "_named_profile",
       "norm_label": "required"
     },
     {
@@ -1754,8 +1754,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ref_size_raw",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 65,
+      "community_name": "_named_profile",
       "norm_label": "size_raw"
     },
     {
@@ -1765,8 +1765,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ref_price",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 65,
+      "community_name": "_named_profile",
       "norm_label": "price"
     },
     {
@@ -1776,8 +1776,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ref_in_stock",
-      "community": 23,
-      "community_name": "Price/Size Normalization",
+      "community": 65,
+      "community_name": "_named_profile",
       "norm_label": "in_stock"
     },
     {
@@ -2161,8 +2161,8 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "schema_site_schema_properties_exclude_keywords",
-      "community": 65,
-      "community_name": "_named_profile",
+      "community": 74,
+      "community_name": "ConfirmDialog.tsx",
       "norm_label": "exclude_keywords"
     },
     {
@@ -2172,8 +2172,8 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "schema_site_schema_exclude_keywords_type",
-      "community": 65,
-      "community_name": "_named_profile",
+      "community": 74,
+      "community_name": "ConfirmDialog.tsx",
       "norm_label": "type"
     },
     {
@@ -2183,8 +2183,8 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "schema_site_schema_exclude_keywords_items",
-      "community": 65,
-      "community_name": "_named_profile",
+      "community": 74,
+      "community_name": "ConfirmDialog.tsx",
       "norm_label": "items"
     },
     {
@@ -2194,8 +2194,8 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "schema_site_schema_items_type",
-      "community": 65,
-      "community_name": "_named_profile",
+      "community": 74,
+      "community_name": "ConfirmDialog.tsx",
       "norm_label": "type"
     },
     {
@@ -2502,8 +2502,8 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "schema_site_schema_properties_needs_review",
-      "community": 65,
-      "community_name": "_named_profile",
+      "community": 74,
+      "community_name": "ConfirmDialog.tsx",
       "norm_label": "needs_review"
     },
     {
@@ -2513,8 +2513,8 @@
       "source_location": "L169",
       "_origin": "ast",
       "id": "schema_site_schema_needs_review_type",
-      "community": 65,
-      "community_name": "_named_profile",
+      "community": 74,
+      "community_name": "ConfirmDialog.tsx",
       "norm_label": "type"
     },
     {
@@ -2524,8 +2524,8 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "schema_site_schema_needs_review_items",
-      "community": 65,
-      "community_name": "_named_profile",
+      "community": 74,
+      "community_name": "ConfirmDialog.tsx",
       "norm_label": "items"
     },
     {
@@ -3976,8 +3976,8 @@
       "source_location": "L319",
       "_origin": "ast",
       "id": "src_parfum_finder_discover_choose_strategy",
-      "community": 48,
-      "community_name": "._build_rows",
+      "community": 18,
+      "community_name": "Playwright Errors",
       "norm_label": "_choose_strategy()"
     },
     {
@@ -3987,8 +3987,8 @@
       "source_location": "L335",
       "_origin": "ast",
       "id": "src_parfum_finder_discover_qualifies",
-      "community": 48,
-      "community_name": "._build_rows",
+      "community": 18,
+      "community_name": "Playwright Errors",
       "norm_label": "_qualifies()"
     },
     {
@@ -4350,8 +4350,8 @@
       "source_location": "L320",
       "_origin": "ast",
       "id": "src_parfum_finder_discover_rationale_320",
-      "community": 48,
-      "community_name": "._build_rows",
+      "community": 18,
+      "community_name": "Playwright Errors",
       "norm_label": "pick the cheapest strategy that came back with real content, or none.      probe"
     },
     {
@@ -4361,8 +4361,8 @@
       "source_location": "L336",
       "_origin": "ast",
       "id": "src_parfum_finder_discover_rationale_336",
-      "community": 48,
-      "community_name": "._build_rows",
+      "community": 18,
+      "community_name": "Playwright Errors",
       "norm_label": "whether one strategy came back with a usable page."
     },
     {
@@ -10598,8 +10598,8 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_confirmscreen_init",
-      "community": 74,
-      "community_name": "ConfirmDialog.tsx",
+      "community": 86,
+      "community_name": "._scan",
       "norm_label": ".__init__()"
     },
     {
@@ -10686,8 +10686,8 @@
       "source_location": "L268",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_searchscreen_init",
-      "community": 74,
-      "community_name": "ConfirmDialog.tsx",
+      "community": 86,
+      "community_name": "._scan",
       "norm_label": ".__init__()"
     },
     {
@@ -10697,8 +10697,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_parfum_finder_tui_search_screen_py_path",
-      "community": 74,
-      "community_name": "ConfirmDialog.tsx",
+      "community": 86,
+      "community_name": "._scan",
       "norm_label": "path"
     },
     {
@@ -23446,8 +23446,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "tests_test_updater_test_an_unreadable_tag_never_counts_as_an_update",
-      "community": 42,
-      "community_name": "Fixture Fetcher (Tests)",
+      "community": 103,
+      "community_name": "test_an_unreadable_tag_never_counts_as_an_update",
       "norm_label": "test_an_unreadable_tag_never_counts_as_an_update()"
     },
     {
@@ -23479,8 +23479,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "tests_test_updater_test_check_survives_github_being_unreachable",
-      "community": 60,
-      "community_name": "_wait_for_table",
+      "community": 42,
+      "community_name": "Fixture Fetcher (Tests)",
       "norm_label": "test_check_survives_github_being_unreachable()"
     },
     {
@@ -23820,8 +23820,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "tests_test_updater_rationale_72",
-      "community": 42,
-      "community_name": "Fixture Fetcher (Tests)",
+      "community": 103,
+      "community_name": "test_an_unreadable_tag_never_counts_as_an_update",
       "norm_label": "a tag nobody can order against must not open a dialog.      the two failure dire"
     },
     {
@@ -23831,8 +23831,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "tests_test_updater_rationale_109",
-      "community": 60,
-      "community_name": "_wait_for_table",
+      "community": 42,
+      "community_name": "Fixture Fetcher (Tests)",
       "norm_label": "no network is not an error the user has to be told about.      the check runs un"
     },
     {
@@ -25173,8 +25173,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "ui_src_api_client_authtoken",
-      "community": 98,
-      "community_name": "ws.ts",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "authtoken()"
     },
     {
@@ -25206,8 +25206,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "ui_src_api_client_request",
-      "community": 98,
-      "community_name": "ws.ts",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "request()"
     },
     {
@@ -25217,8 +25217,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "ui_src_api_client_readdetail",
-      "community": 98,
-      "community_name": "ws.ts",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "readdetail()"
     },
     {
@@ -25239,8 +25239,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_src_api_ws",
-      "community": 98,
-      "community_name": "ws.ts",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "ws.ts"
     },
     {
@@ -25250,8 +25250,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "ui_src_api_ws_streamurl",
-      "community": 98,
-      "community_name": "ws.ts",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "streamurl()"
     },
     {
@@ -25261,8 +25261,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "ui_src_api_ws_refusalreason",
-      "community": 98,
-      "community_name": "ws.ts",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "refusalreason()"
     },
     {
@@ -25272,8 +25272,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "ui_src_api_ws_useeventstream",
-      "community": 98,
-      "community_name": "ws.ts",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "useeventstream()"
     },
     {
@@ -26031,8 +26031,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_tests_api_ws_test",
-      "community": 98,
-      "community_name": "ws.ts",
+      "community": 23,
+      "community_name": "Price/Size Normalization",
       "norm_label": "ws.test.ts"
     },
     {
@@ -109534,5 +109534,5 @@
       "source_file": "ARCHITECTURE.md"
     }
   ],
-  "built_at_commit": "d484a8cd01a7f3f6d2b14b0bb04849f057a17138"
+  "built_at_commit": "cbe16d0c707af3d515a6dd4b3088384c62f8d1a7"
 }
