@@ -155,7 +155,7 @@ describe("App update prompt", () => {
 
   it("says nothing when this is already the newest version", async () => {
     render(<App />);
-    await screen.findByText("parfum-finder");
+    await screen.findByText("PARFUM FINDER");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
