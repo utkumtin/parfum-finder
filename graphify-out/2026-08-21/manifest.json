@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
-    "mtime": 1787263558.977668,
-    "ast_hash": "399a58440a80470038da6748f67dd157",
+    "mtime": 1787263191.186422,
+    "ast_hash": "b7722ea1212698992a8dea8c6c5924b0",
     "semantic_hash": ""
   },
   "ui/src/types.ts": {

@@ -1,11 +1,11 @@
 # Graph Report - parfum-finder  (2026-08-21)
 
 ## Corpus Check
-- 125 files · ~310,215 words
+- 125 files · ~310,211 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2497 nodes · 7039 edges · 99 communities (95 shown, 4 thin omitted)
+- 2497 nodes · 7039 edges · 100 communities (95 shown, 5 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 493 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
@@ -109,6 +109,7 @@
 - MonkeyPatch
 - ws.ts
 - Arayüz testleri
+- Static
 - .__init__
 - cached_prices
 
@@ -137,12 +138,12 @@
   tests/test_engine.py → src/parfum_finder/engine.py
 
 ## Import Cycles
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/logging_setup.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
@@ -153,7 +154,7 @@
 - **İdeasoft Platform Sites and Endpoint** — docs_discovery_report_dekantparfum_site, docs_discovery_report_dekantdoktoru_site, docs_discovery_report_ideasoft_related_options_endpoint, platforms_readme_ideasoft_json [EXTRACTED 1.00]
 - **discover Command Output Artifacts (profile + fixtures + CI validation)** — architecture_md_discover_flow, sites_readme_sites_dir, fixtures_readme_fixtures_dir, github_workflows_ci_validate_profiles_step, architecture_md_validate_command [INFERRED 0.85]
 
-## Communities (99 total, 4 thin omitted)
+## Communities (100 total, 5 thin omitted)
 
 ### Community 0 - "TUI App & Screens"
 Cohesion: 0.09
@@ -192,8 +193,8 @@ Cohesion: 0.05
 Nodes (53): basket Subset Enumeration + Local Improvement Algorithm, basket Optimizer (optimize function), Clone/Original Distinction (KLON ← <orijinal>), discover Discovery Flow, engine Concurrency Model (parallel sites, serial within site), Extraction Ladder (jsonld/endpoint/embedded/css), Fail-loud / status=suspect policy, hooks/<id>.py Escape Hatch (+45 more)
 
 ### Community 9 - "Search Engine Core"
-Cohesion: 0.07
-Nodes (59): CacheKey, HTMLParser, _check_empty_search(), _check_variant_control(), _fetch_page(), _headers(), _is_excluded(), _jitter_s() (+51 more)
+Cohesion: 0.08
+Nodes (53): HTMLParser, _check_empty_search(), _check_variant_control(), _fetch_page(), _headers(), _is_excluded(), _jitter_s(), _page_evidence() (+45 more)
 
 ### Community 10 - "Basket Optimizer Core"
 Cohesion: 0.10
@@ -304,16 +305,16 @@ Cohesion: 0.14
 Nodes (14): free_shipping_threshold_kurus, shipping_cost_kurus, minimum, type, free_shipping_threshold_kurus, notes, shipping, shipping_cost_kurus (+6 more)
 
 ### Community 37 - "_trial"
-Cohesion: 0.17
-Nodes (19): _classify_single_separator(), format_price(), _parse_number(), parse_price(), parse_size_ml(), Decimal, Number parsing and formatting for prices and volumes, plus text folding.  This i, Decide whether a lone separator marks a fraction or a thousands group.      Retu (+11 more)
+Cohesion: 0.15
+Nodes (18): _classify_single_separator(), format_age(), format_ml(), format_price(), _parse_number(), parse_price(), parse_size_ml(), Decimal (+10 more)
 
 ### Community 38 - "TUI Confirm Dialog"
 Cohesion: 0.16
 Nodes (38): BaseModel, AcceptedSearch, _add_basket_item(), _AppState, BasketAddRequest, BasketQtyRequest, The FastAPI app: a thin HTTP/WS wrapper around the Faz 1 services.  No business, RefreshRequest (+30 more)
 
 ### Community 39 - "TUI App Shell"
-Cohesion: 0.10
-Nodes (8): Changed, HeaderSelected, The initial screen: search bar, streaming results table, notices, footer., Close out a submit that named no perfume anyone could look for., Show what storage already knows, then go to the shops for the rest.          `fo, Empty the table for a new scan.          The columns are the same every time now, SearchScreen, Submitted
+Cohesion: 0.13
+Nodes (4): HeaderSelected, RowSelected, The initial screen: search bar, streaming results table, notices, footer., SearchScreen
 
 ### Community 40 - "Fetch Backends"
 Cohesion: 0.14
@@ -399,10 +400,6 @@ Nodes (19): _close_browser(), _close_session_browser(), _fetch_curl_cffi(), _fet
 Cohesion: 0.24
 Nodes (14): fetch_latest_release(), En son yayımlanmış sürüm, ya da ulaşılamadıysa None.      /releases/latest tasla, _enable_checks(), _patch_get(), MonkeyPatch, Tests for parfum_finder.updater: the version compare, the release read, and the, No network is not an error the user has to be told about.      The check runs un, The .exe is what gets downloaded, whatever else is attached.      Releases carry (+6 more)
 
-### Community 61 - "._apply_scan_event"
-Cohesion: 0.24
-Nodes (3): RowSelected, ResultRow, Row
-
 ### Community 62 - "snapshot_rows"
 Cohesion: 0.14
 Nodes (20): One call has to leave a row the search table can read straight off.      The cal, The old price has to survive, and it must not become a second variant.      Appe, first_seen is what says how long a shop has carried a size., The title and URL are information, not identity.      A shop that rewords a list, EDT and EDP are different products at different prices.      Folding them into o, A sold-out size often shows no price at all, and 0 would mean free.      Writing, The column is 0/1, so the tri-state has to land somewhere on purpose.      Unkno, raw_title is the audit trail for a wrong match, so it cannot be blank.      A ro (+12 more)
@@ -412,8 +409,8 @@ Cohesion: 0.18
 Nodes (16): _age_of(), live_query(), _path(), profile_age_days(), datetime, Profile staleness checks. Two modes: offline (against saved fixtures) and live (, A URL's path with no trailing slash, for comparing two spellings of one page., Every site that has a profile, sorted so reports read the same way twice. (+8 more)
 
 ### Community 65 - "_named_profile"
-Cohesion: 0.22
-Nodes (6): format_age(), format_ml(), Format a volume for display (dot-decimal): Decimal('1.5') -> '1.5 ml'., Turn a price age in days into the words the age column shows., BasketRow, test_format_age_reads_as_words_not_a_timestamp()
+Cohesion: 0.14
+Nodes (5): Changed, Close out a submit that named no perfume anyone could look for., Show what storage already knows, then go to the shops for the rest.          `fo, Empty the table for a new scan.          The columns are the same every time now, Submitted
 
 ### Community 67 - "extract_embedded_variants"
 Cohesion: 0.20
@@ -515,9 +512,13 @@ Nodes (5): _NoRootParser, MonkeyPatch, Stands in for HTMLParser when a page's ma
 Cohesion: 0.40
 Nodes (4): Arayüz testleri, jsdom katmanı (`tests/`), Ne test edilmiyor, Tarayıcı katmanı (`e2e/`)
 
+### Community 95 - "Static"
+Cohesion: 0.39
+Nodes (7): Decimal, Tests for parfum_finder.normalize.  These cover the required test cases from the, test_format_ml(), test_format_price(), test_parse_price(), test_parse_price_rejects_text_with_no_digits(), test_parse_size_ml()
+
 ### Community 96 - ".__init__"
-Cohesion: 0.18
-Nodes (11): CandidateFilter, _candidates_to_open(), Path, Run every site against one query, all at once, and report each separately., Narrow the search results down to the pages worth a request.      The first one, run_sites(), test_a_dead_site_does_not_take_the_others_down(), test_a_profile_that_breaks_on_setup_is_contained_too() (+3 more)
+Cohesion: 0.13
+Nodes (17): CacheKey, CandidateFilter, _candidates_to_open(), Path, Open one product page and read its sizes on the profile's layer.      A `cache`, Do the reading _read_variants may serve from its cache instead.      The page is, Run every site against one query, all at once, and report each separately., Narrow the search results down to the pages worth a request.      The first one (+9 more)
 
 ### Community 99 - "cached_prices"
 Cohesion: 0.12
@@ -526,12 +527,12 @@ Nodes (18): conn(), Path, Tests for parfum_finder.store: the timestamp helper an
 ## Knowledge Gaps
 - **224 isolated node(s):** `parfum-finder`, `$schema`, `$id`, `title`, `description` (+219 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **4 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SearchScreen` connect `TUI App Shell` to `test_an_unreadable_tag_never_counts_as_an_update`, `_named_profile`, `TUI App & Screens`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `run_sites`, `Search TUI Screen`, `FetchResult`, `Candidate Filtering`, `_FixtureFetcher`, `._apply_scan_event`?**
+- **Why does `SearchScreen` connect `TUI App Shell` to `test_an_unreadable_tag_never_counts_as_an_update`, `_named_profile`, `TUI App & Screens`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `_trial`, `run_sites`, `Search TUI Screen`, `FetchResult`, `Candidate Filtering`, `_FixtureFetcher`, `._apply_scan_event`?**
   _High betweenness centrality (0.031) - this node is a cross-community bridge._
 - **Why does `PlaywrightNotInstalled` connect `HTTP/Browser Fetching` to `Search/Basket Domain Models`, `Search Engine Core`, `Basket Store & Pricing`, `FieldConfidence`, `._build_rows`, `run_sites`, `Playwright Errors`, `test_connect_is_idempotent_on_an_existing_database`, `Offline Profile Validation`, `SQLite Store`, `_named_profile`, `MonkeyPatch`?**
   _High betweenness centrality (0.029) - this node is a cross-community bridge._

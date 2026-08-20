@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, api } from "./api/client";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { BasketScreen } from "./screens/BasketScreen";
@@ -28,6 +28,34 @@ export function App() {
   // before that screen has ever been opened.
   const [basketCount, setBasketCount] = useState(0);
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const tabsRef = useRef<HTMLElement>(null);
+  const hasPositionedTabPill = useRef(false);
+  const lastPillView = useRef<View | null>(null);
+
+  useLayoutEffect(() => {
+    const tabs = tabsRef.current;
+    const pill = tabs?.querySelector<HTMLElement>(".tab-pill");
+    const activeTab = tabs?.querySelector<HTMLButtonElement>(
+      '.tab[aria-current="page"]',
+    );
+
+    if (!pill || !activeTab) return;
+
+    const animate = hasPositionedTabPill.current && lastPillView.current !== view;
+    const previousTransition = pill.style.transition;
+
+    if (!animate) pill.style.transition = "none";
+    pill.style.transform = `translateX(${activeTab.offsetLeft}px)`;
+    pill.style.width = `${activeTab.offsetWidth}px`;
+
+    if (!animate) {
+      void pill.offsetWidth;
+      pill.style.transition = previousTransition;
+    }
+
+    hasPositionedTabPill.current = true;
+    lastPillView.current = view;
+  }, [basketCount, search, view]);
 
   useEffect(() => {
     Promise.all([api.config(), api.sites()])
@@ -101,9 +129,10 @@ export function App() {
       <div className="grain" aria-hidden="true" />
 
       <header className="toolbar">
-        <span className="toolbar-title">parfum-finder</span>
+        <span className="toolbar-title">PARFUM FINDER</span>
         <span className="toolbar-spacer" />
-        <nav className="tabs">
+        <nav ref={tabsRef} className="tabs">
+          <span className="tab-pill" aria-hidden="true" />
           <button
             type="button"
             className="tab"

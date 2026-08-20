@@ -26,6 +26,15 @@ function renderScreen(onStarted = vi.fn()) {
 }
 
 describe("SearchScreen", () => {
+  it("uses the floating label instead of a sample perfume placeholder", () => {
+    const { field } = renderScreen();
+
+    expect(
+      screen.getByText("Birden fazla parfümü - ile ayırın. En fazla 10 parfüm."),
+    ).toBeInTheDocument();
+    expect(field).not.toHaveAttribute("placeholder");
+  });
+
   it("counts one perfume for a hyphenated brand", async () => {
     // The separator is " - " with spaces, which is what keeps "Jean-Paul
     // Gaultier" from being read as two perfumes. The pattern comes from

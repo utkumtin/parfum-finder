@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, useAnimation } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api/client";
 import { refusalReason, useEventStream } from "../api/ws";
 import { Badge } from "../components/Badge";
@@ -15,6 +16,7 @@ import type {
   BasketResponse,
   BasketRow,
   SiteScenario,
+  SplitLeg,
 } from "../types";
 
 /**
@@ -46,6 +48,53 @@ function RefreshIcon() {
         strokeLinecap="round"
       />
       <path d="M13.5 1.8v3.2h-3.2z" fill="currentColor" />
+    </svg>
+  );
+}
+
+const xMarkPathVariants = {
+  normal: {
+    opacity: 1,
+    pathLength: 1,
+  },
+  animate: {
+    opacity: [0, 1],
+    pathLength: [0, 1],
+  },
+};
+
+function CartPreviewCloseIcon() {
+  const controls = useAnimation();
+
+  return (
+    <svg
+      className="cart-preview-close-icon"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      onMouseEnter={() => controls.start("animate")}
+      onMouseLeave={() => controls.start("normal")}
+    >
+      <motion.path
+        animate={controls}
+        d="M6 6l12 12"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+        variants={xMarkPathVariants}
+      />
+      <motion.path
+        animate={controls}
+        d="M18 6l-12 12"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+        transition={{ delay: 0.2 }}
+        variants={xMarkPathVariants}
+      />
     </svg>
   );
 }
@@ -115,6 +164,9 @@ export function BasketScreen({
   // refreshed, so age alone would leave its button live forever.
   const [justRefreshed, setJustRefreshed] = useState<Set<number>>(new Set());
   const [undo, setUndo] = useState<BasketRow | null>(null);
+  const [cartPreview, setCartPreview] = useState<SplitLeg | null>(null);
+  const [cartPreviewClosing, setCartPreviewClosing] = useState(false);
+  const cartPreviewCloseTimer = useRef<number | null>(null);
 
   const siteName = useCallback(
     (id: string) => siteNames[id] ?? id,
@@ -137,6 +189,45 @@ export function BasketScreen({
   }, [reloads, version, notify]);
 
   const reload = useCallback(() => setReloads((r) => r + 1), []);
+
+  const openCartPreview = useCallback((leg: SplitLeg) => {
+    if (cartPreviewCloseTimer.current !== null) {
+      window.clearTimeout(cartPreviewCloseTimer.current);
+      cartPreviewCloseTimer.current = null;
+    }
+    setCartPreviewClosing(false);
+    setCartPreview(leg);
+  }, []);
+
+  const closeCartPreview = useCallback(() => {
+    if (cartPreviewCloseTimer.current !== null) return;
+    setCartPreviewClosing(true);
+    const closeMs = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--modal-close-dur"),
+    ) || 150;
+    cartPreviewCloseTimer.current = window.setTimeout(() => {
+      setCartPreview(null);
+      setCartPreviewClosing(false);
+      cartPreviewCloseTimer.current = null;
+    }, closeMs);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (cartPreviewCloseTimer.current !== null)
+        window.clearTimeout(cartPreviewCloseTimer.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (cartPreview === null) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeCartPreview();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cartPreview, closeCartPreview]);
 
   const onRefreshEvent = useCallback(
     (event: BasketRefreshEvent) => {
@@ -311,6 +402,10 @@ export function BasketScreen({
   // Ties go to the single-site plan: one parcel from one shop for the same
   // money is the easier order, so the split has to actually be cheaper to win.
   const splitWins = split !== null && split.diff_kurus !== null && split.diff_kurus < 0;
+  const cartPreviewRows =
+    cartPreview === null
+      ? []
+      : data.rows.filter((row) => cartPreview.item_ids.includes(row.basket_item_id));
 
   return (
     <>
@@ -360,7 +455,13 @@ export function BasketScreen({
               </div>
               {split.legs.map((leg) => (
                 <div key={leg.scenario.site_id} className="plan-leg">
-                  <span>{siteName(leg.scenario.site_id)}</span>
+                  <button
+                    type="button"
+                    className="plan-leg-store"
+                    onClick={() => openCartPreview(leg)}
+                  >
+                    {siteName(leg.scenario.site_id)}
+                  </button>
                   <span className="dim">{leg.scenario.covered} ürün</span>
                   <span className="plan-leg-total">
                     {formatPrice(leg.scenario.total_kurus)}
@@ -610,6 +711,71 @@ export function BasketScreen({
           </details>
         )}
       </div>
+      {cartPreview !== null && (
+        <div className="scrim" onClick={closeCartPreview}>
+          <section
+            className={`dialog cart-preview-dialog t-modal${
+              cartPreviewClosing ? " is-closing" : " is-open"
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cart-preview-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="cart-preview-core">
+              <div className="cart-preview-head">
+                <div>
+                  <p className="cart-preview-kicker">MAĞAZA SEPETİ</p>
+                  <h2 id="cart-preview-title">
+                    {siteName(cartPreview.scenario.site_id)} için sepet
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  className="cart-preview-close"
+                  aria-label="Sepet önizlemesini kapat"
+                  onClick={closeCartPreview}
+                >
+                  <CartPreviewCloseIcon />
+                </button>
+              </div>
+              <p className="cart-preview-intro">
+                Bu kombinasyonda bu mağazadan alınacak ürünler.
+              </p>
+              <ul className="cart-preview-items" aria-label="Sepetteki ürünler">
+                {cartPreviewRows.map((row) => {
+                  const price = row.prices[cartPreview.scenario.site_id];
+                  return (
+                    <li key={row.basket_item_id}>
+                      <span>
+                        {row.label}
+                        {row.qty > 1 && <small> × {row.qty}</small>}
+                      </span>
+                      <span>
+                        {price === undefined ? "Fiyat bulunamadı" : formatPrice(price * row.qty)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <dl className="cart-preview-summary">
+                <div>
+                  <dt>Ara toplam</dt>
+                  <dd>{formatPrice(cartPreview.scenario.subtotal_kurus)}</dd>
+                </div>
+                <div>
+                  <dt>Kargo</dt>
+                  <dd>{formatPrice(cartPreview.scenario.shipping_kurus)}</dd>
+                </div>
+                <div className="cart-preview-total">
+                  <dt>Toplam</dt>
+                  <dd>{formatPrice(cartPreview.scenario.total_kurus)}</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+        </div>
+      )}
     </>
   );
 }

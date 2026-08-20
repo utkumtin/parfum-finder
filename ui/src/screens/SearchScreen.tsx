@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { ApiError, api } from "../api/client";
 import { formatAge } from "../lib/format";
 import type { AppConfig, RecentSearch, SearchStart } from "../types";
@@ -50,6 +51,8 @@ export function SearchScreen({
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [recents, setRecents] = useState<RecentSearch[]>([]);
+  const [focused, setFocused] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +77,7 @@ export function SearchScreen({
   );
   const parts = useMemo(() => splitParts(text, separator), [text, separator]);
   const overLimit = parts.length > config.max_queries;
+  const raisedLabel = focused || text.length > 0;
 
   const submit = async () => {
     // Refused rather than trimmed to the first ten, the same call the TUI
@@ -93,19 +97,30 @@ export function SearchScreen({
 
   return (
     <div className="page search-page">
-      <p className="search-sub">
-        Birden fazla parfümü <code>{" - "}</code> ile ayırın. En fazla{" "}
-        {config.max_queries} parfüm.
-      </p>
-
       <div className={`tray search-field${overLimit ? " over-limit" : ""}`}>
+        <motion.label
+          htmlFor="perfume-search"
+          initial={false}
+          animate={{
+            x: raisedLabel ? -12 : 0,
+            y: raisedLabel ? -52 : 0,
+            scale: raisedLabel ? 0.8 : 1,
+          }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+          style={{ originX: 0, originY: 0, willChange: "transform" }}
+          className={`search-field-label${raisedLabel ? " raised" : ""}`}
+        >
+          Birden fazla parfümü - ile ayırın. En fazla 10 parfüm.
+        </motion.label>
         <div className="core">
           <input
+            id="perfume-search"
             type="text"
             value={text}
             autoFocus
-            placeholder="Dior Sauvage EDP - Creed Aventus"
             aria-label="Aranacak parfümler"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") void submit();

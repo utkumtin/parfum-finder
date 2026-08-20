@@ -384,6 +384,46 @@ describe("BasketScreen refresh", () => {
 });
 
 describe("BasketScreen plans", () => {
+  it("previews the assigned store cart from the combination card", async () => {
+    // The combination is only actionable when every store name reveals the
+    // items that belong in that store's cart, including the quantity and price.
+    const user = userEvent.setup();
+    renderScreen(
+      basket(
+        [
+          basketRow({ prices: { "site-a": 25000 } }),
+          basketRow({
+            basket_item_id: 2,
+            brand: "Creed",
+            name: "Aventus",
+            label: "Creed Aventus EDP 5 ml",
+            qty: 2,
+            prices: { "site-b": 10000 },
+          }),
+        ],
+        {
+          best_combination: splitCombination([
+            { scenario: scenario({ site_id: "site-a", subtotal_kurus: 25000 }), item_ids: [1] },
+            {
+              scenario: scenario({ site_id: "site-b", subtotal_kurus: 20000, total_kurus: 30000 }),
+              item_ids: [2],
+            },
+          ]),
+        },
+      ),
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Site B" }));
+    const dialog = screen.getByRole("dialog", { name: "Site B için sepet" });
+    expect(within(dialog).getByText("Creed Aventus EDP 5 ml")).toBeInTheDocument();
+    expect(within(dialog).getByText("× 2")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("200.00 ₺")).toHaveLength(2);
+    expect(within(dialog).getByText("300.00 ₺")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Sepet önizlemesini kapat" }));
+    expect(dialog).toHaveClass("is-closing");
+  });
+
   it("does not offer a one-shop combination as a second plan", async () => {
     // A one-leg combination is the single-site plan under another name, and two
     // cards saying the same thing is not a comparison.

@@ -61,6 +61,13 @@
   --toolbar-h: 3.875rem;
 
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --modal-scale: 0.96;
+  --modal-scale-close: 0.96;
+  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --tabs-dur: 250ms;
+  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --radius-tray: 1.25rem;
   --radius-core: 0.875rem;
   --radius: 0.625rem;
@@ -188,6 +195,7 @@ input {
 /* The segmented control is a nested enclosure too: an inset groove holding
    pills. */
 .tabs {
+  position: relative;
   display: flex;
   gap: 0.125rem;
   padding: 0.25rem;
@@ -198,6 +206,7 @@ input {
 }
 
 .tab {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.4375rem;
@@ -210,9 +219,10 @@ input {
   padding: 0.4375rem 1rem;
   cursor: pointer;
   white-space: nowrap;
+  z-index: 1;
   transition:
-    color 0.5s var(--ease),
-    background 0.5s var(--ease);
+    color var(--tabs-dur) var(--tabs-ease),
+    background var(--tabs-dur) var(--tabs-ease);
 }
 .tab:hover:not(:disabled) {
   color: var(--text);
@@ -220,8 +230,24 @@ input {
 }
 .tab[aria-current="page"] {
   color: var(--text);
+  background: transparent;
+}
+.tab-pill {
+  position: absolute;
+  top: 0.25rem;
+  left: 0;
+  height: calc(100% - 0.5rem);
+  width: 0;
   background: var(--surface-3);
+  border-radius: 999px;
   box-shadow: inset 0 1px 0 var(--hi), 0 1px 2px rgba(8, 5, 10, 0.45);
+  transform: translateX(0);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+  z-index: 0;
+  pointer-events: none;
 }
 .tab:active:not(:disabled) {
   transform: scale(0.98);
@@ -244,6 +270,13 @@ input {
 .tab[aria-current="page"] .tab-count {
   background: rgba(242, 236, 228, 0.17);
   color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-pill,
+  .tab {
+    transition: none !important;
+  }
 }
 
 /* 1280 wide: 1280 minus two 1.5rem gutters leaves 1232px, and the page stops
@@ -569,43 +602,22 @@ input {
 
 /* --- search screen ------------------------------------------------------- */
 
-/* No headline. One rule sentence sits above the field, because the window's
-   own title already says what the screen is for. */
 .search-page {
   max-width: 46rem;
   gap: 1.25rem;
   padding-top: 2.75rem;
 }
 
-.search-sub {
-  color: var(--text-dim);
-  font-size: 0.875rem;
-  margin: 0;
-  max-width: 40rem;
-}
-/* white-space: pre keeps the spaces around the separator, and the colour is
-   the body's rather than dimmed: the whole point of the chip is to show a
-   character that is one pixel wide, and a faint monospace hyphen in a tinted
-   box reads as an empty box. */
-.search-sub code {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  color: var(--text);
-  white-space: pre;
-  background: var(--wash-2);
-  border: 1px solid var(--line);
-  border-radius: 0.25rem;
-  padding: 0.0625rem 0.25rem;
-}
-
 .search-field {
   padding: 0.4375rem;
+  position: relative;
 }
 .search-field .core {
   display: flex;
   align-items: center;
   gap: 0.875rem;
   padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+  position: relative;
   transition: box-shadow 0.5s var(--ease);
 }
 .search-field:focus-within .core {
@@ -626,9 +638,23 @@ input {
 .search-field input:focus {
   outline: none;
 }
-.search-field input::placeholder {
+.search-field-label {
+  cursor: text;
+  left: 1.6875rem;
+  right: 10.5rem;
+  overflow: hidden;
+  position: absolute;
+  text-overflow: ellipsis;
+  top: 1.5625rem;
+  transform-origin: left top;
+  white-space: nowrap;
   color: var(--text-faint);
-  font-style: italic;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  z-index: 1;
+}
+.search-field-label.raised {
+  color: var(--text-dim);
 }
 
 .search-count {
@@ -1478,6 +1504,21 @@ table.matrix tfoot td.full {
   padding: 0.4375rem 0;
   border-top: 1px solid rgba(242, 236, 228, 0.05);
 }
+.plan-leg-store {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    color var(--modal-open-dur) var(--modal-ease),
+    transform var(--modal-open-dur) var(--modal-ease);
+}
+.plan-leg-store:hover {
+  color: var(--accent);
+  transform: translateX(0.125rem);
+}
 .plan-leg-total {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -1590,6 +1631,136 @@ details.more summary:hover {
   gap: 0.625rem;
   justify-content: flex-end;
   margin-top: 0.375rem;
+}
+
+.t-modal {
+  transform-origin: center;
+  transform: scale(var(--modal-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity   var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+}
+.t-modal.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.t-modal.is-closing {
+  transform: scale(var(--modal-scale-close));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity   var(--modal-close-dur) var(--modal-ease);
+}
+
+.cart-preview-dialog {
+  width: min(34rem, 100%);
+  padding: 0.375rem;
+}
+.cart-preview-core {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.125rem;
+  border-radius: var(--radius-core);
+  background:
+    radial-gradient(circle at 88% 0, rgba(227, 192, 138, 0.1), transparent 34%),
+    var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--hi), inset 0 0 0 1px var(--wash-1);
+}
+.cart-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.cart-preview-kicker {
+  margin: 0 0 0.25rem;
+  color: var(--accent);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+.cart-preview-close {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--wash-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.cart-preview-close-icon {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+}
+.cart-preview-intro {
+  color: var(--text-dim);
+}
+.cart-preview-items {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+}
+.cart-preview-items li,
+.cart-preview-summary > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.cart-preview-items li {
+  padding: 0.4375rem 0;
+  font-size: 0.8125rem;
+}
+.cart-preview-items li > span:last-child,
+.cart-preview-summary dd {
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.cart-preview-items small {
+  color: var(--text-faint);
+  font-size: inherit;
+}
+.cart-preview-summary {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+.cart-preview-summary dt {
+  color: var(--text-dim);
+}
+.cart-preview-summary dd {
+  margin: 0;
+}
+.cart-preview-total {
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--line-strong);
+  color: var(--accent);
+  font-size: 0.9375rem;
+}
+.cart-preview-total dt,
+.cart-preview-total dd {
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-modal { transition: none !important; }
 }
 
 /* Wider than a confirm, because what is being read here is a changelog and
