@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1787427681.5642495,
-    "ast_hash": "7aee6fe477d9bdb4685662d25da4bb8c",
+    "mtime": 1787427996.677521,
+    "ast_hash": "aa7eae34eac6b6f1ea9219c1b35fa023",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {
@@ -742,6 +742,11 @@
   "ui/tests/screens/WishlistScreen.test.tsx": {
     "mtime": 1787427636.4896472,
     "ast_hash": "f9a4ac213e3e16bab3733928d19cbd32",
+    "semantic_hash": ""
+  },
+  "ui/tests/lib/wishlist.test.ts": {
+    "mtime": 1787427996.7515204,
+    "ast_hash": "2e7a670cb06551eae0cb6e0e5f2c071c",
     "semantic_hash": ""
   }
 }
