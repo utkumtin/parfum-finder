@@ -88,7 +88,6 @@
   "86": "._scan",
   "87": "helpers.ts",
   "88": "handoff_command",
-  "89": "test_an_unreadable_tag_never_counts_as_an_update",
   "90": "BasketRow",
   "92": "MonkeyPatch",
   "93": "ws.ts",
@@ -97,6 +96,5 @@
   "97": "test_paths.py",
   "99": "cached_prices",
   "100": "playwright.config.ts",
-  "101": "setup.ts",
-  "103": "test_an_unreadable_tag_never_counts_as_an_update"
+  "101": "setup.ts"
 }

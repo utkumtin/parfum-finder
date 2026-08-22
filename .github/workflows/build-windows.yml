@@ -133,15 +133,12 @@ jobs:
           name: parfum-finder-windows-installer
           path: packaging/Output/*.exe
 
-      # gh release upload only attaches assets to an existing release, it
-      # never creates one -- pushing a tag alone doesn't create a GitHub
-      # Release, so without this the upload step fails with "release not
-      # found" on every tag's first run. Two runs on the same tag racing
-      # here (a rerun overlapping the original, a manual dispatch alongside
-      # the tag push) is also why the workflow has a concurrency group above
-      # queuing same-ref runs, so this doesn't need its own check-then-act
-      # race handling.
-      - name: Ensure the release exists
+      # The installer must be attached before the release becomes visible to
+      # the app. Create a blank draft here, upload the installer below, then
+      # leave publishing and the user-facing notes to the maintainer.
+      # The concurrency group above queues same-ref runs, so two builds cannot
+      # race while creating the same draft.
+      - name: Ensure a draft release exists
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
@@ -166,7 +163,7 @@ jobs:
           }
 
           if ($tags -notcontains $env:RELEASE_TAG) {
-            gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --generate-notes
+            gh release create "$env:RELEASE_TAG" --title "$env:RELEASE_TAG" --notes "" --draft
             if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
           } else {
             Write-Host "Release $env:RELEASE_TAG already exists; reusing it."
