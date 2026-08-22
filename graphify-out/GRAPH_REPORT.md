@@ -5,12 +5,12 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2511 nodes · 7011 edges · 110 communities (104 shown, 6 thin omitted)
+- 2511 nodes · 7010 edges · 108 communities (103 shown, 5 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 496 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `13ac3f37`
+- Built from commit: `3d0c1423`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -116,8 +116,6 @@
 - cached_prices
 - test_gui.py
 - UpdateDialog.test.tsx
-- variant_rules
-- enum
 
 ## God Nodes (most connected - your core abstractions)
 1. `SiteResult` - 69 edges
@@ -160,15 +158,15 @@
 - **İdeasoft Platform Sites and Endpoint** — docs_discovery_report_dekantparfum_site, docs_discovery_report_dekantdoktoru_site, docs_discovery_report_ideasoft_related_options_endpoint, platforms_readme_ideasoft_json [EXTRACTED 1.00]
 - **discover Command Output Artifacts (profile + fixtures + CI validation)** — architecture_md_discover_flow, sites_readme_sites_dir, fixtures_readme_fixtures_dir, github_workflows_ci_validate_profiles_step, architecture_md_validate_command [INFERRED 0.85]
 
-## Communities (110 total, 6 thin omitted)
+## Communities (108 total, 5 thin omitted)
 
 ### Community 0 - "TUI App & Screens"
 Cohesion: 0.09
 Nodes (100): The Textual-based terminal UI: search and basket screens., _app(), _basket(), _cells(), _days_ago(), _leg(), _ok(), _open_basket() (+92 more)
 
 ### Community 1 - "Site Profiles & Templates"
-Cohesion: 0.06
-Nodes (79): _check_hook_kinds(), deep_merge(), _load_json(), load_platform_template(), load_platform_templates(), load_site_hooks(), load_site_profile(), Any (+71 more)
+Cohesion: 0.18
+Nodes (29): load_site_hooks(), Load hooks/<id>.py if that site has one, else return empty hooks.      A missing, Path, Tests for parfum_finder.profiles: loading, schema validation, platform merge.  T, test_load_platform_template_loads_and_validates(), test_load_platform_template_rejects_a_broken_template(), test_load_platform_templates_keys_them_by_file_name(), test_load_platform_templates_rejects_a_name_that_disagrees_with_its_file() (+21 more)
 
 ### Community 2 - "Title Matcher"
 Cohesion: 0.17
@@ -200,11 +198,11 @@ Nodes (53): basket Subset Enumeration + Local Improvement Algorithm, basket Opti
 
 ### Community 9 - "Search Engine Core"
 Cohesion: 0.08
-Nodes (55): HTMLParser, _check_variant_control(), _fetch_page(), _headers(), _is_excluded(), _page_evidence(), _page_offers_sizes(), _page_says_sold_out() (+47 more)
+Nodes (57): HTMLParser, _check_variant_control(), _fetch_page(), _headers(), _is_excluded(), _jitter_s(), _page_evidence(), _page_offers_sizes() (+49 more)
 
 ### Community 10 - "Basket Optimizer Core"
-Cohesion: 0.14
-Nodes (37): BasketItem, optimize(), Prices, Score one site against the basket, or against a subset of it.      `item_ids` is, Score every enabled site against the whole basket and sort the results.      Sit, Search for the cheapest way to split the basket across several sites.      Retur, One line of the shopping list: a basket row, not a unit count.      `item_id` is, One site's shipping terms, read once and reused for every scenario.      `free_s (+29 more)
+Cohesion: 0.12
+Nodes (44): BasketItem, optimize(), Prices, Score one site against the basket, or against a subset of it.      `item_ids` is, Score every enabled site against the whole basket and sort the results.      Sit, Search for the cheapest way to split the basket across several sites.      Retur, One line of the shopping list: a basket row, not a unit count.      `item_id` is, One site's shipping terms, read once and reused for every scenario.      `free_s (+36 more)
 
 ### Community 11 - "Basket Store & Pricing"
 Cohesion: 0.14
@@ -215,8 +213,8 @@ Cohesion: 0.15
 Nodes (30): extract_jsonld_products(), Read every JSON-LD Product declared on the page, in document order.      A block, _one_product_html(), Tests for parfum_finder.extract.  Every case here is a shape a real store actual, Wrap a JSON-LD product body in a page, for the one-field-at-a-time cases., test_a_broken_block_does_not_lose_the_valid_one(), test_availability_spellings_all_land_in_the_same_bucket(), test_boolean_values_are_never_read_as_price_or_text() (+22 more)
 
 ### Community 13 - "Basket TUI Screen"
-Cohesion: 0.15
-Nodes (20): PyInstaller entry point for the packaged desktop app.  Kept outside src/parfum_f, _close_window_when_asked(), _hold_app_mutex(), _kill_children_with_app(), main(), _ping(), Event, Path (+12 more)
+Cohesion: 0.08
+Nodes (47): PyInstaller entry point for the packaged desktop app.  Kept outside src/parfum_f, _close_window_when_asked(), _hold_app_mutex(), _kill_children_with_app(), main(), _ping(), Event, Path (+39 more)
 
 ### Community 14 - "Platform Schema"
 Cohesion: 0.06
@@ -227,8 +225,8 @@ Cohesion: 0.10
 Nodes (21): Check, _count_result_cards(), _first_result_url(), live_query(), _no_results_check(), _probe_layer(), _probe_other_layers(), Any (+13 more)
 
 ### Community 16 - "Schema Field Patterns"
-Cohesion: 0.06
-Nodes (33): format, pattern, type, pattern, type, default, type, pattern (+25 more)
+Cohesion: 0.05
+Nodes (39): css, embedded_json, endpoint, jsonld, format, pattern, type, pattern (+31 more)
 
 ### Community 17 - "Offline Profile Validation"
 Cohesion: 0.12
@@ -255,8 +253,8 @@ Cohesion: 0.14
 Nodes (6): Changed, Close out a submit that named no perfume anyone could look for., Show what storage already knows, then go to the shops for the rest.          `fo, Say a perfume came off the record instead of off the shops.          Without thi, Empty the table for a new scan.          The columns are the same every time now, Submitted
 
 ### Community 23 - "Price/Size Normalization"
-Cohesion: 0.10
-Nodes (31): _read_basket(), BasketReport, _ClimbState, compare_split_to_best_full(), _label(), Basket scenario evaluation. A pure function, no network access, no sqlite.  Inpu, Every site's single-site scenario, split by whether it covers everything.      A, One site's share of a split basket: what to buy there and what it costs.      `s (+23 more)
+Cohesion: 0.15
+Nodes (21): _check_hook_kinds(), _load_json(), load_platform_template(), load_platform_templates(), Any, Path, Site profile loading, schema validation, and platform-template merging.  Fields, Flatten one profile into the column order of the sites table.      The shipping (+13 more)
 
 ### Community 24 - "JSON Schema Primitives"
 Cohesion: 0.11
@@ -276,7 +274,7 @@ Nodes (17): Draft202012Validator, _load_schema(), _platform_validator(), Any, Te
 
 ### Community 28 - "Variant Rule Fields"
 Cohesion: 0.11
-Nodes (18): field, title, variant_label, items, type, type, exclusiveMinimum, type (+10 more)
+Nodes (19): exclude_keywords, field, max_size_ml, size_from, size_pattern, title, variant_label, exclusiveMinimum (+11 more)
 
 ### Community 29 - "Discovery CLI Reporting"
 Cohesion: 0.18
@@ -291,8 +289,8 @@ Cohesion: 0.06
 Nodes (47): Pattern, _brand_pattern(), _canonical(), _canonical_brands(), _covers(), _ends_with(), _index_of(), _match_text() (+39 more)
 
 ### Community 32 - "Variant Extraction Fields"
-Cohesion: 0.11
-Nodes (18): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+10 more)
+Cohesion: 0.12
+Nodes (16): attribute, script, type, additionalProperties, allOf, description, properties, type (+8 more)
 
 ### Community 33 - "_ResultRow"
 Cohesion: 0.09
@@ -303,8 +301,8 @@ Cohesion: 0.31
 Nodes (6): _FixtureFetcher, FormData, Headers, Method, Strategy, Serves one site's saved capture in place of the network.      Only three kinds o
 
 ### Community 35 - "Platform Field Mapping"
-Cohesion: 0.12
-Nodes (16): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+8 more)
+Cohesion: 0.18
+Nodes (11): field_map, product_json, source, variants_path, required, additionalProperties, allOf, description (+3 more)
 
 ### Community 36 - "Shipping Config Schema"
 Cohesion: 0.14
@@ -315,12 +313,12 @@ Cohesion: 0.17
 Nodes (19): _classify_single_separator(), format_ml(), _parse_number(), parse_price(), parse_size_ml(), Decimal, Number parsing and formatting for prices and volumes, plus text folding.  This i, Decide whether a lone separator marks a fraction or a thousands group.      Retu (+11 more)
 
 ### Community 38 - "TUI Confirm Dialog"
-Cohesion: 0.16
-Nodes (38): BaseModel, AcceptedSearch, _add_basket_item(), _AppState, BasketAddRequest, BasketQtyRequest, _load_profiles(), Any (+30 more)
+Cohesion: 0.15
+Nodes (43): BaseModel, AcceptedSearch, _add_basket_item(), _AppState, BasketAddRequest, BasketQtyRequest, The FastAPI app: a thin HTTP/WS wrapper around the Faz 1 services.  No business, _read_basket() (+35 more)
 
 ### Community 39 - "TUI App Shell"
-Cohesion: 0.11
-Nodes (5): HeaderSelected, RowSelected, Any, The initial screen: search bar, streaming results table, notices, footer., SearchScreen
+Cohesion: 0.15
+Nodes (3): HeaderSelected, The initial screen: search bar, streaming results table, notices, footer., SearchScreen
 
 ### Community 40 - "Fetch Backends"
 Cohesion: 0.14
@@ -331,8 +329,8 @@ Cohesion: 0.14
 Nodes (14): GET, POST, properties, default, enum, type, type, type (+6 more)
 
 ### Community 42 - "Fixture Fetcher (Tests)"
-Cohesion: 0.15
-Nodes (26): fetch_latest_release(), En son yayımlanmış sürüm, ya da ulaşılamadıysa None.      /releases/latest tasla, _enable_checks(), _factory(), _patch_get(), MonkeyPatch, Path, Tests for parfum_finder.updater: the version compare, the release read, and the (+18 more)
+Cohesion: 0.06
+Nodes (54): check_enabled(), check_for_update(), fetch_latest_release(), handoff_command(), _installer_asset(), is_newer(), launch_installer(), _no_update() (+46 more)
 
 ### Community 43 - "FieldConfidence"
 Cohesion: 0.14
@@ -371,12 +369,12 @@ Cohesion: 0.24
 Nodes (14): apply_variant_rules(), Turn raw size rows into decant variants, dropping what is not a decant.      Thr, Any, _row(), test_a_keyword_in_the_size_label_excludes_the_row_too(), test_a_literal_zero_price_reads_as_no_price_not_a_free_perfume(), test_a_size_at_the_threshold_is_a_bottle_whatever_it_calls_itself(), test_a_size_that_cannot_be_read_is_dropped() (+6 more)
 
 ### Community 52 - "FetchResult"
-Cohesion: 0.14
-Nodes (45): Lock, _record_search(), _sync_profiles(), Connection, Mirror site profiles into the sites table and return how many were written., sync_to_db(), Any, A site's display name, with a badge when its profile is old enough     to be wor (+37 more)
+Cohesion: 0.20
+Nodes (33): Lock, Any, A site's display name, with a badge when its profile is old enough     to be wor, Show what storage already knows, then go to the shops for the rest.      `force=, run_scan(), site_label(), _basket_row(), _collect() (+25 more)
 
 ### Community 53 - "conftest.py"
-Cohesion: 0.22
-Nodes (13): Collection, basket_inputs(), build_basket_rows(), BasketRow, Turn basket lines and their site prices into what the table shows.      Out of s, The three inputs site_scenario/optimize score: items, prices, shipping.      Bui, _basket_price(), _days_ago() (+5 more)
+Cohesion: 0.25
+Nodes (8): Collection, basket_inputs(), build_basket_rows(), _label(), BasketRow, Name one basket line the way a missing-item warning has to read it., Turn basket lines and their site prices into what the table shows.      Out of s, The three inputs site_scenario/optimize score: items, prices, shipping.      Bui
 
 ### Community 54 - "Endpoint Schema Fields"
 Cohesion: 0.22
@@ -391,8 +389,8 @@ Cohesion: 0.04
 Nodes (45): jsdom, motion, @playwright/test, react, react-dom, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event (+37 more)
 
 ### Community 57 - "_FixtureFetcher"
-Cohesion: 0.12
-Nodes (10): _Change, _remove_basket_item(), Delete one basket line, and say whether there was one to delete.      Returns Fa, remove_basket_item(), BasketScreen, BasketRow, Path, The basket: the list on top, one scenario per site underneath. (+2 more)
+Cohesion: 0.14
+Nodes (7): _Change, BasketScreen, BasketRow, Path, The basket: the list on top, one scenario per site underneath., _remove(), _set_qty()
 
 ### Community 58 - "setup_logging"
 Cohesion: 0.07
@@ -403,8 +401,8 @@ Cohesion: 0.18
 Nodes (20): _close_browser(), _close_session_browser(), _fetch_curl_cffi(), _fetch_httpx(), _fetch_playwright(), _folded(), _launch_browser(), Any (+12 more)
 
 ### Community 60 - "_wait_for_table"
-Cohesion: 0.15
-Nodes (18): extract_embedded_variants(), extract_jsonld_variants(), _flatten_jsonld(), Rung 1: read the page's JSON-LD as flat variant rows.      A product that declar, Turn one Product and everything under it into rows., Rung 3: read the JSON blob the page carries but does not display.      Two shape, _fixture(), Read a captured product page. (+10 more)
+Cohesion: 0.11
+Nodes (23): extract_embedded_variants(), extract_jsonld_variants(), _flatten_jsonld(), Rung 1: read the page's JSON-LD as flat variant rows.      A product that declar, Turn one Product and everything under it into rows., Rung 3: read the JSON blob the page carries but does not display.      Two shape, _LayerUnavailable, Exception (+15 more)
 
 ### Community 61 - "._apply_scan_event"
 Cohesion: 0.33
@@ -431,8 +429,8 @@ Cohesion: 0.18
 Nodes (17): _age_of(), _path(), profile_age_days(), datetime, Profile staleness checks. Two modes: offline (against saved fixtures) and live (, A URL's path with no trailing slash, for comparing two spellings of one page., Every site that has a profile, sorted so reports read the same way twice., Whole days between a profile's `discovered_at` and now.      Only the exact UTC (+9 more)
 
 ### Community 71 - "exclude_keywords"
-Cohesion: 0.17
-Nodes (5): format_age(), Turn a price age in days into the words the age column shows., ResultRow, Row, test_format_age_reads_as_words_not_a_timestamp()
+Cohesion: 0.14
+Nodes (6): RowSelected, format_age(), Turn a price age in days into the words the age column shows., ResultRow, Row, test_format_age_reads_as_words_not_a_timestamp()
 
 ### Community 72 - "write_snapshots"
 Cohesion: 0.50
@@ -444,19 +442,19 @@ Nodes (13): CacheKey, CandidateFilter, _candidates_to_open(), Path, Run every si
 
 ### Community 74 - "ConfirmDialog.tsx"
 Cohesion: 0.13
-Nodes (20): check_enabled(), check_for_update(), _installer_asset(), is_newer(), _no_update(), _pad(), parse_version(), Any (+12 more)
+Nodes (18): _record_search(), _sync_profiles(), Connection, Mirror site profiles into the sites table and return how many were written., sync_to_db(), connect(), now_iso(), Path (+10 more)
 
 ### Community 75 - "ResultRow"
-Cohesion: 0.08
-Nodes (41): _as_str(), _balanced_value(), _build_offer(), _build_product(), _coerce_in_stock(), _collect_offers(), _collect_products(), _collect_variants() (+33 more)
+Cohesion: 0.06
+Nodes (51): _as_str(), _balanced_value(), _build_offer(), _build_product(), _coerce_in_stock(), _collect_offers(), _collect_products(), _collect_variants() (+43 more)
 
 ### Community 76 - "SplitPlan"
-Cohesion: 0.24
-Nodes (10): _parse_selector(), Node, Run one "<css>::text" / "<css>::attr(name)" selector inside a node.      The nod, Run one "<css>::text" / "<css>::attr(name)" selector, reading every match., Split a "<css>::text" / "<css>::attr(name)" selector into its two parts., Read the attribute or text of one already-selected node, or None., _read_selected(), select_all() (+2 more)
+Cohesion: 0.21
+Nodes (18): load_site_profile(), Load one site profile, applying its platform template if it has one.      Return, Any, _fake_fetch(), _meta(), _path(), Proof that M4's own criterion holds: every real site profile drives the generic, The one real search-result card that led to this site's captured product.      C (+10 more)
 
 ### Community 77 - "_collect_products"
-Cohesion: 0.16
-Nodes (19): The cheapest basket split the search found. A heuristic, not a proof.      Every, SplitPlan, format_price(), Format a price for display (comma-thousands, dot-decimal).      Decimal('1250'), _heading(), _leg_block(), BasketReport, Prices (+11 more)
+Cohesion: 0.09
+Nodes (35): BasketReport, compare_split_to_best_full(), Basket scenario evaluation. A pure function, no network access, no sqlite.  Inpu, Every site's single-site scenario, split by whether it covers everything.      A, One site's share of a split basket: what to buy there and what it costs.      `s, The cheapest basket split the search found. A heuristic, not a proof.      Every, Whether a split plan beats the best full-coverage single site.      `best_full`, Score a split plan against the cheapest full-coverage single site.      Only the (+27 more)
 
 ### Community 78 - "validate_live"
 Cohesion: 0.25
@@ -479,8 +477,8 @@ Cohesion: 0.18
 Nodes (9): BaseHTTPRequestHandler, _Handler, _playwright_usable(), MonkeyPatch, Shared pytest fixtures.  A local HTTP server used by fetch/probe tests: real req, Whether the playwright rung can actually run here, binary included.      Checkin, Record every delay the engine asks for instead of serving it.      Waiting for r, server_url() (+1 more)
 
 ### Community 83 - "DownloadProgress"
-Cohesion: 0.22
-Nodes (9): extract_css_variants(), Rung 4: read the rendered markup with selectors. Last resort.      `config["vari, _LayerUnavailable, Exception, This profile carries no configuration for the layer being probed., Run one extraction layer over a product page's bytes., _rows_for_layer(), test_css_reads_one_row_per_container() (+1 more)
+Cohesion: 0.50
+Nodes (4): extract_css_variants(), Rung 4: read the rendered markup with selectors. Last resort.      `config["vari, test_css_reads_one_row_per_container(), test_css_without_a_container_reads_the_page_as_one_variant()
 
 ### Community 84 - "BasketScreen.tsx"
 Cohesion: 0.16
@@ -491,8 +489,8 @@ Cohesion: 0.25
 Nodes (7): _age_line(), format_live_report(), Every check run against one site's profile, in the order they ran.      Checks s, Whether the profile is old enough to be worth re-discovering., The age note for one site, or None when its age is unremarkable.      A profile, Render offline and live results side by side, as APP_FLOW §6 shows them.      Bo, SiteValidation
 
 ### Community 86 - "._scan"
-Cohesion: 0.26
-Nodes (18): default_db_path(), default_log_path(), ensure_user_data(), fixtures_dir(), hooks_dir(), is_frozen(), platforms_dir(), Path (+10 more)
+Cohesion: 0.18
+Nodes (11): _load_profiles(), Any, BasketRow, Path, _recent_searches(), _remove_basket_item(), _score_basket(), _set_basket_qty() (+3 more)
 
 ### Community 87 - "helpers.ts"
 Cohesion: 0.49
@@ -514,55 +512,51 @@ Nodes (3): ComposeResult, ComposeResult, Static
 Cohesion: 0.50
 Nodes (4): extract_endpoint_variants(), Rung 2: read the variant list out of a platform's JSON response.      `document`, test_endpoint_reads_every_size_from_one_response(), test_endpoint_without_a_field_map_reads_nothing()
 
+### Community 93 - "_jitter_s"
+Cohesion: 0.29
+Nodes (7): in_stock, price, size_raw, additionalProperties, required, type, field_map
+
 ### Community 94 - "Arayüz testleri"
 Cohesion: 0.40
 Nodes (4): Arayüz testleri, jsdom katmanı (`tests/`), Ne test edilmiyor, Tarayıcı katmanı (`e2e/`)
 
 ### Community 96 - "DownloadProgress"
-Cohesion: 0.18
-Nodes (8): Client, DownloadProgress, handoff_command(), launch_installer(), Path, Kurulumu biz kapandıktan sonra çalıştıran, sonra uygulamayı geri açan     cmd.ex, İndirmeyi başlatır. Zaten çalışıyorsa None., state: idle | downloading | ready | installing | error.
+Cohesion: 0.22
+Nodes (4): Client, DownloadProgress, İndirmeyi başlatır. Zaten çalışıyorsa None., state: idle | downloading | ready | installing | error.
 
 ### Community 97 - "test_paths.py"
 Cohesion: 0.38
 Nodes (11): _freeze(), MonkeyPatch, Path, Tests for parfum_finder.paths: frozen vs. source path resolution.  `ensure_user_, A source run has nothing to seed: resource_dir and user_data_dir are     already, test_ensure_user_data_is_a_noop_when_not_frozen(), test_ensure_user_data_never_overwrites_an_edited_file(), test_ensure_user_data_seeds_sites_platforms_and_hooks() (+3 more)
 
 ### Community 98 - "_FakeStreamResponse"
-Cohesion: 0.18
-Nodes (4): _FakeClient, _FakeStreamResponse, Any, Exception
+Cohesion: 0.29
+Nodes (7): items, type, type, items, type, exclude_keywords, needs_review
 
 ### Community 99 - "cached_prices"
 Cohesion: 0.12
 Nodes (17): conn(), Path, Tests for parfum_finder.store: the timestamp helper and the schema.  The one har, A disabled site loses its basket column, but an enabled quiet one keeps one., NULL means the site has no free shipping tier at all, not a threshold of zero., A snapshot pointing at a variant that doesn't exist has to be rejected.      SQL, Reopening an existing database must not wipe or re-raise on its schema., No history yet is a normal state for a variant, not an error to raise on. (+9 more)
 
 ### Community 102 - "test_gui.py"
-Cohesion: 0.29
-Nodes (9): Event, Path, Tests for parfum_finder.gui: the desktop entry point's headless path.  `run_wind, Bunu beklemeyen bir izleyici, uygulamayı kapanmaktan alıkoyar.      pywebview bu, _run_watcher(), test_selftest_boots_the_backend_and_exits_zero(), test_the_quit_watcher_closes_the_window_when_the_backend_asks(), test_the_quit_watcher_ends_when_the_window_closes() (+1 more)
+Cohesion: 0.33
+Nodes (6): deep_merge(), Recursively merge override onto base. override always wins on conflicts.      Ne, test_deep_merge_does_not_mutate_its_inputs(), test_deep_merge_fills_gaps_from_base(), test_deep_merge_override_wins_on_conflict(), test_deep_merge_replaces_arrays_wholesale_instead_of_combining()
 
 ### Community 103 - "UpdateDialog.test.tsx"
 Cohesion: 0.28
 Nodes (5): UpdateDialog(), UpdateInfo, UpdateProgress, INFO, updateProgress()
 
-### Community 104 - "variant_rules"
-Cohesion: 0.25
-Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules, additionalProperties, required, type
-
-### Community 105 - "enum"
-Cohesion: 0.33
-Nodes (6): css, embedded_json, endpoint, jsonld, enum, extraction
-
 ## Knowledge Gaps
-- **231 isolated node(s):** `View`, `Toast`, `BookmarkIconProps`, `variants`, `Notice` (+226 more)
+- **231 isolated node(s):** `parfum-finder`, `View`, `Toast`, `BookmarkIconProps`, `variants` (+226 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `parse_query()` connect `_ResultRow` to `Title Matcher`, `TUI Confirm Dialog`, `CLI Entry Points`, `Basket Store & Pricing`, `run_sites`, `Search TUI Screen`, `Candidate Filtering`, `Basket Site Scenarios`, `Live Profile Validation`?**
   _High betweenness centrality (0.027) - this node is a cross-community bridge._
-- **Why does `SearchScreen` connect `TUI App Shell` to `TUI App & Screens`, `_ResultRow`, `Search/Basket Domain Models`, `TUI Confirm Dialog`, `exclude_keywords`, `run_sites`, `Search TUI Screen`, `FetchResult`, `Candidate Filtering`, `Basket Site Scenarios`, `_FixtureFetcher`, `Static`, `.__init__`?**
+- **Why does `SearchScreen` connect `TUI App Shell` to `TUI App & Screens`, `_ResultRow`, `Search/Basket Domain Models`, `TUI Confirm Dialog`, `exclude_keywords`, `ConfirmDialog.tsx`, `run_sites`, `Search TUI Screen`, `Candidate Filtering`, `Basket Site Scenarios`, `_FixtureFetcher`, `Static`, `.__init__`?**
   _High betweenness centrality (0.026) - this node is a cross-community bridge._
-- **Why does `SiteResult` connect `run_sites` to `TUI App & Screens`, `Search/Basket Domain Models`, `TUI Confirm Dialog`, `_css_variant`, `Search Engine Core`, `FieldConfidence`, `_ResultRow`, `Offline Profile Validation`, `FetchResult`, `Candidate Filtering`, `Price/Size Normalization`, `._apply_scan_event`?**
+- **Why does `SiteResult` connect `run_sites` to `TUI App & Screens`, `Search/Basket Domain Models`, `TUI Confirm Dialog`, `_css_variant`, `Search Engine Core`, `FieldConfidence`, `_ResultRow`, `Offline Profile Validation`, `FetchResult`, `Candidate Filtering`, `._apply_scan_event`?**
   _High betweenness centrality (0.026) - this node is a cross-community bridge._
 - **Are the 25 inferred relationships involving `SiteResult` (e.g. with `RawVariant` and `Fetcher`) actually correct?**
   _`SiteResult` has 25 INFERRED edges - model-reasoned connections that need verification._
@@ -570,5 +564,5 @@ _Questions this graph is uniquely positioned to answer:_
   _`PerfumeQuery` has 23 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 14 inferred relationships involving `SearchScreen` (e.g. with `ParfumFinderApp` and `SiteRunner`) actually correct?**
   _`SearchScreen` has 14 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `View`, `Toast`, `BookmarkIconProps` to the rest of the system?**
+- **What connects `parfum-finder`, `View`, `Toast` to the rest of the system?**
   _231 weakly-connected nodes found - possible documentation gaps or missing edges._

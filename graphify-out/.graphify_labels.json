@@ -103,8 +103,6 @@
   "101": "setup.ts",
   "102": "test_gui.py",
   "103": "UpdateDialog.test.tsx",
-  "104": "variant_rules",
-  "105": "enum",
   "106": "AddButton.tsx",
   "107": "ConfirmDialog.tsx",
   "108": "ScanStatus.tsx",
