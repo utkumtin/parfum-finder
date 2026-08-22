@@ -29,10 +29,12 @@ function renderScreen(
     searches?: { index: number; text: string }[];
     rejected?: string[];
     finished?: boolean;
+    wishlist?: ResultRow[];
   } = {},
 ) {
   const notify = vi.fn();
   const onBasketChanged = vi.fn();
+  const onWishlistToggle = vi.fn();
   server.on("GET /api/results/:searchId", () => ({
     body: {
       rows,
@@ -48,9 +50,11 @@ function renderScreen(
       config={DEFAULT_CONFIG}
       onBasketChanged={onBasketChanged}
       notify={notify}
+      wishlist={options.wishlist}
+      onWishlistToggle={onWishlistToggle}
     />,
   );
-  return { notify, onBasketChanged };
+  return { notify, onBasketChanged, onWishlistToggle };
 }
 
 /** The row the table marked as the answer, by its title cell. */
@@ -85,6 +89,19 @@ function verdictAddButton(): HTMLElement {
 }
 
 describe("ResultsScreen blocks", () => {
+  it("marks saved rows and toggles the row that was clicked", async () => {
+    const row = resultRow({ product_url: null });
+    const { onWishlistToggle } = renderScreen([row], { wishlist: [row] });
+
+    const button = await screen.findByRole("button", {
+      name: "İstek listesinden çıkar",
+    });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(button);
+    expect(onWishlistToggle).toHaveBeenCalledWith(row);
+  });
+
   it("keeps the server's order and groups neighbouring rows into one block", async () => {
     // ranking.py orders every row at once and keeps (query_index, product) as
     // its outer keys, so a block is a run of neighbours. Re-grouping with a map

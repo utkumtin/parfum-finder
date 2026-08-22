@@ -18,6 +18,7 @@ let server: FakeServer;
 beforeEach(() => {
   server = installFakeServer();
   window.__PARFUM_TOKEN__ = "test-token";
+  window.localStorage.clear();
 });
 
 describe("App startup", () => {
@@ -55,6 +56,42 @@ describe("App startup", () => {
 });
 
 describe("App tabs", () => {
+  it("opens the wishlist from the bookmark tab", async () => {
+    render(<App />);
+    await screen.findByRole("button", { name: /^Ara$/ });
+
+    await userEvent.click(screen.getByRole("button", { name: "İstek listesi" }));
+
+    expect(
+      screen.getByRole("heading", { name: "İstek listesi" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Henüz istek listenize ürün eklemediniz.")).toBeInTheDocument();
+  });
+
+  it("adds a result to the wishlist and shows it on the saved-products screen", async () => {
+    const row = resultRow({ product_url: null });
+    server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
+    server.on("GET /api/results/:searchId", () => ({
+      body: { rows: [row], hidden_out_of_stock: 0, finished: true },
+    }));
+    render(<App />);
+    await screen.findByRole("button", { name: /^Ara$/ });
+
+    await userEvent.type(
+      screen.getByLabelText("Aranacak parfümler"),
+      "Dior Sauvage EDP{Enter}",
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "İstek listesine ekle" }),
+    );
+
+    const tab = screen.getByRole("button", { name: "İstek listesi" });
+    await waitFor(() => expect(tab).toHaveTextContent("1"));
+    await userEvent.click(tab);
+    expect(await screen.findByText(row.raw_title)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "İstek listesinden çıkar" })).toBeInTheDocument();
+  });
+
   it("keeps the results tab shut until there is a search to show", async () => {
     render(<App />);
     await screen.findByRole("button", { name: /^Ara$/ });

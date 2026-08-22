@@ -271,6 +271,12 @@ input {
   background: rgba(242, 236, 228, 0.17);
   color: var(--text);
 }
+.wishlist-tab {
+  padding-inline: 0.6875rem;
+}
+.wishlist-tab svg {
+  display: block;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .tab-pill,
@@ -1233,6 +1239,12 @@ table.rows tbody tr .perml.best {
   text-align: right;
   width: 3rem;
 }
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3125rem;
+}
 /* ".button.add-button", not ".add-button": ".button.quiet" carries the same
    two-class specificity, and being the "quiet" variant it was winning the
    padding, background, border-color and color that this circular button
@@ -1254,6 +1266,33 @@ table.rows tbody tr .perml.best {
     background 0.45s var(--ease),
     color 0.45s var(--ease),
     border-color 0.45s var(--ease);
+}
+.button.wishlist-button {
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-3);
+  color: var(--text-dim);
+  display: inline-grid;
+  place-items: center;
+  transition:
+    background 0.45s var(--ease),
+    color 0.45s var(--ease),
+    border-color 0.45s var(--ease);
+}
+.button.wishlist-button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.button.wishlist-button.saved {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-dim);
+}
+.wishlist-button svg {
+  display: block;
 }
 .button.add-button:hover:not(:disabled) {
   background: var(--text);

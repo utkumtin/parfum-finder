@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, api } from "./api/client";
 import { UpdateDialog } from "./components/UpdateDialog";
+import { BookmarkIcon } from "./components/BookmarkIcon";
 import { BasketScreen } from "./screens/BasketScreen";
 import { ResultsScreen } from "./screens/ResultsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
-import type { AppConfig, SearchStart, UpdateInfo } from "./types";
+import { WishlistScreen } from "./screens/WishlistScreen";
+import { loadWishlist, saveWishlist, wishlistKey } from "./lib/wishlist";
+import type { AppConfig, ResultRow, SearchStart, UpdateInfo } from "./types";
 
-type View = "search" | "results" | "basket";
+type View = "search" | "results" | "wishlist" | "basket";
 
 interface Toast {
   message: string;
@@ -19,6 +22,7 @@ export function App() {
   const [startupError, setStartupError] = useState<string | null>(null);
   const [view, setView] = useState<View>("search");
   const [search, setSearch] = useState<SearchStart | null>(null);
+  const [wishlist, setWishlist] = useState<ResultRow[]>(loadWishlist);
   const [toast, setToast] = useState<Toast | null>(null);
   // Bumped whenever the basket changed under the basket screen's feet, so
   // switching to it shows the addition rather than a stale read.
@@ -101,12 +105,23 @@ export function App() {
     };
   }, [basketVersion]);
 
+  useEffect(() => {
+    saveWishlist(wishlist);
+  }, [wishlist]);
+
   const notify = useCallback((message: string, kind: "info" | "error") => {
     setToast({ message, kind });
     window.setTimeout(() => setToast(null), 3000);
   }, []);
 
   const onBasketChanged = useCallback(() => setBasketVersion((v) => v + 1), []);
+  const onWishlistToggle = useCallback((row: ResultRow) => {
+    setWishlist((current) =>
+      current.some((saved) => wishlistKey(saved) === wishlistKey(row))
+        ? current.filter((saved) => wishlistKey(saved) !== wishlistKey(row))
+        : [...current, row],
+    );
+  }, []);
 
   if (startupError !== null) {
     return (
@@ -152,6 +167,17 @@ export function App() {
           </button>
           <button
             type="button"
+            className="tab wishlist-tab"
+            aria-label="İstek listesi"
+            title="İstek listesi"
+            aria-current={view === "wishlist" ? "page" : undefined}
+            onClick={() => setView("wishlist")}
+          >
+            <BookmarkIcon aria-hidden="true" />
+            {wishlist.length > 0 && <span className="tab-count">{wishlist.length}</span>}
+          </button>
+          <button
+            type="button"
             className="tab"
             aria-current={view === "basket" ? "page" : undefined}
             onClick={() => setView("basket")}
@@ -188,8 +214,19 @@ export function App() {
               config={config}
               onBasketChanged={onBasketChanged}
               notify={notify}
+              wishlist={wishlist}
+              onWishlistToggle={onWishlistToggle}
             />
           ))}
+        {view === "wishlist" && (
+          <WishlistScreen
+            rows={wishlist}
+            config={config}
+            notify={notify}
+            onBasketChanged={onBasketChanged}
+            onWishlistToggle={onWishlistToggle}
+          />
+        )}
         {view === "basket" && (
           <BasketScreen
             // Not a key: remounting on every change would throw away the

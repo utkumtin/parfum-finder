@@ -6,7 +6,10 @@ import { Badge } from "../components/Badge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ScanStatus } from "../components/ScanStatus";
 import { VerdictAddButton } from "../components/VerdictAddButton";
+import { WishlistButton } from "../components/WishlistButton";
+import { basketKey } from "../lib/basket";
 import { formatAge, formatMl, formatPerMl, formatPrice } from "../lib/format";
+import { wishlistKey } from "../lib/wishlist";
 import type {
   AcceptedSearch,
   AppConfig,
@@ -49,18 +52,6 @@ function toBlocks(rows: ResultRow[]): Block[] {
 
 /** The sizes a trial buy is offered in, smallest first, in tenths of a ml. */
 const TRIAL_SIZES_ML_X10 = [30, 50];
-
-/**
- * Identifies a row against a basket line the same way store.py's
- * add_basket_item does: brand, name, concentration and size together are
- * the basket's own uniqueness key, so matching on anything narrower could
- * mark the wrong size as already added.
- */
-function basketKey(
-  item: Pick<ResultRow, "brand" | "name" | "concentration" | "size_ml_x10">,
-): string {
-  return `${item.brand}|${item.name}|${item.concentration}|${item.size_ml_x10}`;
-}
 
 interface Verdicts {
   /** Lowest price per ml: what to buy when the intent is to wear it. */
@@ -126,6 +117,8 @@ export function ResultsScreen({
   config,
   onBasketChanged,
   notify,
+  wishlist = [],
+  onWishlistToggle = () => {},
 }: {
   searchId: string;
   searches: AcceptedSearch[];
@@ -133,6 +126,8 @@ export function ResultsScreen({
   config: AppConfig;
   onBasketChanged: () => void;
   notify: (message: string, kind: "info" | "error") => void;
+  wishlist?: ResultRow[];
+  onWishlistToggle?: (row: ResultRow) => void;
 }) {
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [finished, setFinished] = useState(false);
@@ -272,6 +267,10 @@ export function ResultsScreen({
   }, [searchId, sort, revision, notify]);
 
   const blocks = useMemo(() => toBlocks(rows), [rows]);
+  const wishlistKeys = useMemo(
+    () => new Set(wishlist.map(wishlistKey)),
+    [wishlist],
+  );
 
   const addToBasket = useCallback(
     async (row: ResultRow, confirmed: boolean): Promise<boolean> => {
@@ -435,13 +434,13 @@ export function ResultsScreen({
                       product title instead of pushing the price columns out
                       from under their own headers. */}
                   <colgroup>
-                    <col style={{ width: "34%" }} />
+                    <col style={{ width: "31%" }} />
                     <col style={{ width: "15%" }} />
                     <col style={{ width: "8%" }} />
                     <col style={{ width: "13%" }} />
                     <col style={{ width: "13%" }} />
                     <col style={{ width: "11%" }} />
-                    <col style={{ width: "6%" }} />
+                    <col style={{ width: "9%" }} />
                   </colgroup>
                   <thead>
                     <tr>
@@ -559,10 +558,16 @@ export function ResultsScreen({
                               )}
                             </td>
                             <td className="add-cell">
-                              <AddButton
-                                onAdd={() => addToBasket(row, false)}
-                                inBasket={basketKeys.has(basketKey(row))}
-                              />
+                              <div className="row-actions">
+                                <WishlistButton
+                                  inWishlist={wishlistKeys.has(wishlistKey(row))}
+                                  onToggle={() => onWishlistToggle(row)}
+                                />
+                                <AddButton
+                                  onAdd={() => addToBasket(row, false)}
+                                  inBasket={basketKeys.has(basketKey(row))}
+                                />
+                              </div>
                             </td>
                           </tr>
                       ))}

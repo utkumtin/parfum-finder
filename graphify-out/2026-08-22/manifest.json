@@ -495,8 +495,8 @@
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
-    "mtime": 1787262030.212425,
-    "ast_hash": "1df5a30de7e1601807d07a93ce96bdb8",
+    "mtime": 1787410247.886076,
+    "ast_hash": "4da2854ffa20f30229d67d7b111304a3",
     "semantic_hash": ""
   },
   "ui/src/api/client.ts": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1787051993.017209,
-    "ast_hash": "d6e336478bd2a5eef06ffd310e5382fa",
+    "mtime": 1787410874.8638113,
+    "ast_hash": "ee58cc00aca2e2aed256f7fd1222598d",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/build-windows.yml": {
-    "mtime": 1786988941.6084394,
-    "ast_hash": "07867dacd7e4c21e0b39941a68f5ca2e",
+    "mtime": 1787407840.3788536,
+    "ast_hash": "bd05e880891f755576e371664f020529",
     "semantic_hash": ""
   },
   "ui/src/components/AddButton.tsx": {
@@ -625,13 +625,13 @@
     "semantic_hash": ""
   },
   "ui/e2e/helpers.ts": {
-    "mtime": 1787264515.6377752,
-    "ast_hash": "5371625cf5ec0eda93d1a6b3b26cfb08",
+    "mtime": 1787410926.6402082,
+    "ast_hash": "e201c5f9b1502dd52bf8acc837555e92",
     "semantic_hash": ""
   },
   "ui/e2e/search.spec.ts": {
-    "mtime": 1786972835.28572,
-    "ast_hash": "3aa8c3d5b0bcac7d4c37e6f08d5b7e6a",
+    "mtime": 1787410907.681429,
+    "ast_hash": "55e90b04665a85a4a5bc209c91042647",
     "semantic_hash": ""
   },
   "ui/playwright.config.ts": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1787265429.4186964,
-    "ast_hash": "cfe009601e053b2a329eba156e7f723d",
+    "mtime": 1787410287.079622,
+    "ast_hash": "2253a114fc4c48785c75a409524adcd0",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {
@@ -680,8 +680,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/ResultsScreen.test.tsx": {
-    "mtime": 1787052327.715205,
-    "ast_hash": "e2dc89a1b8c42d9376133e50d1491bef",
+    "mtime": 1787410287.008623,
+    "ast_hash": "f9063f1761369496c96c963f056ef7e3",
     "semantic_hash": ""
   },
   "ui/tests/screens/SearchScreen.test.tsx": {
@@ -707,6 +707,31 @@
   "ui/src/components/VerdictAddButton.tsx": {
     "mtime": 1787054422.2170682,
     "ast_hash": "e321668c4df75febf5047196807cdc52",
+    "semantic_hash": ""
+  },
+  "ui/src/components/BookmarkIcon.tsx": {
+    "mtime": 1787410301.06546,
+    "ast_hash": "988ebf837531f7854d26e489c1a60d8b",
+    "semantic_hash": ""
+  },
+  "ui/src/components/WishlistButton.tsx": {
+    "mtime": 1787410202.411603,
+    "ast_hash": "085123a35f944577cd52387ec15bde5a",
+    "semantic_hash": ""
+  },
+  "ui/src/lib/basket.ts": {
+    "mtime": 1787410247.7360778,
+    "ast_hash": "2d4ba3c3dab1a59d985f200b0d86c938",
+    "semantic_hash": ""
+  },
+  "ui/src/lib/wishlist.ts": {
+    "mtime": 1787410202.3346038,
+    "ast_hash": "794ee5c0946a50bcdcab9c7ba99ec89f",
+    "semantic_hash": ""
+  },
+  "ui/src/screens/WishlistScreen.tsx": {
+    "mtime": 1787410874.9348104,
+    "ast_hash": "7745867fe414dd09a9d27dafd529d93f",
     "semantic_hash": ""
   }
 }

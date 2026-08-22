@@ -18,6 +18,40 @@ test("a search fills the table from the shops that stock the perfume", async ({
   await expect(table.getByText("Beta Dekant").first()).toBeVisible();
 });
 
+test("the results and wishlist action buttons stay inside their tables", async ({
+  page,
+}) => {
+  await openApp(page);
+  await search(page, "Dior Sauvage EDP");
+
+  const resultTable = page.getByRole("table").first();
+  const resultActions = resultTable.locator(".row-actions").first();
+  await expect(resultActions).toBeVisible();
+
+  const resultBounds = await resultTable.boundingBox();
+  const resultActionBounds = await resultActions.boundingBox();
+  if (resultBounds === null || resultActionBounds === null)
+    throw new Error("the results table actions are not measurable");
+  expect(resultActionBounds.x + resultActionBounds.width).toBeLessThanOrEqual(
+    resultBounds.x + resultBounds.width,
+  );
+
+  await resultActions.getByRole("button", { name: "İstek listesine ekle" }).click();
+  await tab(page, "İstek listesi").click();
+
+  const wishlistTable = page.getByRole("table");
+  const wishlistActions = wishlistTable.locator(".row-actions");
+  await expect(wishlistActions).toBeVisible();
+
+  const wishlistBounds = await wishlistTable.boundingBox();
+  const wishlistActionBounds = await wishlistActions.boundingBox();
+  if (wishlistBounds === null || wishlistActionBounds === null)
+    throw new Error("the wishlist table actions are not measurable");
+  expect(wishlistActionBounds.x + wishlistActionBounds.width).toBeLessThanOrEqual(
+    wishlistBounds.x + wishlistBounds.width,
+  );
+});
+
 test("the recommendation names a sample size and the shop selling it", async ({
   page,
 }) => {

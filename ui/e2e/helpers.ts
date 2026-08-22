@@ -2,13 +2,16 @@ import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
 /**
- * One of the three tabs in the toolbar.
+ * One of the toolbar tabs.
  *
  * Scoped to the header because "Sepet" also starts the name of every "Sepete
  * ekle" button in the table, and the tab's own name grows a count when the
  * basket is not empty.
  */
-export function tab(page: Page, name: "Arama" | "Sonuçlar" | "Sepet"): Locator {
+export function tab(
+  page: Page,
+  name: "Arama" | "Sonuçlar" | "İstek listesi" | "Sepet",
+): Locator {
   return page.locator("header.toolbar").getByRole("button", { name });
 }
 
