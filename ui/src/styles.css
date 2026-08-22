@@ -1807,6 +1807,9 @@ details.more summary:hover {
 .update-dialog {
   width: min(34rem, 100%);
 }
+.button.primary.update-action {
+  padding-inline: 1rem;
+}
 .update-notes {
   max-height: 15rem;
   overflow-y: auto;

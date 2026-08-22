@@ -18,7 +18,6 @@ let server: FakeServer;
 beforeEach(() => {
   server = installFakeServer();
   window.__PARFUM_TOKEN__ = "test-token";
-  window.localStorage.clear();
 });
 
 describe("App startup", () => {
@@ -56,6 +55,30 @@ describe("App startup", () => {
 });
 
 describe("App tabs", () => {
+  it("loads saved items from the backend before enabling wishlist actions", async () => {
+    const row = resultRow({ product_url: null });
+    server.reply("GET /api/wishlist", { rows: [row] });
+
+    render(<App />);
+    await screen.findByRole("button", { name: /^Ara$/ });
+
+    const tab = screen.getByRole("button", { name: "İstek listesi" });
+    expect(tab).toHaveTextContent("1");
+    await userEvent.click(tab);
+    expect(await screen.findByText(row.raw_title)).toBeInTheDocument();
+  });
+
+  it("keeps wishlist actions unavailable when saved items cannot be loaded", async () => {
+    server.on("GET /api/wishlist", () => ({ status: 500, body: { detail: "wishlist yok" } }));
+
+    render(<App />);
+    await screen.findByRole("button", { name: /^Ara$/ });
+    await userEvent.click(screen.getByRole("button", { name: "İstek listesi" }));
+
+    expect(await screen.findByText("İstek listesi yükleniyor…")).toBeInTheDocument();
+    expect(screen.getByText("wishlist yok")).toBeInTheDocument();
+  });
+
   it("opens the wishlist from the bookmark tab", async () => {
     render(<App />);
     await screen.findByRole("button", { name: /^Ara$/ });
@@ -85,11 +108,90 @@ describe("App tabs", () => {
       await screen.findByRole("button", { name: "İstek listesine ekle" }),
     );
 
+    expect(server.requestsTo("PUT", "/api/wishlist/items")).toHaveLength(1);
+
     const tab = screen.getByRole("button", { name: "İstek listesi" });
     await waitFor(() => expect(tab).toHaveTextContent("1"));
     await userEvent.click(tab);
     expect(await screen.findByText(row.raw_title)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "İstek listesinden çıkar" })).toBeInTheDocument();
+  });
+
+  it("removes a hydrated item using its complete identity", async () => {
+    const row = resultRow({ product_url: null });
+    server.reply("GET /api/wishlist", { rows: [row] });
+
+    render(<App />);
+    await screen.findByRole("button", { name: /^Ara$/ });
+    const tab = screen.getByRole("button", { name: "İstek listesi" });
+    await userEvent.click(tab);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "İstek listesinden çıkar" }),
+    );
+
+    await screen.findByText("Henüz istek listenize ürün eklemediniz.");
+    expect(server.requestsTo("DELETE", "/api/wishlist/items")[0]?.body).toEqual({
+      site_id: row.site_id,
+      brand: row.brand,
+      name: row.name,
+      concentration: row.concentration,
+      size_ml_x10: row.size_ml_x10,
+    });
+    expect(tab).not.toHaveTextContent("1");
+  });
+
+  it("keeps local state unchanged when a wishlist mutation fails", async () => {
+    const row = resultRow({ product_url: null });
+    server.reply("PUT /api/wishlist/items", { detail: "kaydedilemedi" }, 500);
+    server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
+    server.on("GET /api/results/:searchId", () => ({
+      body: { rows: [row], hidden_out_of_stock: 0, finished: true },
+    }));
+
+    render(<App />);
+    await userEvent.type(
+      await screen.findByLabelText("Aranacak parfümler"),
+      "Dior Sauvage EDP{Enter}",
+    );
+    const button = await screen.findByRole("button", { name: "İstek listesine ekle" });
+    await userEvent.click(button);
+
+    expect(await screen.findByText("kaydedilemedi")).toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "İstek listesi" })).not.toHaveTextContent(
+      "1",
+    );
+  });
+
+  it("allows only one wishlist mutation per item at a time", async () => {
+    const row = resultRow({ product_url: null });
+    let finish!: () => void;
+    const held = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    server.on("PUT /api/wishlist/items", async () => {
+      await held;
+      return { status: 204 };
+    });
+    server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
+    server.on("GET /api/results/:searchId", () => ({
+      body: { rows: [row], hidden_out_of_stock: 0, finished: true },
+    }));
+
+    render(<App />);
+    await userEvent.type(
+      await screen.findByLabelText("Aranacak parfümler"),
+      "Dior Sauvage EDP{Enter}",
+    );
+    const button = await screen.findByRole("button", { name: "İstek listesine ekle" });
+
+    await userEvent.click(button);
+    expect(button).toBeDisabled();
+    await userEvent.click(button);
+    expect(server.requestsTo("PUT", "/api/wishlist/items")).toHaveLength(1);
+
+    finish();
+    await waitFor(() => expect(button).not.toBeDisabled());
   });
 
   it("keeps the results tab shut until there is a search to show", async () => {

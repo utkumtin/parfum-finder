@@ -88,7 +88,10 @@ from parfum_finder.store import (
     recent_searches,
     record_search,
     remove_basket_item,
+    remove_wishlist_item,
+    save_wishlist_item,
     set_basket_qty,
+    wishlist_rows,
 )
 from parfum_finder.updater import UpdateDownload, check_for_update
 from parfum_finder.validate import (
@@ -158,6 +161,30 @@ class BasketAddRequest(BaseModel):
 
 class BasketQtyRequest(BaseModel):
     qty: int = Field(ge=1)
+
+
+class WishlistIdentityRequest(BaseModel):
+    site_id: str
+    brand: str
+    name: str
+    concentration: str
+    size_ml_x10: int = Field(gt=0)
+
+
+class WishlistItemRequest(WishlistIdentityRequest):
+    site_label: str
+    query_index: int
+    product: str
+    raw_title: str
+    price_kurus: int | None
+    price_per_ml_kurus: str | None
+    in_stock: bool | None
+    match_score: int
+    confident: bool
+    product_url: str | None
+    clone_of: str
+    own_identity: bool
+    age_days: int
 
 
 class RefreshRequest(BaseModel):
@@ -413,6 +440,30 @@ def create_app(
             "finished": session.finished,
         }
 
+    # -- wishlist --------------------------------------------------------
+
+    @app.get("/api/wishlist", dependencies=[auth])
+    async def get_wishlist(request: Request) -> dict[str, Any]:
+        app_state = get_state(request)
+        rows = await asyncio.to_thread(_read_wishlist, app_state.db_path)
+        return {"rows": rows}
+
+    @app.put("/api/wishlist/items", dependencies=[auth])
+    async def put_wishlist_item(
+        request: Request, body: WishlistItemRequest
+    ) -> Response:
+        app_state = get_state(request)
+        await asyncio.to_thread(_save_wishlist_item, app_state.db_path, body)
+        return Response(status_code=204)
+
+    @app.delete("/api/wishlist/items", dependencies=[auth])
+    async def delete_wishlist_item(
+        request: Request, body: WishlistIdentityRequest
+    ) -> Response:
+        app_state = get_state(request)
+        await asyncio.to_thread(_remove_wishlist_item, app_state.db_path, body)
+        return Response(status_code=204)
+
     # -- basket ----------------------------------------------------------
 
     @app.post("/api/basket/items", dependencies=[auth])
@@ -651,6 +702,45 @@ def _remove_basket_item(db_path: Path, item_id: int) -> bool:
     conn = connect(db_path)
     try:
         return remove_basket_item(conn, basket_item_id=item_id)
+    finally:
+        conn.close()
+
+
+def _save_wishlist_item(db_path: Path, body: WishlistItemRequest) -> None:
+    conn = connect(db_path)
+    try:
+        save_wishlist_item(
+            conn,
+            site_id=body.site_id,
+            brand=body.brand,
+            name=body.name,
+            concentration=body.concentration,
+            size_ml_x10=body.size_ml_x10,
+            row_json=body.model_dump_json(),
+        )
+    finally:
+        conn.close()
+
+
+def _read_wishlist(db_path: Path) -> list[dict[str, Any]]:
+    conn = connect(db_path)
+    try:
+        return [json.loads(row) for row in wishlist_rows(conn)]
+    finally:
+        conn.close()
+
+
+def _remove_wishlist_item(db_path: Path, body: WishlistIdentityRequest) -> None:
+    conn = connect(db_path)
+    try:
+        remove_wishlist_item(
+            conn,
+            site_id=body.site_id,
+            brand=body.brand,
+            name=body.name,
+            concentration=body.concentration,
+            size_ml_x10=body.size_ml_x10,
+        )
     finally:
         conn.close()
 

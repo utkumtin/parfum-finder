@@ -447,6 +447,105 @@ def test_results_404s_for_an_unknown_search_id(client: tuple[TestClient, str]) -
     assert response.status_code == 404
 
 
+# -- wishlist ---------------------------------------------------------------
+
+
+def _wishlist_row(**overrides: Any) -> dict[str, Any]:
+    row = {
+        "site_id": "site-a",
+        "site_label": "Site A",
+        "query_index": 0,
+        "product": "Dior Sauvage EDP",
+        "raw_title": "Dior Sauvage EDP 5 ml",
+        "size_ml_x10": 50,
+        "price_kurus": 25_000,
+        "price_per_ml_kurus": "5000",
+        "in_stock": True,
+        "match_score": 95,
+        "confident": True,
+        "brand": "dior",
+        "name": "sauvage",
+        "concentration": "EDP",
+        "product_url": "https://example.com/sauvage",
+        "clone_of": "",
+        "own_identity": True,
+        "age_days": 0,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_wishlist_crud_is_idempotent_and_preserves_saved_order(
+    sites_dir: Path, db_path: Path
+) -> None:
+    first = _wishlist_row()
+    updated = _wishlist_row(price_kurus=20_000, price_per_ml_kurus="4000")
+    second = _wishlist_row(
+        size_ml_x10=100,
+        raw_title="Dior Sauvage EDP 10 ml",
+        price_kurus=35_000,
+        price_per_ml_kurus="3500",
+    )
+    for c, token in _client(sites_dir, db_path, _static_runner({})):
+        assert (
+            c.put("/api/wishlist/items", headers=_auth(token), json=first).status_code
+            == 204
+        )
+        assert (
+            c.put("/api/wishlist/items", headers=_auth(token), json=second).status_code
+            == 204
+        )
+        assert (
+            c.put("/api/wishlist/items", headers=_auth(token), json=updated).status_code
+            == 204
+        )
+
+        saved = c.get("/api/wishlist", headers=_auth(token)).json()["rows"]
+        assert saved == [updated, second]
+
+        identity = {
+            key: first[key]
+            for key in ("site_id", "brand", "name", "concentration", "size_ml_x10")
+        }
+        assert (
+            c.request(
+                "DELETE", "/api/wishlist/items", headers=_auth(token), json=identity
+            ).status_code
+            == 204
+        )
+        assert (
+            c.request(
+                "DELETE", "/api/wishlist/items", headers=_auth(token), json=identity
+            ).status_code
+            == 204
+        )
+        assert c.get("/api/wishlist", headers=_auth(token)).json()["rows"] == [second]
+
+
+def test_wishlist_rejects_an_invalid_variant_size(
+    sites_dir: Path, db_path: Path
+) -> None:
+    for c, token in _client(sites_dir, db_path, _static_runner({})):
+        response = c.put(
+            "/api/wishlist/items",
+            headers=_auth(token),
+            json=_wishlist_row(size_ml_x10=0),
+        )
+        assert response.status_code == 422
+
+
+def test_wishlist_survives_app_recreation(sites_dir: Path, db_path: Path) -> None:
+    row = _wishlist_row()
+    for c, token in _client(sites_dir, db_path, _static_runner({})):
+        assert (
+            c.put("/api/wishlist/items", headers=_auth(token), json=row).status_code
+            == 204
+        )
+
+    for c, token in _client(sites_dir, db_path, _static_runner({})):
+        assert c.get("/api/wishlist", headers=_auth(token)).json()["rows"] == [row]
+
+
 # -- basket -----------------------------------------------------------------
 
 
@@ -540,6 +639,17 @@ def test_basket_crud_and_report(sites_dir: Path, db_path: Path) -> None:
         empty = c.get("/api/basket", headers=_auth(token)).json()
         assert empty["rows"] == []
         assert empty["best_combination"] is None
+
+
+def test_basket_survives_app_recreation(sites_dir: Path, db_path: Path) -> None:
+    _seed_priced_perfume(sites_dir, db_path)
+    for c, token in _client(sites_dir, db_path, _static_runner({})):
+        assert _scan_then_add(c, token).status_code == 200
+
+    for c, token in _client(sites_dir, db_path, _static_runner({})):
+        rows = c.get("/api/basket", headers=_auth(token)).json()["rows"]
+        assert len(rows) == 1
+        assert rows[0]["qty"] == 1
 
 
 def test_patch_unknown_basket_item_404s(client: tuple[TestClient, str]) -> None:

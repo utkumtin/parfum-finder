@@ -8,13 +8,16 @@ import type {
   BasketResponse,
   RecentSearch,
   RefreshStart,
+  ResultRow,
   ResultsResponse,
   SearchStart,
   SiteSummary,
   SortKey,
   UpdateInfo,
   UpdateProgress,
+  WishlistResponse,
 } from "../types";
+import { wishlistIdentity } from "../lib/wishlist";
 
 declare global {
   interface Window {
@@ -88,6 +91,17 @@ export const api = {
     const suffix = sort ? `?sort=${sort}` : "";
     return request<ResultsResponse>(`/api/results/${searchId}${suffix}`);
   },
+
+  wishlist: () => request<WishlistResponse>("/api/wishlist"),
+
+  saveWishlistItem: (row: ResultRow) =>
+    request<void>("/api/wishlist/items", { method: "PUT", json: row }),
+
+  removeWishlistItem: (row: ResultRow) =>
+    request<void>("/api/wishlist/items", {
+      method: "DELETE",
+      json: wishlistIdentity(row),
+    }),
 
   basket: () => request<BasketResponse>("/api/basket"),
 

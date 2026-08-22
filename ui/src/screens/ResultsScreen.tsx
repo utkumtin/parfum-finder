@@ -118,6 +118,8 @@ export function ResultsScreen({
   onBasketChanged,
   notify,
   wishlist = [],
+  wishlistReady = true,
+  pendingWishlistKeys = new Set<string>(),
   onWishlistToggle = () => {},
 }: {
   searchId: string;
@@ -127,7 +129,9 @@ export function ResultsScreen({
   onBasketChanged: () => void;
   notify: (message: string, kind: "info" | "error") => void;
   wishlist?: ResultRow[];
-  onWishlistToggle?: (row: ResultRow) => void;
+  wishlistReady?: boolean;
+  pendingWishlistKeys?: Set<string>;
+  onWishlistToggle?: (row: ResultRow) => void | Promise<void>;
 }) {
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [finished, setFinished] = useState(false);
@@ -561,7 +565,12 @@ export function ResultsScreen({
                               <div className="row-actions">
                                 <WishlistButton
                                   inWishlist={wishlistKeys.has(wishlistKey(row))}
-                                  onToggle={() => onWishlistToggle(row)}
+                                  disabled={
+                                    !wishlistReady ||
+                                    pendingWishlistKeys.has(wishlistKey(row))
+                                  }
+                                  pending={pendingWishlistKeys.has(wishlistKey(row))}
+                                  onToggle={() => void onWishlistToggle(row)}
                                 />
                                 <AddButton
                                   onAdd={() => addToBasket(row, false)}

@@ -24,7 +24,7 @@ from pathlib import Path
 import uvicorn
 
 from parfum_finder import paths
-from parfum_finder.api.app import DEFAULT_DB_PATH, DEFAULT_SITES_DIR, create_app
+from parfum_finder.api.app import create_app
 
 _WINDOW_TITLE = "parfum-finder"
 
@@ -64,8 +64,8 @@ def _start_server(
     port = sock.getsockname()[1]
 
     app = create_app(
-        sites_dir=sites_dir if sites_dir is not None else DEFAULT_SITES_DIR,
-        db_path=db_path if db_path is not None else DEFAULT_DB_PATH,
+        sites_dir=sites_dir if sites_dir is not None else paths.sites_dir(),
+        db_path=db_path if db_path is not None else paths.default_db_path(),
         request_quit=request_quit,
     )
     token: str = app.state.parfum.auth_token

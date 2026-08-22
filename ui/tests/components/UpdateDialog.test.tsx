@@ -37,6 +37,14 @@ function renderDialog(info: UpdateInfo = INFO) {
 }
 
 describe("UpdateDialog", () => {
+  it("uses symmetric modal-action spacing for the update label", () => {
+    renderDialog();
+
+    expect(screen.getByRole("button", { name: "Güncelle" })).toHaveClass(
+      "update-action",
+    );
+  });
+
   it("shows the release notes as the text GitHub stores, not as markup", async () => {
     // A changelog is not worth a Markdown dependency, and it is certainly not
     // worth injecting remote HTML into the app.

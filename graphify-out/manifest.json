@@ -155,8 +155,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/store.py": {
-    "mtime": 1787079803.7940202,
-    "ast_hash": "02b6215718264c113662342314bbb6b2",
+    "mtime": 1787427652.9995024,
+    "ast_hash": "03715aaa6d8e895b93ffeea6562ed5b3",
     "semantic_hash": ""
   },
   "src/parfum_finder/tui/__init__.py": {
@@ -260,8 +260,8 @@
     "semantic_hash": ""
   },
   "tests/test_store.py": {
-    "mtime": 1787077645.4703622,
-    "ast_hash": "88aaced3d00495f5aa726fde8cae0183",
+    "mtime": 1787427900.751336,
+    "ast_hash": "9dbf201cd6601f5feb9dee2ded280fa3",
     "semantic_hash": ""
   },
   "tests/test_tui.py": {
@@ -450,8 +450,8 @@
     "semantic_hash": ""
   },
   "tests/test_paths.py": {
-    "mtime": 1786796949.9865153,
-    "ast_hash": "4712336bef4aa02325e860fd2304a5d4",
+    "mtime": 1787427577.890135,
+    "ast_hash": "7b33ffe80bece1852996d2c778e4793e",
     "semantic_hash": ""
   },
   "tests/test_ranking.py": {
@@ -470,8 +470,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/api/app.py": {
-    "mtime": 1786904984.1848872,
-    "ast_hash": "8b7995865b8c66563f28dc897dbf0e7b",
+    "mtime": 1787427387.2828007,
+    "ast_hash": "5bd7fa62a208808ff3cb318d10f11dee",
     "semantic_hash": ""
   },
   "src/parfum_finder/api/serialize.py": {
@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "tests/test_api.py": {
-    "mtime": 1786905225.5863082,
-    "ast_hash": "7f418110003bd825193371163c810dd7",
+    "mtime": 1787427653.0005023,
+    "ast_hash": "a2f40cf698e8ed1eba589ffb23f57116",
     "semantic_hash": ""
   },
   "ui/package.json": {
@@ -495,13 +495,13 @@
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
-    "mtime": 1787410247.886076,
-    "ast_hash": "4da2854ffa20f30229d67d7b111304a3",
+    "mtime": 1787427442.321307,
+    "ast_hash": "bfc42f5e01076a076d788990dacdf8a0",
     "semantic_hash": ""
   },
   "ui/src/api/client.ts": {
-    "mtime": 1786905053.2793596,
-    "ast_hash": "f33247bc0456f140410ebd8719f35b16",
+    "mtime": 1787427413.761563,
+    "ast_hash": "981f2ae40f1c163ceee525471b8b4d0c",
     "semantic_hash": ""
   },
   "ui/src/api/ws.ts": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1787410874.8638113,
-    "ast_hash": "ee58cc00aca2e2aed256f7fd1222598d",
+    "mtime": 1787427480.0909684,
+    "ast_hash": "e14ca4cf9d71158d089b0099db3ec716",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -550,8 +550,8 @@
     "semantic_hash": ""
   },
   "ui/src/types.ts": {
-    "mtime": 1786905045.5187469,
-    "ast_hash": "fd267039bd202f4a46c15377c255ba1d",
+    "mtime": 1787427413.6845639,
+    "ast_hash": "da97f2074c17297cf244b7ff209050f1",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -575,8 +575,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/gui.py": {
-    "mtime": 1787262016.9256666,
-    "ast_hash": "b4119f07d1619dd5c250dbcbb14710b1",
+    "mtime": 1787427393.925741,
+    "ast_hash": "a676037ca1f2c967a19964f314c870a2",
     "semantic_hash": ""
   },
   "tests/test_gui.py": {
@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   "ui/src/components/UpdateDialog.tsx": {
-    "mtime": 1786905676.8670633,
-    "ast_hash": "4b46dd1fd720fd5101d8b69110331817",
+    "mtime": 1787427486.3279123,
+    "ast_hash": "b9309fe1f413264ef15b75edde74b2be",
     "semantic_hash": ""
   },
   "ui/e2e/backend.py": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1787410287.079622,
-    "ast_hash": "2253a114fc4c48785c75a409524adcd0",
+    "mtime": 1787427996.677521,
+    "ast_hash": "aa7eae34eac6b6f1ea9219c1b35fa023",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {
@@ -655,8 +655,8 @@
     "semantic_hash": ""
   },
   "ui/tests/components/UpdateDialog.test.tsx": {
-    "mtime": 1786972442.295136,
-    "ast_hash": "bcc790680a3423b3d0a2ed9f9cbf5a3a",
+    "mtime": 1787427623.0397592,
+    "ast_hash": "08593b848643f491a6b61155333d6a6e",
     "semantic_hash": ""
   },
   "ui/tests/helpers/fixtures.ts": {
@@ -665,8 +665,8 @@
     "semantic_hash": ""
   },
   "ui/tests/helpers/server.ts": {
-    "mtime": 1786972057.2388089,
-    "ast_hash": "c58bb8ff6fa4f2997bbed27086e68f8a",
+    "mtime": 1787427542.8984265,
+    "ast_hash": "353189922e8a8f5c9f1b3bf5faf3c4b6",
     "semantic_hash": ""
   },
   "ui/tests/lib/format.test.ts": {
@@ -715,8 +715,8 @@
     "semantic_hash": ""
   },
   "ui/src/components/WishlistButton.tsx": {
-    "mtime": 1787410202.411603,
-    "ast_hash": "085123a35f944577cd52387ec15bde5a",
+    "mtime": 1787427480.017969,
+    "ast_hash": "59adb9dabeda345e6eef67056ba8e695",
     "semantic_hash": ""
   },
   "ui/src/lib/basket.ts": {
@@ -725,18 +725,28 @@
     "semantic_hash": ""
   },
   "ui/src/lib/wishlist.ts": {
-    "mtime": 1787410202.3346038,
-    "ast_hash": "794ee5c0946a50bcdcab9c7ba99ec89f",
+    "mtime": 1787427413.6105645,
+    "ast_hash": "d25d811c2df1d4e21c8adf990f39d1ed",
     "semantic_hash": ""
   },
   "ui/src/screens/WishlistScreen.tsx": {
-    "mtime": 1787410874.9348104,
-    "ast_hash": "7745867fe414dd09a9d27dafd529d93f",
+    "mtime": 1787427729.4948254,
+    "ast_hash": "82ead63a185de85b143e7c8eeec22a82",
     "semantic_hash": ""
   },
   "ui/tests/components/BookmarkIcon.test.tsx": {
     "mtime": 1787411154.7725508,
     "ast_hash": "37797dd9a818d487e2eea7296885fd1b",
+    "semantic_hash": ""
+  },
+  "ui/tests/screens/WishlistScreen.test.tsx": {
+    "mtime": 1787427636.4896472,
+    "ast_hash": "f9a4ac213e3e16bab3733928d19cbd32",
+    "semantic_hash": ""
+  },
+  "ui/tests/lib/wishlist.test.ts": {
+    "mtime": 1787427996.7515204,
+    "ast_hash": "2e7a670cb06551eae0cb6e0e5f2c071c",
     "semantic_hash": ""
   }
 }

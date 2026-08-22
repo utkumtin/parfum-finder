@@ -18,6 +18,7 @@ import type {
   SiteSummary,
   UpdateInfo,
   UpdateProgress,
+  WishlistResponse,
 } from "../../src/types";
 
 export interface RecordedRequest {
@@ -248,6 +249,9 @@ export function installFakeServer(): FakeServer {
     .reply("GET /api/config", DEFAULT_CONFIG)
     .reply("GET /api/sites", [] satisfies SiteSummary[])
     .reply("GET /api/searches/recent", [] satisfies RecentSearch[])
+    .reply("GET /api/wishlist", { rows: [] } satisfies WishlistResponse)
+    .reply("PUT /api/wishlist/items", undefined, 204)
+    .reply("DELETE /api/wishlist/items", undefined, 204)
     .reply("GET /api/basket", EMPTY_BASKET)
     .reply("GET /api/update", NO_UPDATE)
     .reply("GET /api/results/:searchId", {

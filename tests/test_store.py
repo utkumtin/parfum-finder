@@ -32,8 +32,11 @@ from parfum_finder.store import (
     record_search,
     record_snapshot,
     remove_basket_item,
+    remove_wishlist_item,
+    save_wishlist_item,
     set_basket_qty,
     snapshot_rows,
+    wishlist_rows,
     write_snapshots,
 )
 
@@ -366,6 +369,7 @@ def test_connect_is_idempotent_on_an_existing_database(tmp_path: Path) -> None:
     db_path = tmp_path / "test.db"
     first = connect(db_path)
     variant_id = _seed_variant(first)
+    first.execute("DROP TABLE wishlist_items")
     first.commit()
     first.close()
 
@@ -375,10 +379,56 @@ def test_connect_is_idempotent_on_an_existing_database(tmp_path: Path) -> None:
             "SELECT variant_id FROM product_variants WHERE variant_id = ?",
             (variant_id,),
         ).fetchone()
+        wishlist_table = second.execute(
+            "SELECT name FROM sqlite_master"
+            " WHERE type = 'table' AND name = 'wishlist_items'"
+        ).fetchone()
     finally:
         second.close()
 
     assert row is not None
+    assert wishlist_table is not None
+
+
+def test_wishlist_identity_keeps_variants_separate_and_upserts_in_place(
+    conn: sqlite3.Connection,
+) -> None:
+    first = ("site|a", "brand", "name|EDP", "EDT", 50)
+    second = ("site", "a|brand", "name", "EDP|EDT", 100)
+
+    def save(
+        identity: tuple[str, str, str, str, int], payload: str, added_at: str
+    ) -> None:
+        save_wishlist_item(
+            conn,
+            site_id=identity[0],
+            brand=identity[1],
+            name=identity[2],
+            concentration=identity[3],
+            size_ml_x10=identity[4],
+            row_json=payload,
+            added_at=added_at,
+        )
+
+    def remove(identity: tuple[str, str, str, str, int]) -> bool:
+        return remove_wishlist_item(
+            conn,
+            site_id=identity[0],
+            brand=identity[1],
+            name=identity[2],
+            concentration=identity[3],
+            size_ml_x10=identity[4],
+        )
+
+    save(first, '{"price": 100}', "2026-01-01T00:00:00Z")
+    save(second, '{"price": 200}', "2026-01-02T00:00:00Z")
+    save(first, '{"price": 90}', "2026-01-03T00:00:00Z")
+
+    assert wishlist_rows(conn) == ['{"price": 90}', '{"price": 200}']
+
+    assert remove(first) is True
+    assert remove(first) is False
+    assert wishlist_rows(conn) == ['{"price": 200}']
 
 
 def test_record_snapshot_writes_the_whole_chain(conn: sqlite3.Connection) -> None:

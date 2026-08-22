@@ -6,7 +6,7 @@ import { BasketScreen } from "./screens/BasketScreen";
 import { ResultsScreen } from "./screens/ResultsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
 import { WishlistScreen } from "./screens/WishlistScreen";
-import { loadWishlist, saveWishlist, wishlistKey } from "./lib/wishlist";
+import { wishlistKey } from "./lib/wishlist";
 import type { AppConfig, ResultRow, SearchStart, UpdateInfo } from "./types";
 
 type View = "search" | "results" | "wishlist" | "basket";
@@ -22,7 +22,11 @@ export function App() {
   const [startupError, setStartupError] = useState<string | null>(null);
   const [view, setView] = useState<View>("search");
   const [search, setSearch] = useState<SearchStart | null>(null);
-  const [wishlist, setWishlist] = useState<ResultRow[]>(loadWishlist);
+  const [wishlist, setWishlist] = useState<ResultRow[]>([]);
+  const [wishlistReady, setWishlistReady] = useState(false);
+  const [pendingWishlistKeys, setPendingWishlistKeys] = useState<Set<string>>(
+    new Set(),
+  );
   const [toast, setToast] = useState<Toast | null>(null);
   // Bumped whenever the basket changed under the basket screen's feet, so
   // switching to it shows the addition rather than a stale read.
@@ -33,8 +37,14 @@ export function App() {
   const [basketCount, setBasketCount] = useState(0);
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const tabsRef = useRef<HTMLElement>(null);
+  const pendingWishlistRef = useRef<Set<string>>(new Set());
   const hasPositionedTabPill = useRef(false);
   const lastPillView = useRef<View | null>(null);
+
+  const notify = useCallback((message: string, kind: "info" | "error") => {
+    setToast({ message, kind });
+    window.setTimeout(() => setToast(null), 3000);
+  }, []);
 
   useLayoutEffect(() => {
     const tabs = tabsRef.current;
@@ -106,22 +116,55 @@ export function App() {
   }, [basketVersion]);
 
   useEffect(() => {
-    saveWishlist(wishlist);
-  }, [wishlist]);
-
-  const notify = useCallback((message: string, kind: "info" | "error") => {
-    setToast({ message, kind });
-    window.setTimeout(() => setToast(null), 3000);
-  }, []);
+    let cancelled = false;
+    api
+      .wishlist()
+      .then((response) => {
+        if (cancelled) return;
+        setWishlist(response.rows);
+        setWishlistReady(true);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled)
+          notify(error instanceof ApiError ? error.message : String(error), "error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notify]);
 
   const onBasketChanged = useCallback(() => setBasketVersion((v) => v + 1), []);
-  const onWishlistToggle = useCallback((row: ResultRow) => {
-    setWishlist((current) =>
-      current.some((saved) => wishlistKey(saved) === wishlistKey(row))
-        ? current.filter((saved) => wishlistKey(saved) !== wishlistKey(row))
-        : [...current, row],
-    );
-  }, []);
+  const onWishlistToggle = useCallback(
+    async (row: ResultRow) => {
+      const key = wishlistKey(row);
+      if (!wishlistReady || pendingWishlistRef.current.has(key)) return;
+
+      const removing = wishlist.some((saved) => wishlistKey(saved) === key);
+      pendingWishlistRef.current.add(key);
+      setPendingWishlistKeys((current) => new Set(current).add(key));
+      try {
+        if (removing) await api.removeWishlistItem(row);
+        else await api.saveWishlistItem(row);
+        setWishlist((current) =>
+          removing
+            ? current.filter((saved) => wishlistKey(saved) !== key)
+            : current.some((saved) => wishlistKey(saved) === key)
+              ? current
+              : [...current, row],
+        );
+      } catch (error) {
+        notify(error instanceof ApiError ? error.message : String(error), "error");
+      } finally {
+        pendingWishlistRef.current.delete(key);
+        setPendingWishlistKeys((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [notify, wishlist, wishlistReady],
+  );
 
   if (startupError !== null) {
     return (
@@ -215,12 +258,16 @@ export function App() {
               onBasketChanged={onBasketChanged}
               notify={notify}
               wishlist={wishlist}
+              wishlistReady={wishlistReady}
+              pendingWishlistKeys={pendingWishlistKeys}
               onWishlistToggle={onWishlistToggle}
             />
           ))}
         {view === "wishlist" && (
           <WishlistScreen
             rows={wishlist}
+            wishlistReady={wishlistReady}
+            pendingWishlistKeys={pendingWishlistKeys}
             config={config}
             notify={notify}
             onBasketChanged={onBasketChanged}

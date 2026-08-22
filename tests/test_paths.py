@@ -40,6 +40,15 @@ def test_ui_dir_is_under_dist_when_not_frozen_but_not_when_frozen(
     assert paths.ui_dir() == bundle / "ui"
 
 
+def test_frozen_database_lives_in_the_user_data_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_data = tmp_path / "local-app-data" / "parfum-finder"
+    _freeze(monkeypatch, tmp_path / "bundle", user_data)
+
+    assert paths.default_db_path() == user_data / "parfum-finder.db"
+
+
 def test_ensure_user_data_seeds_sites_platforms_and_hooks(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

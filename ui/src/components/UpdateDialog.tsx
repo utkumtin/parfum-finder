@@ -122,7 +122,7 @@ export function UpdateDialog({
           </button>
           <button
             type="button"
-            className="button primary"
+            className="button primary update-action"
             onClick={start}
             disabled={busy}
             autoFocus

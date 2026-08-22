@@ -49,6 +49,10 @@ export interface ResultsResponse {
   finished: boolean;
 }
 
+export interface WishlistResponse {
+  rows: ResultRow[];
+}
+
 export type ScanEvent =
   | { type: "scan_started"; total_sites: number; total_perfumes: number }
   | { type: "site_started"; site_id: string }

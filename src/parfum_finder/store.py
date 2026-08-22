@@ -91,6 +91,18 @@ CREATE TABLE IF NOT EXISTS basket_items (
     UNIQUE (perfume_id, size_ml_x10)
 );
 
+CREATE TABLE IF NOT EXISTS wishlist_items (
+    wishlist_item_id INTEGER PRIMARY KEY,
+    site_id          TEXT    NOT NULL,
+    brand            TEXT    NOT NULL,
+    name             TEXT    NOT NULL,
+    concentration    TEXT    NOT NULL,
+    size_ml_x10      INTEGER NOT NULL CHECK (size_ml_x10 > 0),
+    row_json         TEXT    NOT NULL,
+    added_at         TEXT    NOT NULL,
+    UNIQUE (site_id, brand, name, concentration, size_ml_x10)
+);
+
 CREATE TABLE IF NOT EXISTS search_history (
     -- The whole line as it was typed, not the split parts. Replaying a recent
     -- search has to reproduce the multi-perfume query someone actually ran.
@@ -832,6 +844,65 @@ def set_basket_qty(conn: sqlite3.Connection, *, basket_item_id: int, qty: int) -
         if cursor.rowcount == 0:
             raise ValueError(f"no basket item with id {basket_item_id}")
     return clamped
+
+
+def save_wishlist_item(
+    conn: sqlite3.Connection,
+    *,
+    site_id: str,
+    brand: str,
+    name: str,
+    concentration: str,
+    size_ml_x10: int,
+    row_json: str,
+    added_at: str | None = None,
+) -> None:
+    """Save one site offer without changing its position on repeated saves."""
+    with conn:
+        conn.execute(
+            "INSERT INTO wishlist_items"
+            " (site_id, brand, name, concentration, size_ml_x10, row_json, added_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)"
+            " ON CONFLICT (site_id, brand, name, concentration, size_ml_x10)"
+            " DO UPDATE SET row_json = excluded.row_json",
+            (
+                site_id,
+                brand,
+                name,
+                concentration,
+                size_ml_x10,
+                row_json,
+                added_at or now_iso(),
+            ),
+        )
+
+
+def wishlist_rows(conn: sqlite3.Connection) -> list[str]:
+    """Return saved offer payloads in the order they were first added."""
+    rows = conn.execute(
+        "SELECT row_json FROM wishlist_items ORDER BY added_at, wishlist_item_id"
+    ).fetchall()
+    return [str(row["row_json"]) for row in rows]
+
+
+def remove_wishlist_item(
+    conn: sqlite3.Connection,
+    *,
+    site_id: str,
+    brand: str,
+    name: str,
+    concentration: str,
+    size_ml_x10: int,
+) -> bool:
+    """Remove one saved offer and report whether it existed."""
+    with conn:
+        cursor = conn.execute(
+            "DELETE FROM wishlist_items"
+            " WHERE site_id = ? AND brand = ? AND name = ?"
+            " AND concentration = ? AND size_ml_x10 = ?",
+            (site_id, brand, name, concentration, size_ml_x10),
+        )
+        return cursor.rowcount > 0
 
 
 def record_search(conn: sqlite3.Connection, query_text: str, searched_at: str) -> None:

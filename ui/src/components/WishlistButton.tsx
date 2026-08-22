@@ -3,9 +3,13 @@ import { BookmarkIcon } from "./BookmarkIcon";
 
 export function WishlistButton({
   inWishlist,
+  disabled = false,
+  pending = false,
   onToggle,
 }: {
   inWishlist: boolean;
+  disabled?: boolean;
+  pending?: boolean;
   onToggle: () => void;
 }) {
   const handleClick = useCallback(
@@ -22,6 +26,8 @@ export function WishlistButton({
       className={`button quiet wishlist-button${inWishlist ? " saved" : ""}`}
       aria-label={inWishlist ? "İstek listesinden çıkar" : "İstek listesine ekle"}
       aria-pressed={inWishlist}
+      aria-busy={pending || undefined}
+      disabled={disabled}
       onClick={handleClick}
     >
       <BookmarkIcon filled={inWishlist} aria-hidden="true" />
