@@ -710,8 +710,8 @@
     "semantic_hash": ""
   },
   "ui/src/components/BookmarkIcon.tsx": {
-    "mtime": 1787410301.06546,
-    "ast_hash": "988ebf837531f7854d26e489c1a60d8b",
+    "mtime": 1787411154.6955516,
+    "ast_hash": "f7945384f8ed8f2c538f42d1a11c0f0b",
     "semantic_hash": ""
   },
   "ui/src/components/WishlistButton.tsx": {
@@ -732,6 +732,11 @@
   "ui/src/screens/WishlistScreen.tsx": {
     "mtime": 1787410874.9348104,
     "ast_hash": "7745867fe414dd09a9d27dafd529d93f",
+    "semantic_hash": ""
+  },
+  "ui/tests/components/BookmarkIcon.test.tsx": {
+    "mtime": 1787411154.7725508,
+    "ast_hash": "37797dd9a818d487e2eea7296885fd1b",
     "semantic_hash": ""
   }
 }

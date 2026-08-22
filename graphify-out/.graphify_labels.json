@@ -95,8 +95,18 @@
   "93": "_jitter_s",
   "94": "Arayüz testleri",
   "95": "_retry_after_s",
+  "96": "DownloadProgress",
   "97": "test_paths.py",
+  "98": "_FakeStreamResponse",
   "99": "cached_prices",
   "100": "playwright.config.ts",
-  "101": "setup.ts"
+  "101": "setup.ts",
+  "102": "test_gui.py",
+  "103": "UpdateDialog.test.tsx",
+  "104": "variant_rules",
+  "105": "enum",
+  "106": "AddButton.tsx",
+  "107": "ConfirmDialog.tsx",
+  "108": "ScanStatus.tsx",
+  "109": "VerdictAddButton.tsx"
 }
