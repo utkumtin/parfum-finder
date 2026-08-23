@@ -11,6 +11,7 @@ Inno Setup, hâlâ çalışan parfum-finder.exe dosyasının üzerine yazamaz.
 
 from __future__ import annotations
 
+import base64
 import os
 import subprocess
 import sys
@@ -36,11 +37,8 @@ _FORCE_ENV_VAR = "PARFUM_FINDER_FORCE_UPDATE_CHECK"
 _CHECK_TIMEOUT_S = 5.0
 _DOWNLOAD_TIMEOUT_S = 60.0
 _INSTALLER_NAME = "parfum-finder-setup.exe"
-
-# Kurulumu başlatmadan önce beklenen saniye. Windows, süreç gerçekten
-# kapanana kadar exe dosyasını kilitli tutar. Bekleme ping ile sayılıyor,
-# ping saniye başına bir paket yolluyor, ilki anında gidiyor.
-_HANDOFF_DELAY_S = 3
+_HANDOFF_TIMEOUT_MS = 60_000
+_UPDATE_LOG_NAME = "parfum-finder-update.log"
 
 
 @dataclass(frozen=True)
@@ -177,33 +175,62 @@ def _no_update(current: str) -> dict[str, Any]:
     }
 
 
-def handoff_command(installer: Path, app_exe: Path) -> str:
-    """Kurulumu biz kapandıktan sonra çalıştıran, sonra uygulamayı geri açan
-    cmd.exe satırı.
+def _powershell_literal(value: Path) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
 
-    Ayrı bir işleve bölünmüş olmasının sebebi test: Windows'ta çalışan tek
-    satır bu ve tırnakların yeri yanlışsa hata, konsolu olmayan bir sürecin
-    içinde kimsenin görmediği yerde oluşuyor.
 
-    Beklemeyi timeout değil ping yapıyor: timeout'un girdi yönlendirmesi
-    olmayan bir konsola ihtiyacı var, ayrık başlatılan bir süreçte anında
-    "Input redirection is not supported" ile düşüyor. Bekleme kritik, çünkü
-    Windows exe dosyasını süreç gerçekten ölene kadar kilitli tutuyor ve
-    installer.iss'teki AppMutex, hâlâ açıkken gelen sessiz kurulumu iptal
-    ediyor. Sondaki start ise yeni sürümü açıyor: /SILENT, kurulum betiğinin
-    kendi açılış adımını atlıyor.
-    """
-    return (
-        f"cmd /c ping -n {_HANDOFF_DELAY_S + 1} 127.0.0.1 >nul"
-        f' & "{installer}" /SILENT /NORESTART /SUPPRESSMSGBOXES'
-        f' & start "" "{app_exe}"'
+def handoff_command(
+    installer: Path,
+    app_exe: Path,
+    *,
+    parent_pid: int | None = None,
+    log_path: Path | None = None,
+) -> list[str]:
+    """Uygulamanın kapanmasını bekleyen ayrık PowerShell komutu."""
+    pid = os.getpid() if parent_pid is None else parent_pid
+    log = (
+        Path(tempfile.gettempdir()) / _UPDATE_LOG_NAME
+        if log_path is None
+        else log_path
     )
+    script = f"""
+$ErrorActionPreference = 'Stop'
+$installer = {_powershell_literal(installer)}
+$app = {_powershell_literal(app_exe)}
+$logPath = {_powershell_literal(log)}
+try {{
+    $parent = Get-Process -Id {pid} -ErrorAction SilentlyContinue
+    if ($null -ne $parent -and -not $parent.WaitForExit({_HANDOFF_TIMEOUT_MS})) {{
+        $message = 'handoff error: app did not exit in time'
+        Add-Content -LiteralPath $logPath -Value $message
+        exit 1
+    }}
+    $setupArgs = '/SILENT /NORESTART /SUPPRESSMSGBOXES /LOG="' + $logPath + '"'
+    $setup = Start-Process -FilePath $installer -ArgumentList $setupArgs -Wait -PassThru
+    if ($setup.ExitCode -ne 0) {{
+        $message = 'handoff error: installer exit code ' + $setup.ExitCode
+        Add-Content -LiteralPath $logPath -Value $message
+        exit $setup.ExitCode
+    }}
+    Start-Process -FilePath $app
+}} catch {{
+    Add-Content -LiteralPath $logPath -Value ('handoff error: ' + $_.Exception.Message)
+    exit 1
+}}
+""".strip()
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    return [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-EncodedCommand",
+        encoded,
+    ]
 
 
 def launch_installer(installer: Path, *, app_exe: Path | None = None) -> None:
-    # Liste değil tek bir dize: subprocess'in liste biçimi tırnakları MSVCRT
-    # kurallarına göre \" diye kaçırıyor, cmd.exe ise onu anlamıyor ve zincir
-    # daha ilk yolda kırılıyor.
     command = handoff_command(
         installer, app_exe if app_exe is not None else Path(sys.executable)
     )

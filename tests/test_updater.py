@@ -10,6 +10,7 @@ for real.
 
 from __future__ import annotations
 
+import base64
 import threading
 from pathlib import Path
 from typing import Any
@@ -301,28 +302,66 @@ def test_install_hands_the_downloaded_file_over(tmp_path: Path) -> None:
     assert download.progress().state == "installing"
 
 
-def test_the_handoff_waits_before_installing_and_reopens_the_app() -> None:
-    """Üç şey de doğru olmadan güncelleme sessizce başarısız olur.
+def _handoff_script(command: list[str]) -> str:
+    encoded = command[command.index("-EncodedCommand") + 1]
+    return base64.b64decode(encoded).decode("utf-16-le")
 
-    Bekleme olmazsa kurulum, hâlâ açık olan exe'yi görüp (AppMutex) iptal
-    ediyor. Yolların tırnağı bozulursa cmd komutu bulamıyor. Sondaki start
-    olmazsa da kullanıcı, kapanıp bir daha açılmayan bir uygulama görüyor.
-    Üçü de konsolu olmayan ayrık bir süreçte olduğu için hiçbiri ekrana bir
-    hata düşürmüyor, tek doğrulama yeri burası.
-    """
+
+def test_the_handoff_waits_for_the_app_before_installing() -> None:
     command = handoff_command(
         Path(r"C:\Users\u\AppData\Local\Temp\parfum-finder-setup.exe"),
         Path(r"C:\Program Files\parfum-finder\parfum-finder.exe"),
+        parent_pid=42,
+    )
+    script = _handoff_script(command)
+
+    assert command[:6] == [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-EncodedCommand",
+    ]
+    assert "Get-Process -Id 42" in script
+    assert "$parent.WaitForExit(60000)" in script
+    assert script.index("$parent.WaitForExit") < script.index(
+        "Start-Process -FilePath $installer"
     )
 
-    assert command.startswith("cmd /c ping -n 4 127.0.0.1 >nul & ")
-    assert r'"C:\Users\u\AppData\Local\Temp\parfum-finder-setup.exe" /SILENT' in command
-    assert command.endswith(
-        r'& start "" "C:\Program Files\parfum-finder\parfum-finder.exe"'
+
+def test_the_handoff_reopens_the_app_only_after_a_successful_install() -> None:
+    command = handoff_command(
+        Path(r"C:\Temp\parfum-finder-setup.exe"),
+        Path(r"C:\Program Files\parfum-finder\parfum-finder.exe"),
+        parent_pid=42,
     )
-    # Boşluklu yollar tek tırnak çiftiyle sarılmalı: cmd.exe kaçırılmış
-    # tırnağı (\") anlamıyor ve zinciri ilk yolda kırıyor.
-    assert '\\"' not in command
+    script = _handoff_script(command)
+
+    failure_check = "if ($setup.ExitCode -ne 0)"
+    restart = "Start-Process -FilePath $app"
+    assert "$setup = Start-Process" in script
+    assert "-Wait -PassThru" in script
+    assert script.index(failure_check) < script.index(restart)
+    assert "exit $setup.ExitCode" in script
+
+
+def test_the_handoff_logs_setup_and_handoff_failures() -> None:
+    command = handoff_command(
+        Path(r"C:\Users\O'Brien\Temp\parfum-finder-setup.exe"),
+        Path(r"C:\Program Files\parfum-finder\parfum-finder.exe"),
+        parent_pid=42,
+        log_path=Path(r"C:\Users\O'Brien\Temp\parfum-finder-update.log"),
+    )
+    script = _handoff_script(command)
+
+    assert (
+        r"$logPath = 'C:\Users\O''Brien\Temp\parfum-finder-update.log'" in script
+    )
+    assert '/LOG="' in script
+    assert "app did not exit in time" in script
+    assert "installer exit code" in script
+    assert "$_.Exception.Message" in script
 
 
 def test_the_handoff_breaks_out_of_the_apps_job_object(
@@ -338,8 +377,9 @@ def test_the_handoff_breaks_out_of_the_apps_job_object(
     """
     recorded: dict[str, int] = {}
 
-    def fake_popen(command: str, **kwargs: Any) -> None:
+    def fake_popen(command: list[str], **kwargs: Any) -> None:
         recorded["creationflags"] = kwargs["creationflags"]
+        assert command[0] == "powershell.exe"
 
     monkeypatch.setattr(updater_module.sys, "platform", "win32")
     # Üçü de subprocess'te yalnızca Windows'ta var; değerler gerçek olanlarla
