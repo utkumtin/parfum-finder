@@ -189,9 +189,7 @@ def handoff_command(
     """Uygulamanın kapanmasını bekleyen ayrık PowerShell komutu."""
     pid = os.getpid() if parent_pid is None else parent_pid
     log = (
-        Path(tempfile.gettempdir()) / _UPDATE_LOG_NAME
-        if log_path is None
-        else log_path
+        Path(tempfile.gettempdir()) / _UPDATE_LOG_NAME if log_path is None else log_path
     )
     script = f"""
 $ErrorActionPreference = 'Stop'

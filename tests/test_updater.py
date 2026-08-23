@@ -355,9 +355,7 @@ def test_the_handoff_logs_setup_and_handoff_failures() -> None:
     )
     script = _handoff_script(command)
 
-    assert (
-        r"$logPath = 'C:\Users\O''Brien\Temp\parfum-finder-update.log'" in script
-    )
+    assert r"$logPath = 'C:\Users\O''Brien\Temp\parfum-finder-update.log'" in script
     assert '/LOG="' in script
     assert "app did not exit in time" in script
     assert "installer exit code" in script
