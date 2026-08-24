@@ -104,7 +104,5 @@
   "102": ".get_system_commands",
   "103": "Static",
   "104": "tui/app.py",
-  "105": "._load_profiles",
-  "106": "test_every_shipped_site_has_a_colour_that_survives_256_colours",
-  "107": ".action_sort"
+  "105": "._load_profiles"
 }
