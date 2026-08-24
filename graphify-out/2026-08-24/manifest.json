@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/matcher.py": {
-    "mtime": 1787589188.3983781,
-    "ast_hash": "8cead5d4eed793fecfd73534c9d4d089",
+    "mtime": 1787590434.1826138,
+    "ast_hash": "f167c755adb88497b9d98245164a39b5",
     "semantic_hash": ""
   },
   "src/parfum_finder/normalize.py": {
@@ -210,8 +210,8 @@
     "semantic_hash": "42b0c7e3955252e746d75f8c304c691f"
   },
   "tests/test_engine.py": {
-    "mtime": 1787587278.0416038,
-    "ast_hash": "b0e9dc2b0e3aa7ff93a012fd81d3499b",
+    "mtime": 1787590434.1846137,
+    "ast_hash": "c8ebe3adcc72b540f702435d995d9caf",
     "semantic_hash": ""
   },
   "tests/test_extract.py": {
@@ -265,13 +265,13 @@
     "semantic_hash": ""
   },
   "tests/test_tui.py": {
-    "mtime": 1787589489.0110977,
-    "ast_hash": "1c725d0b424a1b57669e8aa52fd2c48f",
+    "mtime": 1787590434.1846137,
+    "ast_hash": "a64054bcb4bbc7fefd35a96b2c2c4be7",
     "semantic_hash": ""
   },
   "tests/test_validate.py": {
-    "mtime": 1787585883.166528,
-    "ast_hash": "1a4ca1cf18527bff803f0897bb5e7346",
+    "mtime": 1787590434.1826138,
+    "ast_hash": "aea613360eb29c486a28dbeb18705a2b",
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {

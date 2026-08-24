@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-24T16:52:21.383656+00:00",
+  "generated_at": "2026-08-24T16:54:11.735139+00:00",
   "nodes": {
     "src_parfum_finder_engine": {
       "code_fingerprint": "7b6dc83a745adee45193c56324e5c348acbc2fafdbfb341854139fd9ef0de56f",
@@ -12,7 +12,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.998943591,
+      "score": 0.998914113,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
@@ -28,13 +28,13 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.998943591,
+      "score": 0.998914113,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
     },
     "src_parfum_finder_matcher_search_spellings": {
-      "code_fingerprint": "aa6df271042520b9fb49125e110f8b098cc3e9934d7e02f4eb4368f43e3e93db",
+      "code_fingerprint": "f50165b32f502c5eb6162596a2d3b548f27a8cabbb2d63397631779d534fc991",
       "label": "search_spellings()",
       "last": "2026-08-24T15:46:28.891292+00:00",
       "provenance": [
@@ -44,7 +44,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.998943591,
+      "score": 0.998914113,
       "source_file": "src/parfum_finder/matcher.py",
       "status": "tentative",
       "uses": 1
@@ -60,7 +60,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.998943591,
+      "score": 0.998914113,
       "source_file": "src/parfum_finder/store.py",
       "status": "tentative",
       "uses": 1

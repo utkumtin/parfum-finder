@@ -2075,8 +2075,10 @@ def _attempt_hit(title: str | None, sizes_ml: Sequence[int] = (5,)) -> SearchHit
 async def test_original_confident_match_stops_after_one_attempt() -> None:
     calls: list[str] = []
 
-    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
-        calls.append(text)
+    async def runner(
+        profile: dict[str, Any], query: str, **_: Any
+    ) -> engine.SiteResult:
+        calls.append(query)
         return engine.SiteResult(
             "testsite", "ok", (_attempt_hit("Dior Sauvage EDP"),), None
         )
@@ -2095,8 +2097,10 @@ async def test_original_confident_match_stops_after_one_attempt() -> None:
 async def test_empty_original_is_retried_with_folded_separators() -> None:
     calls: list[str] = []
 
-    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
-        calls.append(text)
+    async def runner(
+        profile: dict[str, Any], query: str, **_: Any
+    ) -> engine.SiteResult:
+        calls.append(query)
         if len(calls) == 1:
             return engine.SiteResult("testsite", "empty", (), None)
         return engine.SiteResult(
@@ -2118,8 +2122,10 @@ async def test_attempts_continue_past_safe_alternative_until_requested_match() -
     query = PerfumeQuery("Dior", "Sauvage", "EDP")
     calls: list[str] = []
 
-    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
-        calls.append(text)
+    async def runner(
+        profile: dict[str, Any], query: str, **_: Any
+    ) -> engine.SiteResult:
+        calls.append(query)
         title = "Dior Sauvage Elixir" if len(calls) == 1 else "Dior Sauvage EDP"
         return engine.SiteResult("testsite", "ok", (_attempt_hit(title),), None)
 
@@ -2135,8 +2141,10 @@ async def test_prada_leau_result_does_not_block_exact_lhomme_retry() -> None:
     query = PerfumeQuery("Prada", "L Homme", "EDT")
     calls: list[str] = []
 
-    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
-        calls.append(text)
+    async def runner(
+        profile: dict[str, Any], query: str, **_: Any
+    ) -> engine.SiteResult:
+        calls.append(query)
         title = "Prada L'Eau EDT" if len(calls) == 1 else "Prada L'Homme EDT"
         return engine.SiteResult("testsite", "ok", (_attempt_hit(title),), None)
 
@@ -2151,8 +2159,10 @@ async def test_prada_leau_result_does_not_block_exact_lhomme_retry() -> None:
 async def test_attempts_stop_immediately_for_a_suspect_result() -> None:
     calls: list[str] = []
 
-    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
-        calls.append(text)
+    async def runner(
+        profile: dict[str, Any], query: str, **_: Any
+    ) -> engine.SiteResult:
+        calls.append(query)
         return engine.SiteResult("testsite", "suspect", (), "broken selector")
 
     result = await run_site_attempts(
@@ -2169,8 +2179,10 @@ async def test_attempts_stop_immediately_for_a_suspect_result() -> None:
 async def test_attempts_stop_immediately_for_an_error_result() -> None:
     calls: list[str] = []
 
-    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
-        calls.append(text)
+    async def runner(
+        profile: dict[str, Any], query: str, **_: Any
+    ) -> engine.SiteResult:
+        calls.append(query)
         return engine.SiteResult("testsite", "error", (), "offline")
 
     result = await run_site_attempts(
@@ -2187,7 +2199,9 @@ async def test_attempts_stop_immediately_for_an_error_result() -> None:
 async def test_first_safe_alternative_is_returned_under_its_own_identity() -> None:
     query = PerfumeQuery("Lattafa", "Jasoor", "")
 
-    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+    async def runner(
+        profile: dict[str, Any], query: str, **_: Any
+    ) -> engine.SiteResult:
         return engine.SiteResult(
             "testsite", "ok", (_attempt_hit("Lattafa Asad", (5, 10)),), None
         )
@@ -2215,7 +2229,9 @@ async def test_first_safe_alternative_is_returned_under_its_own_identity() -> No
 async def test_unmatchable_rows_cannot_become_safe_fallbacks(
     query: PerfumeQuery, title: str | None
 ) -> None:
-    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+    async def runner(
+        profile: dict[str, Any], query: str, **_: Any
+    ) -> engine.SiteResult:
         return engine.SiteResult("testsite", "ok", (_attempt_hit(title),), None)
 
     result = await run_site_attempts(
@@ -2235,7 +2251,7 @@ async def test_attempts_share_cache_pacer_and_hooks_directory() -> None:
     seen: list[tuple[int, int, Path]] = []
 
     async def runner(
-        profile: dict[str, Any], text: str, **kwargs: Any
+        profile: dict[str, Any], query: str, **kwargs: Any
     ) -> engine.SiteResult:
         seen.append(
             (
@@ -2310,12 +2326,12 @@ async def test_reported_false_negative_searches_keep_requested_identity_and_size
 
     async def runner(
         profile: dict[str, Any],
-        text: str,
+        query: str,
         *,
         keep_candidate: Any = None,
         **_: Any,
     ) -> engine.SiteResult:
-        calls.append(text)
+        calls.append(query)
         if len(calls) == 1:
             if requested_text == "Prada L’Homme EDT":
                 return engine.SiteResult(
