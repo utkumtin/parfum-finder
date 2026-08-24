@@ -90,6 +90,12 @@ _SIZE_SPAN = re.compile(r"\d+(?:[.,]\d+)?\s*(?:ml|cc)")
 # no shop writes one that way, and a greedy pattern would swallow everything
 # between two unrelated parentheses on the same line.
 _PARENTHESIS = re.compile(r"\(([^()]*)\)")
+_PROMOTIONAL_SUFFIX = re.compile(r"\s+\|\s+")
+_SIZE_TIER_SUFFIX = re.compile(
+    r"(\d+(?:[.,]\d+)?\s*(?:ml|cc))\s+[-‐‑‒–—―]\s+.+$",
+    re.IGNORECASE,
+)
+_TRAILING_LISTING_DESCRIPTORS = frozenset({"unisex", "kadın", "erkek"})
 
 # What separates one perfume from the next in a typed line. Whitespace on both
 # sides is required, so a hyphenated word stays one word. The pattern is public
@@ -97,6 +103,7 @@ _PARENTHESIS = re.compile(r"\(([^()]*)\)")
 # has to split it the same way, and a second spelling of the rule would drift.
 QUERY_SEPARATOR_PATTERN = r"\s+-\s+"
 _QUERY_SEPARATOR = re.compile(QUERY_SEPARATOR_PATTERN)
+_SEARCH_SEPARATOR = re.compile(r"['’‘ʼʻˈ`/／∕⁄\-‐‑‒–—―﹘﹣－]+")
 
 # The concentration a title names, in the spellings sites actually use. Longer
 # forms come first so "eau de parfum" is read as EDP instead of leaving "eau de"
@@ -307,17 +314,32 @@ def search_spellings(text: str) -> tuple[str, ...]:
                 rewritten = text[: found.start()] + other + text[found.end() :]
                 if rewritten not in spellings:
                     spellings.append(rewritten)
-            return tuple(spellings)
-    return tuple(spellings)
+            break
+        else:
+            continue
+        break
+
+    attempts: list[str] = []
+    for spelling in spellings:
+        for attempt in (spelling, _fold_search_separators(spelling)):
+            if attempt not in attempts:
+                attempts.append(attempt)
+    return tuple(attempts)
+
+
+def _fold_search_separators(text: str) -> str:
+    """Turn punctuation that commonly splits catalog tokens into spaces."""
+    return re.sub(r"\s+", " ", _SEARCH_SEPARATOR.sub(" ", text)).strip()
 
 
 def parse_query(text: str) -> PerfumeQuery:
     """Split one typed line, "Dior Sauvage EDP", into the three identity parts.
 
-    The first word is taken as the brand. Multi-word brands lose the rest of
-    their name to the name field, which weakens the brand check rather than
-    breaking it: "Yves" is still absent from every other house's titles, and the
-    leftover words go on scoring inside the name.
+    The first word is provisionally taken as the brand. Multi-word brands lose
+    the rest of their name to the name field, which weakens the brand check
+    rather than breaking it: "Yves" is still absent from every other house's
+    titles, and the leftover words go on scoring inside the name. A one-word
+    search has no brand yet. Its accepted result supplies that later.
 
     The concentration is pulled out even though match_title would find it
     anyway, because this is also what the perfume gets stored under. Leaving
@@ -335,6 +357,8 @@ def parse_query(text: str) -> PerfumeQuery:
     concentration, tokens = _split_concentration(tokens)
     brand, name_tokens = tokens[0], tokens[1:]
     if not name_tokens:
+        if not concentration:
+            return PerfumeQuery(brand="", name=brand)
         raise ValueError(
             f"{text!r} names only a brand. A search needs the perfume too, "
             f"because a brand on its own matches everything that house sells."
@@ -342,6 +366,20 @@ def parse_query(text: str) -> PerfumeQuery:
     return PerfumeQuery(
         brand=brand, name=" ".join(name_tokens), concentration=concentration
     )
+
+
+def display_title(raw_title: str) -> str:
+    """Hide catalog decorations while preserving the shop title for storage."""
+    title = " ".join(raw_title.split())
+    title = _SIZE_TIER_SUFFIX.sub(r"\1", title)
+    parts = _PROMOTIONAL_SUFFIX.split(title, maxsplit=1)
+    if len(parts) == 1:
+        return title
+
+    left_tokens = _tokenize(parts[0])
+    if left_tokens and left_tokens[-1] in _TRAILING_LISTING_DESCRIPTORS:
+        return parts[0].strip()
+    return title
 
 
 def product_label(raw_title: str) -> str:
@@ -375,8 +413,21 @@ def product_label(raw_title: str) -> str:
     An empty string comes back for a title with nothing left in it. The caller
     decides what to show instead; there is no product name to be had here.
     """
-    own_title, _ = _split_clone_reference(raw_title)
-    tokens = tuple(token for token in _tokenize(own_title) if token not in _PACKAGING)
+    shown_title = display_title(raw_title)
+    hides_promotional_tail = (
+        _PROMOTIONAL_SUFFIX.search(raw_title) is not None
+        and _PROMOTIONAL_SUFFIX.search(shown_title) is None
+    )
+    own_title, _ = _split_clone_reference(shown_title)
+    tokens = tuple(
+        token
+        for token in _tokenize(own_title)
+        if token not in _PACKAGING
+        and (
+            not hides_promotional_tail
+            or token not in _TRAILING_LISTING_DESCRIPTORS
+        )
+    )
     concentration, rest = _split_concentration(tokens)
     words = [word.capitalize() for word in rest]
     if concentration:
@@ -461,6 +512,39 @@ def _own_identity(own_title: str) -> PerfumeQuery | None:
     )
 
 
+def result_identity(
+    raw_title: str, query: PerfumeQuery, match: Match
+) -> PerfumeQuery:
+    """Name a confident result from the title when the query omitted its brand.
+
+    A model-only search is parsed in the same shape as every other query, so its
+    first word may look like a brand. The accepted title gives us stronger
+    evidence: when the complete searched text is the title's suffix, the words
+    before it are the brand the shop supplied. When there is no prefix, the
+    typed identity stays unchanged.
+
+    Clone and low-confidence identities are resolved elsewhere and must not pass
+    through this function.
+    """
+    if match.clone_of or not match.confident:
+        return query
+    own_title, _ = _split_clone_reference(raw_title)
+    query_tokens = _tokenize(query.brand) + _tokenize(query.name)
+    title_tokens = _title_tokens_for_match(own_title, query_tokens)
+    _, title_rest = _split_concentration(title_tokens)
+    _, query_rest = _split_concentration(query_tokens)
+    if not query_rest or not _ends_with(title_rest, query_rest):
+        return PerfumeQuery(query.brand, query.name, match.concentration)
+    brand_tokens = title_rest[: -len(query_rest)]
+    if not brand_tokens:
+        return PerfumeQuery(query.brand, query.name, match.concentration)
+    return PerfumeQuery(
+        brand=" ".join(brand_tokens),
+        name=" ".join(query_rest),
+        concentration=match.concentration,
+    )
+
+
 def title_could_match(
     raw_title: str | None, query: PerfumeQuery, *, threshold: int = PREFILTER_THRESHOLD
 ) -> bool:
@@ -518,13 +602,14 @@ def _split_clone_reference(raw_title: str) -> tuple[str, str]:
 
 def _match_text(raw_title: str, query: PerfumeQuery, *, threshold: int) -> Match | None:
     """Judge one piece of title text, with no clone handling of its own."""
-    title_tokens = _tokenize(raw_title)
     brand_tokens = _tokenize(query.brand)
+    query_tokens = brand_tokens + _tokenize(query.name)
+    title_tokens = _title_tokens_for_match(raw_title, query_tokens)
     if not _covers(title_tokens, brand_tokens):
         return None
 
     found, title_rest = _split_concentration(title_tokens)
-    wanted, query_rest = _split_concentration(brand_tokens + _tokenize(query.name))
+    wanted, query_rest = _split_concentration(query_tokens)
     if query.concentration:
         wanted = _canonical(query.concentration)
     if wanted and found != wanted:
@@ -552,6 +637,22 @@ def _match_text(raw_title: str, query: PerfumeQuery, *, threshold: int) -> Match
         confident=confident,
         own_identity=None if confident else _own_identity(raw_title),
     )
+
+
+def _title_tokens_for_match(
+    raw_title: str, query_tokens: tuple[str, ...]
+) -> tuple[str, ...]:
+    """Ignore an explicit shop blurb only when its left side ends as a listing label."""
+    parts = _PROMOTIONAL_SUFFIX.split(raw_title, maxsplit=1)
+    if len(parts) == 1:
+        return _tokenize(raw_title)
+
+    tokens = list(_tokenize(parts[0]))
+    if not tokens or tokens[-1] not in _TRAILING_LISTING_DESCRIPTORS:
+        return _tokenize(raw_title)
+    if tokens[-1] not in query_tokens:
+        tokens.pop()
+    return tuple(tokens)
 
 
 def _tokenize(text: str) -> tuple[str, ...]:

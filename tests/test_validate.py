@@ -244,10 +244,17 @@ class _FakeSite:
     the test chose.
     """
 
-    def __init__(self, search_html: str, product_html: str, status_code: int = 200):
+    def __init__(
+        self,
+        search_html: str,
+        product_html: str,
+        status_code: int = 200,
+        redirect_url: str | None = None,
+    ):
         self._search_html = search_html
         self._product_html = product_html
         self._status_code = status_code
+        self._redirect_url = redirect_url
         self.served_search = False
 
     async def __call__(
@@ -260,12 +267,18 @@ class _FakeSite:
         headers: Headers | None = None,
         timeout_s: int = 20,
     ) -> FetchResult:
+        requested_url = url
         html = self._product_html
         if not self.served_search:
             self.served_search = True
             html = self._search_html
+            url = self._redirect_url or url
         return FetchResult(
-            url=url, status_code=self._status_code, html=html, strategy=strategy
+            url=url,
+            status_code=self._status_code,
+            html=html,
+            strategy=strategy,
+            requested_url=requested_url,
         )
 
 
@@ -344,7 +357,46 @@ async def test_a_working_profile_passes_against_a_site_that_still_answers() -> N
         "search",
         "prices",
     ]
+    assert "result card(s)" in result.checks[3].detail
     assert result.fallbacks == ()
+
+
+async def test_live_validation_reports_recognized_product_redirect_format() -> None:
+    product_html = (_FIXTURES_DIR / "ruxangroup" / "product.html").read_text()
+    fetcher = _FakeSite(
+        product_html,
+        product_html,
+        redirect_url="https://ruxangroup.com/magaza/lattafa-khamrah/",
+    )
+
+    result = await validate_live("ruxangroup", fetcher=fetcher)
+
+    assert result.ok, result.failure
+    assert result.checks[3].name == "search"
+    assert result.checks[3].detail == (
+        "single-product redirect recognized by jsonld"
+    )
+
+
+async def test_live_validation_reports_unclassified_redirect_as_search_failure() -> (
+    None
+):
+    fetcher = _FakeSite(
+        "<html><body><div class='related-product'>related</div></body></html>",
+        (_FIXTURES_DIR / "ruxangroup" / "product.html").read_text(),
+        redirect_url="https://ruxangroup.com/magaza/unclassified/",
+    )
+
+    result = await validate_live("ruxangroup", fetcher=fetcher)
+
+    assert not result.ok
+    assert [check.name for check in result.checks] == [
+        "profile",
+        "query",
+        "reachable",
+        "search",
+    ]
+    assert "material search redirect" in result.checks[-1].detail
 
 
 async def test_an_unreachable_site_is_not_reported_as_a_broken_profile() -> None:

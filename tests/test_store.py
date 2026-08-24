@@ -791,6 +791,76 @@ def test_snapshot_rows_still_merges_a_confident_match_under_the_searched_name() 
     assert (rows[0].brand, rows[0].name) == (query.brand, query.name)
 
 
+def test_snapshot_rows_files_a_model_only_search_under_the_result_brand(
+    conn: sqlite3.Connection,
+) -> None:
+    """A model word must not become the brand in the database.
+
+    Different houses can use the same model name. Each accepted title therefore
+    supplies its own brand while both keep the model the user searched for.
+    """
+    result = SiteResult(
+        site_id="ornek",
+        status="ok",
+        hits=(
+            SearchHit(
+                candidate=ProductCandidate(raw_title="Lattafa Breeze", url="u1"),
+                variants=(_variant(50, 40000, raw_title="Lattafa Breeze 5 ml"),),
+            ),
+            SearchHit(
+                candidate=ProductCandidate(raw_title="Rayhaan Breeze", url="u2"),
+                variants=(_variant(50, 41000, raw_title="Rayhaan Breeze 5 ml"),),
+            ),
+        ),
+        detail="ok",
+    )
+
+    rows = snapshot_rows(result, parse_query("Breeze"))
+
+    assert {(row.brand, row.name) for row in rows} == {
+        ("lattafa", "breeze"),
+        ("rayhaan", "breeze"),
+    }
+    _seed_site(conn)
+    assert write_snapshots(conn, rows) == 2
+    assert {
+        (row["brand"], row["name"])
+        for row in conn.execute("SELECT brand, name FROM perfumes")
+    } == {("lattafa", "breeze"), ("rayhaan", "breeze")}
+
+
+def test_snapshot_rows_recovers_a_multiword_model_search_brand() -> None:
+    """The title prefix is the missing brand, not the model's first word."""
+    result = SiteResult(
+        site_id="ornek",
+        status="ok",
+        hits=(
+            SearchHit(
+                candidate=ProductCandidate(
+                    raw_title="Armani Stronger With You Intensely EDP", url="u"
+                ),
+                variants=(
+                    _variant(
+                        50,
+                        50000,
+                        raw_title="Armani Stronger With You Intensely EDP 5 ml",
+                    ),
+                ),
+            ),
+        ),
+        detail="ok",
+    )
+
+    rows = snapshot_rows(result, parse_query("Stronger With You Intensely"))
+
+    assert len(rows) == 1
+    assert (rows[0].brand, rows[0].name, rows[0].concentration) == (
+        "armani",
+        "stronger with you intensely",
+        "EDP",
+    )
+
+
 def test_add_basket_item_bumps_qty_instead_of_resetting_it(
     conn: sqlite3.Connection,
 ) -> None:

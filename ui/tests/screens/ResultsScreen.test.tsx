@@ -89,6 +89,20 @@ function verdictAddButton(): HTMLElement {
 }
 
 describe("ResultsScreen blocks", () => {
+  it("shows the cleaned title instead of the catalog decoration", async () => {
+    const raw = "Lattafa Breeze Unisex Parfüm | Ferah ve Kalıcı";
+    renderScreen([
+      resultRow({
+        product: "Lattafa Breeze",
+        raw_title: raw,
+        display_title: "Lattafa Breeze Unisex Parfüm",
+      }),
+    ]);
+
+    expect(await screen.findByText("Lattafa Breeze Unisex Parfüm")).toBeInTheDocument();
+    expect(screen.queryByText(raw)).not.toBeInTheDocument();
+  });
+
   it("marks saved rows and toggles the row that was clicked", async () => {
     const row = resultRow({ product_url: null });
     const { onWishlistToggle } = renderScreen([row], { wishlist: [row] });

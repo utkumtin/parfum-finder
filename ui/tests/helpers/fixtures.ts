@@ -15,12 +15,14 @@ import type {
 export function resultRow(overrides: Partial<ResultRow> = {}): ResultRow {
   const size = overrides.size_ml_x10 ?? 50;
   const price = overrides.price_kurus ?? 25000;
+  const rawTitle = overrides.raw_title ?? "Dior Sauvage EDP Dekant 5 ml";
   return {
     site_id: "site-a",
     site_label: "Site A",
     query_index: 0,
     product: "Dior Sauvage EDP",
-    raw_title: "Dior Sauvage EDP Dekant 5 ml",
+    display_title: overrides.display_title ?? rawTitle,
+    raw_title: rawTitle,
     size_ml_x10: size,
     price_kurus: price,
     // Kuruş per millilitre, the way ranking.py computes it: an exact ratio the

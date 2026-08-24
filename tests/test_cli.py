@@ -672,5 +672,5 @@ def test_search_names_the_mistyped_perfume_before_scanning_anything(
 
     with pytest.raises(ValueError, match="names only a brand"):
         cli.run_search(
-            "Dior Sauvage EDP - Chanel", sites_dir=sites_dir, db_path=db_path
+            "Dior Sauvage EDP - Dior Parfum", sites_dir=sites_dir, db_path=db_path
         )

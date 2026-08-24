@@ -48,7 +48,14 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol
-from urllib.parse import quote, urljoin
+from urllib.parse import (
+    parse_qsl,
+    quote,
+    urlencode,
+    urljoin,
+    urlsplit,
+    urlunsplit,
+)
 
 from selectolax.parser import HTMLParser, Node
 
@@ -225,6 +232,270 @@ class ProductCandidate:
 
     raw_title: str | None
     url: str
+    # The URL used for comparison, caching and de-duplication. `url` remains
+    # the response URL because it is the page whose markup and redirects a
+    # browser can actually open.
+    identity: str | None = None
+    metadata_source: str | None = None
+    # A single page may be opened only to prove the extractor still works when
+    # every listing failed the prefilter. Its rows must never become results.
+    diagnostic: bool = False
+
+
+_TRACKING_QUERY_KEYS = frozenset(
+    {
+        "gclid",
+        "dclid",
+        "fbclid",
+        "msclkid",
+        "yclid",
+        "_ga",
+        "mc_cid",
+        "mc_eid",
+        "ref",
+        "referrer",
+        "session",
+        "sessionid",
+        "sid",
+    }
+)
+
+
+def canonical_url(url: str) -> str:
+    """Return the stable identity of a URL without changing its fetch URL."""
+    parsed = urlsplit(url)
+    scheme = parsed.scheme.lower()
+    host = (parsed.hostname or "").lower()
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    if port is not None and not (
+        (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
+    ):
+        host = f"{host}:{port}"
+    path = _canonical_path(parsed.path)
+    pairs = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if not key.casefold().startswith("utm_")
+        and key.casefold() not in _TRACKING_QUERY_KEYS
+    ]
+    pairs.sort()
+    return urlunsplit((scheme, host, path, urlencode(pairs, doseq=True), ""))
+
+
+def _canonical_path(path: str) -> str:
+    parts: list[str] = []
+    decoded = re.sub(
+        r"%[0-9A-Fa-f]{2}",
+        lambda match: _decode_unreserved(match.group()),
+        path or "/",
+    )
+    for part in decoded.split("/"):
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if parts:
+                parts.pop()
+            continue
+        parts.append(part)
+    return quote("/" + "/".join(parts), safe="/%:@!$&'()*+,;=-._~")
+
+
+def _decode_unreserved(escape: str) -> str:
+    value = chr(int(escape[1:], 16))
+    if value.isascii() and (value.isalnum() or value in "-._~"):
+        return value
+    return escape.upper()
+
+
+def _same_origin(left: str, right: str) -> bool:
+    a, b = urlsplit(left), urlsplit(right)
+    return (
+        a.scheme.casefold(),
+        (a.hostname or "").casefold(),
+        _origin_port(a),
+    ) == (
+        b.scheme.casefold(),
+        (b.hostname or "").casefold(),
+        _origin_port(b),
+    )
+
+
+def _origin_port(parsed: Any) -> int | None:
+    try:
+        return parsed.port or (443 if parsed.scheme.casefold() == "https" else 80)
+    except ValueError:
+        return None
+
+
+@dataclass(frozen=True)
+class _ProductMetadata:
+    name: str
+    url: str
+    source: str
+
+
+def _redirect_product_candidate(
+    requested_url: str, result: FetchResult
+) -> ProductCandidate | None:
+    """Recognize a single product page after a material same-origin redirect."""
+    # Fixture fetchers written before redirect identity existed only expose a
+    # final URL. They cannot prove a redirect happened, so keep treating their
+    # response as an ordinary search page instead of inventing one.
+    if result.requested_url is None:
+        return None
+    actual_request = result.requested_url
+    if not _same_origin(actual_request, result.url):
+        return None
+    if canonical_url(actual_request) == canonical_url(result.url):
+        return None
+    found = tuple(
+        metadata
+        for metadata in (
+            _jsonld_product_metadata(result.html, result.url),
+            _og_product_metadata(result.html, result.url),
+            _microdata_product_metadata(result.html, result.url),
+        )
+        if metadata is not None
+    )
+    if not found:
+        raise ExtractionFailed(
+            f"material search redirect from {actual_request} to {result.url} "
+            "was not an unambiguous product page"
+        )
+    names = {_normalized_product_name(item.name) for item in found}
+    urls = {item.url for item in found}
+    if len(names) != 1 or len(urls) != 1:
+        sources = ", ".join(item.source for item in found)
+        raise ExtractionFailed(
+            f"material search redirect from {actual_request} to {result.url} "
+            f"has conflicting product metadata ({sources})"
+        )
+    preferred = next((item for item in found if item.source == "jsonld"), found[0])
+    return ProductCandidate(
+        raw_title=preferred.name,
+        url=result.url,
+        identity=preferred.url,
+        metadata_source=" + ".join(item.source for item in found),
+    )
+
+
+def _normalized_product_name(value: str) -> str:
+    return re.sub(r"[\W_]+", " ", value.casefold()).strip()
+
+
+def _metadata_url(value: Any, page_url: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        return canonical_url(page_url)
+    absolute = urljoin(page_url, value)
+    if _same_origin(page_url, absolute):
+        return canonical_url(absolute)
+    return canonical_url(page_url)
+
+
+def _jsonld_product_metadata(html: str, page_url: str) -> _ProductMetadata | None:
+    products: list[tuple[str, Any]] = []
+    for node in HTMLParser(html).css('script[type="application/ld+json"]'):
+        try:
+            payload = json.loads(node.text())
+        except json.JSONDecodeError:
+            continue
+        for item in _jsonld_objects(payload):
+            types = item.get("@type")
+            if isinstance(types, str):
+                types = (types,)
+            if not isinstance(types, list | tuple) or not any(
+                str(kind).casefold() == "product" for kind in types
+            ):
+                continue
+            name = item.get("name")
+            if isinstance(name, str) and name.strip():
+                products.append((name.strip(), item.get("url")))
+    if len(products) != 1:
+        return None
+    name, url = products[0]
+    return _ProductMetadata(name, _metadata_url(url, page_url), "jsonld")
+
+
+def _jsonld_objects(value: Any) -> Sequence[Mapping[str, Any]]:
+    if isinstance(value, Mapping):
+        children = value.get("@graph")
+        current = [value]
+        if isinstance(children, list):
+            current.extend(children)
+        return tuple(item for item in current if isinstance(item, Mapping))
+    if isinstance(value, list):
+        return tuple(item for item in value if isinstance(item, Mapping))
+    return ()
+
+
+def _og_product_metadata(html: str, page_url: str) -> _ProductMetadata | None:
+    values: dict[str, str] = {}
+    for node in HTMLParser(html).css("meta"):
+        key = (
+            node.attributes.get("property") or node.attributes.get("name") or ""
+        ).casefold()
+        value = (node.attributes.get("content") or "").strip()
+        if key and value and key not in values:
+            values[key] = value
+    is_product = values.get("og:type", "").casefold() == "product" or any(
+        key.startswith(("product:", "product.")) for key in values
+    )
+    title = values.get("og:title")
+    if not is_product or not title:
+        return None
+    return _ProductMetadata(title, _metadata_url(values.get("og:url"), page_url), "og")
+
+
+def _microdata_product_metadata(html: str, page_url: str) -> _ProductMetadata | None:
+    products: list[Node] = []
+    for node in HTMLParser(html).css("[itemscope][itemtype]"):
+        itemtype = (node.attributes.get("itemtype") or "").casefold()
+        if "schema.org/product" not in itemtype or _has_product_ancestor(node):
+            continue
+        products.append(node)
+    if len(products) != 1:
+        return None
+    node = products[0]
+    names = _microdata_scope_values(node, "name")
+    if not names:
+        return None
+    urls = _microdata_scope_values(node, "url")
+    return _ProductMetadata(
+        names[0], _metadata_url(urls[0] if urls else None, page_url), "microdata"
+    )
+
+
+def _has_product_ancestor(node: Node) -> bool:
+    parent = node.parent
+    while parent is not None:
+        if "schema.org/product" in (parent.attributes.get("itemtype") or "").casefold():
+            return True
+        parent = parent.parent
+    return False
+
+
+def _microdata_scope_values(scope: Node, itemprop: str) -> list[str]:
+    values: list[str] = []
+    for value_node in scope.css(f'[itemprop="{itemprop}"]'):
+        parent = value_node.parent
+        while parent is not None and parent != scope:
+            if "itemscope" in parent.attributes:
+                break
+            parent = parent.parent
+        else:
+            value = _microdata_value(value_node)
+            if value:
+                values.append(value)
+    return values
+
+
+def _microdata_value(node: Node) -> str:
+    return (
+        node.attributes.get("content") or node.attributes.get("value") or node.text()
+    ).strip()
 
 
 @dataclass(frozen=True)
@@ -483,6 +754,7 @@ class SiteRunner(Protocol):
         profile: dict[str, Any],
         query: str,
         *,
+        hooks_dir: Path = ...,
         fetcher: Fetcher = ...,
         keep_candidate: CandidateFilter | None = ...,
         variants_cache: MutableMapping[CacheKey, VariantsRead] | None = ...,
@@ -589,6 +861,81 @@ async def run_site(
     )
 
 
+async def run_site_attempts(
+    profile: dict[str, Any],
+    text: str,
+    match_query: Any,
+    *,
+    runner: SiteRunner = run_site,
+    hooks_dir: Path = DEFAULT_HOOKS_DIR,
+    fetcher: Fetcher = fetch,
+    keep_candidate: CandidateFilter | None = None,
+    variants_cache: MutableMapping[CacheKey, VariantsRead] | None = None,
+    pacers: MutableMapping[str, SitePace] | None = None,
+) -> SiteResult:
+    """Try spelling variants until this site returns an emittable match.
+
+    The matcher remains the sole authority for what can be stored. Empty pages,
+    unmatchable rows and safe alternatives allow a later spelling to find the
+    requested bottle. A profile failure is already the most useful answer, so
+    it stops the sequence immediately.
+    """
+    from parfum_finder.matcher import match_title, search_spellings
+
+    site_id = str(profile["id"])
+    fallback: SiteResult | None = None
+    attempted: list[str] = []
+    for spelling in search_spellings(text):
+        attempted.append(spelling)
+        result = await runner(
+            profile,
+            spelling,
+            hooks_dir=hooks_dir,
+            fetcher=fetcher,
+            keep_candidate=keep_candidate,
+            variants_cache=variants_cache,
+            pacers=pacers,
+        )
+        if result.status in ("suspect", "error"):
+            return result
+        safe_hits: list[SearchHit] = []
+        has_requested = False
+        for hit in result.hits:
+            title = hit.candidate.raw_title
+            match = match_title(title, match_query) if title else None
+            if match is None:
+                continue
+            if match.confident and not match.clone_of:
+                has_requested = True
+                safe_hits.append(hit)
+                continue
+            # Low-confidence and clone rows may be shown only when the matcher
+            # found the product's own identity. Anything else is diagnostic
+            # noise and cannot safely be stored under a different perfume.
+            if (
+                match.clone_of
+                or match.own_identity is not None
+                or match.clone_identity is not None
+            ):
+                safe_hits.append(hit)
+        if not safe_hits:
+            continue
+        safe_result = replace(result, hits=tuple(safe_hits))
+        if has_requested:
+            return safe_result
+        if fallback is None:
+            fallback = safe_result
+    if fallback is not None:
+        return fallback
+    return SiteResult(
+        site_id,
+        "empty",
+        (),
+        f"{site_id}: no emittable decant after "
+        f"{', '.join(repr(item) for item in attempted)}",
+    )
+
+
 async def run_sites(
     profiles: Sequence[dict[str, Any]],
     query: str,
@@ -631,6 +978,38 @@ async def run_sites(
                 run_site(
                     profile,
                     query,
+                    hooks_dir=hooks_dir,
+                    fetcher=fetcher,
+                    keep_candidate=keep_candidate,
+                    variants_cache=variants_cache,
+                    pacers=pacers,
+                ),
+                name=f"site:{profile['id']}",
+            )
+            for profile in profiles
+        ]
+    return tuple(task.result() for task in tasks)
+
+
+async def run_sites_attempts(
+    profiles: Sequence[dict[str, Any]],
+    text: str,
+    match_query: Any,
+    *,
+    hooks_dir: Path = DEFAULT_HOOKS_DIR,
+    fetcher: Fetcher = fetch,
+    keep_candidate: CandidateFilter | None = None,
+    variants_cache: MutableMapping[CacheKey, VariantsRead] | None = None,
+    pacers: MutableMapping[str, SitePace] | None = None,
+) -> tuple[SiteResult, ...]:
+    """Run one matcher-aware spelling sequence for every site in parallel."""
+    async with asyncio.TaskGroup() as group:
+        tasks = [
+            group.create_task(
+                run_site_attempts(
+                    profile,
+                    text,
+                    match_query,
                     hooks_dir=hooks_dir,
                     fetcher=fetcher,
                     keep_candidate=keep_candidate,
@@ -743,12 +1122,18 @@ async def search_site(
                 f"{type(rewritten).__name__}, not the query string to send"
             )
         query = rewritten
-    result = await _fetch_page(
-        profile, _search_url(profile, query), role="search", fetcher=fetcher
-    )
-    candidates = _read_candidates(profile, result.html, result.url)
-    if hooks.after_search is not None:
-        candidates = tuple(hooks.after_search(profile, candidates, result.html))
+    requested_url = _search_url(profile, query)
+    result = await _fetch_page(profile, requested_url, role="search", fetcher=fetcher)
+    redirected = _redirect_product_candidate(requested_url, result)
+    preloaded: dict[str, FetchResult] = {}
+    candidates: tuple[ProductCandidate, ...]
+    if redirected is not None:
+        candidates = (redirected,)
+        preloaded[redirected.identity or canonical_url(redirected.url)] = result
+    else:
+        candidates = _read_candidates(profile, result.html, result.url)
+        if hooks.after_search is not None:
+            candidates = tuple(hooks.after_search(profile, candidates, result.html))
     if not candidates:
         _check_empty_search(profile, result)
 
@@ -759,7 +1144,12 @@ async def search_site(
     opened_a_page_with_sizes = False
     for candidate in opened:
         rows, evidence = await _read_variants(
-            profile, candidate, hooks, fetcher, variants_cache
+            profile,
+            candidate,
+            hooks,
+            fetcher,
+            variants_cache,
+            preloaded.get(candidate.identity or canonical_url(candidate.url)),
         )
         _check_variant_control(profile, candidate, rows, evidence)
         # Rows without prices are the loudest evidence of all: the layer read the
@@ -769,7 +1159,7 @@ async def search_site(
         rows = tuple(_with_candidate_identity(row, candidate) for row in rows)
         extracted_a_price |= any(row.price is not None for row in rows)
         variants = apply_variant_rules(rows, rules)
-        if variants:
+        if variants and not candidate.diagnostic:
             hits.append(SearchHit(candidate=candidate, variants=variants))
     if opened and opened_a_page_with_sizes and not extracted_a_price:
         # Name what actually read the pages. A hook that took the job over is the
@@ -805,7 +1195,12 @@ def _candidates_to_open(
     kept = tuple(
         candidate for candidate in candidates if keep_candidate(candidate.raw_title)
     )
-    return kept or candidates[:1]
+    if kept:
+        return kept
+    # This page exists only to keep the extraction-health check honest. It is
+    # deliberately marked so a wrong-brand, wrong-concentration or titleless
+    # listing can never be returned as a search hit.
+    return (replace(candidates[0], diagnostic=True),)
 
 
 def _check_empty_search(profile: dict[str, Any], result: FetchResult) -> None:
@@ -1205,18 +1600,22 @@ def _read_candidates(
     that cannot ever hold a number.
     """
     search = profile["search"]
-    candidates: list[ProductCandidate] = []
+    candidates: dict[tuple[str, str | None], ProductCandidate] = {}
     for node in HTMLParser(html).css(str(search["result_item"])):
         href = select_field(node, str(search["result_url"]))
         if not href:
             continue
-        candidates.append(
+        url = urljoin(page_url, href)
+        identity = canonical_url(url)
+        candidates.setdefault(
+            (identity, select_field(node, str(search["result_title"]))),
             ProductCandidate(
                 raw_title=select_field(node, str(search["result_title"])),
-                url=urljoin(page_url, href),
-            )
+                url=url,
+                identity=identity,
+            ),
         )
-    return tuple(candidates)
+    return tuple(candidates.values())
 
 
 async def _read_variants(
@@ -1225,6 +1624,7 @@ async def _read_variants(
     hooks: SiteHooks,
     fetcher: Fetcher,
     cache: MutableMapping[CacheKey, VariantsRead] | None = None,
+    preloaded_page: FetchResult | None = None,
 ) -> VariantsRead:
     """Open one product page and read its sizes on the profile's layer.
 
@@ -1253,13 +1653,17 @@ async def _read_variants(
     product on those sites, which is why it is opt-in rather than always on.
     """
     if cache is None:
-        return await _read_product(profile, candidate, hooks, fetcher)
+        return await _read_product(
+            profile, candidate, hooks, fetcher, preloaded_page=preloaded_page
+        )
     # Keyed by site as well as URL so one dict can be shared by every site of a
     # scan. Two shops can carry the same path, and one profile's rows read
     # through another profile's rules would be nonsense.
-    key = (str(profile["id"]), candidate.url)
+    key = (str(profile["id"]), candidate.identity or canonical_url(candidate.url))
     if key not in cache:
-        cache[key] = await _read_product(profile, candidate, hooks, fetcher)
+        cache[key] = await _read_product(
+            profile, candidate, hooks, fetcher, preloaded_page=preloaded_page
+        )
     return cache[key]
 
 
@@ -1268,6 +1672,8 @@ async def _read_product(
     candidate: ProductCandidate,
     hooks: SiteHooks,
     fetcher: Fetcher,
+    *,
+    preloaded_page: FetchResult | None = None,
 ) -> VariantsRead:
     """Do the reading _read_variants may serve from its cache instead.
 
@@ -1276,7 +1682,9 @@ async def _read_product(
     `_page_evidence` call at the end is what every path is judged by, and no
     branch gets to answer for a page out of the reason it took that branch.
     """
-    rows, root = await _read_product_rows(profile, candidate, hooks, fetcher)
+    rows, root = await _read_product_rows(
+        profile, candidate, hooks, fetcher, preloaded_page=preloaded_page
+    )
     return rows, _page_evidence(profile, root)
 
 
@@ -1285,6 +1693,8 @@ async def _read_product_rows(
     candidate: ProductCandidate,
     hooks: SiteHooks,
     fetcher: Fetcher,
+    *,
+    preloaded_page: FetchResult | None = None,
 ) -> tuple[tuple[RawVariant, ...], Node | None]:
     """Read one product's size rows, next to the markup they were read off.
 
@@ -1294,7 +1704,7 @@ async def _read_product_rows(
     questions about it.
     """
     layer = profile["extraction"]
-    page: FetchResult | None = None
+    page = preloaded_page
     if hooks.parse_variants is not None:
         page = await _fetch_page(
             profile, candidate.url, role="product", fetcher=fetcher

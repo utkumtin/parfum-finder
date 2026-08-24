@@ -21,7 +21,7 @@ from pathlib import Path
 
 from parfum_finder import paths
 from parfum_finder.engine import SiteResult, Variant
-from parfum_finder.matcher import PerfumeQuery, match_title
+from parfum_finder.matcher import PerfumeQuery, match_title, result_identity
 
 DEFAULT_DB_PATH = paths.default_db_path()
 
@@ -288,7 +288,7 @@ def snapshot_rows(result: SiteResult, query: PerfumeQuery) -> list[SnapshotRow]:
             if match.clone_of
             else match.own_identity
             if not match.confident
-            else None
+            else result_identity(hit.candidate.raw_title, query, match)
         )
         rows.extend(
             SnapshotRow(

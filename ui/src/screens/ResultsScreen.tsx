@@ -500,13 +500,13 @@ export function ResultsScreen({
                                 window.open(row.product_url, "_blank", "noopener");
                             }}
                           >
-                            <td className="title-cell" title={row.raw_title}>
+                            <td className="title-cell" title={row.display_title || row.raw_title}>
                               {/* The title truncates, the badges do not: a
                                   shop title long enough to need an ellipsis
                                   was swallowing the very mark that says this
                                   row is the answer. */}
                               <span className="title-inner">
-                              <span className="title-text">{row.raw_title}</span>
+                              <span className="title-text">{row.display_title || row.raw_title}</span>
                               {/* When nothing is sold at 3 ml or 5 ml the
                                   headline falls back to the best-rate row, and
                                   both facts are then true of the same row. One

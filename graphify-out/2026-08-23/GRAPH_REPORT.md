@@ -1,7 +1,7 @@
 # Graph Report - parfum-finder  (2026-08-23)
 
 ## Corpus Check
-- 133 files · ~313,492 words
+- 133 files · ~313,490 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e87ea153`
+- Built from commit: `7b54177f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

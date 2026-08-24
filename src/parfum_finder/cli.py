@@ -40,7 +40,7 @@ from parfum_finder.engine import (
     SitePace,
     SiteResult,
     VariantsRead,
-    run_sites,
+    run_sites_attempts,
 )
 from parfum_finder.fetch import Strategy, browser_session
 from parfum_finder.logging_setup import setup_logging
@@ -190,9 +190,10 @@ async def _scan_all(
         for text, query in queries:
             if len(queries) > 1:
                 print(f"\n{text}")
-            results = await run_sites(
+            results = await run_sites_attempts(
                 profiles,
                 text,
+                query,
                 fetcher=fetcher,
                 keep_candidate=listing_filter(query),
                 variants_cache=cache,

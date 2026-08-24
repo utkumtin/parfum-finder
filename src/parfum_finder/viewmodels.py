@@ -21,6 +21,9 @@ class ResultRow:
     "Parfums de Marly Layton" also finds "Layton Exclusif", and those two are
     different bottles that must not share a block.
 
+    `display_title` removes catalog decorations for the table. `raw_title`
+    keeps the shop's original wording for history and diagnostics.
+
     `age_days` is how old the reading behind the row is. It defaults to 0, which
     is what a row this scan just fetched is, so only the rows repainted from
     storage have to fill it in.
@@ -40,6 +43,7 @@ class ResultRow:
     product_url: str | None
     query_index: int = 0
     product: str = ""
+    display_title: str = ""
     clone_of: str = ""
     own_identity: bool = True
     age_days: int = 0

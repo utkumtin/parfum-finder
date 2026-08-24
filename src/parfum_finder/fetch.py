@@ -102,6 +102,10 @@ class FetchResult:
     # reads these: a page is judged on its body, and the one caller that needs a
     # header is the retry loop asking a 429 how long it should wait.
     headers: Headers = field(default_factory=dict)
+    # The address that was requested before the transport followed redirects.
+    # Keeping both URLs lets callers distinguish a product-page redirect from a
+    # search page that merely normalized its query string.
+    requested_url: str | None = None
 
 
 class Fetcher(Protocol):
@@ -191,6 +195,7 @@ async def _fetch_httpx(
         html=response.text,
         strategy="httpx",
         headers=_folded(response.headers),
+        requested_url=url,
     )
 
 
@@ -229,6 +234,7 @@ async def _fetch_curl_cffi(
         html=response.text,
         strategy="curl_cffi",
         headers=_folded(response.headers),
+        requested_url=url,
     )
 
 
@@ -330,6 +336,7 @@ async def _read_in_browser(
         html=html,
         strategy="playwright",
         headers=_folded(response.headers),
+        requested_url=url,
     )
 
 

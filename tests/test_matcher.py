@@ -13,6 +13,7 @@ from parfum_finder.matcher import (
     DEFAULT_THRESHOLD,
     Match,
     PerfumeQuery,
+    display_title,
     match_title,
     parse_query,
     product_label,
@@ -288,6 +289,12 @@ def test_parse_query_rejects_a_line_naming_only_a_brand() -> None:
         parse_query("Dior Parfum")
 
 
+def test_parse_query_accepts_a_single_model_name_without_inventing_a_brand() -> None:
+    # A one-word model can be searched before its brand is known. The accepted
+    # listing supplies that brand later, so the model word must not become it.
+    assert parse_query("Breeze") == PerfumeQuery(brand="", name="breeze")
+
+
 def test_parse_query_rejects_an_empty_search() -> None:
     with pytest.raises(ValueError):
         parse_query("   ")
@@ -469,6 +476,108 @@ def test_words_after_the_searched_name_still_count_against_it() -> None:
     )
 
     assert match is not None
+    assert match.score < 100
+
+
+@pytest.mark.parametrize(
+    ("title", "search"),
+    [
+        (
+            "Lattafa Breeze Unisex Parfüm | Ferah ve Kalıcı",
+            "Lattafa Breeze",
+        ),
+        (
+            "Rayhaan Pharaoh Unisex Parfüm | Gizemli ve Kalıcı",
+            "Rayhaan Pharaoh",
+        ),
+    ],
+)
+def test_an_audience_label_before_a_promotional_tail_is_not_part_of_the_name(
+    title: str, search: str
+) -> None:
+    query = parse_query(search)
+    match = match_title(title, query)
+
+    assert match is not None
+    assert match.confident
+    assert match.score == 100
+    assert title_could_match(title, query)
+
+
+@pytest.mark.parametrize(
+    ("raw_title", "expected"),
+    [
+        (
+            "Lattafa Breeze Unisex Parfüm | Ferah ve Kalıcı",
+            "Lattafa Breeze Unisex Parfüm",
+        ),
+        (
+            "Dior Homme Erkek Parfüm | Kalıcı ve Etkileyici",
+            "Dior Homme Erkek Parfüm",
+        ),
+        (
+            "Narciso Rodriguez For Her Kadın Parfüm | Zarif ve Kalıcı",
+            "Narciso Rodriguez For Her Kadın Parfüm",
+        ),
+        (
+            "Dior Sauvage Parfum Dekant 3ml – Deneme",
+            "Dior Sauvage Parfum Dekant 3ml",
+        ),
+        (
+            "Dior Sauvage Parfum Dekant 15 ml - Duzenli Kullanim",
+            "Dior Sauvage Parfum Dekant 15 ml",
+        ),
+        (
+            "Dior Sauvage Parfum Dekant 30ml – Yoğun Kullanım",
+            "Dior Sauvage Parfum Dekant 30ml",
+        ),
+        (
+            "Parfums de Marly Layton | Exclusif",
+            "Parfums de Marly Layton | Exclusif",
+        ),
+    ],
+)
+def test_catalog_decorations_are_hidden_only_with_a_safe_boundary(
+    raw_title: str, expected: str
+) -> None:
+    assert display_title(raw_title) == expected
+
+
+def test_catalog_decorations_do_not_split_product_groups() -> None:
+    assert (
+        product_label("Lattafa Breeze Unisex Parfüm | Ferah ve Kalıcı")
+        == "Lattafa Breeze"
+    )
+    assert (
+        product_label("Dior Sauvage Parfum Dekant 30ml – Yoğun Kullanım")
+        == "Dior Sauvage Parfum"
+    )
+
+
+@pytest.mark.parametrize(
+    ("title", "search"),
+    [
+        (
+            "Parfums de Marly Layton Exclusif Unisex Parfüm | Yoğun ve Kalıcı",
+            "Parfums de Marly Layton",
+        ),
+        (
+            "Carolina Herrera 212 VIP Unisex Parfüm | Kalıcı ve Etkileyici",
+            "Carolina Herrera 212",
+        ),
+    ],
+)
+def test_a_product_qualifier_before_a_promotional_tail_still_counts(
+    title: str, search: str
+) -> None:
+    query = parse_query(search)
+    match = match_title(title, query)
+    baseline = match_title(title.split(" Unisex Parfüm", 1)[0], query)
+
+    assert match is not None
+    assert baseline is not None
+    assert match.score == baseline.score
+    assert match.confident == baseline.confident
     assert match.score < 100
 
 
@@ -763,3 +872,14 @@ def test_a_brand_nobody_abbreviates_is_asked_for_once() -> None:
     # No table entry, no second request. Every extra spelling is one more
     # search against a small shop.
     assert search_spellings("Dior Sauvage EDP") == ("Dior Sauvage EDP",)
+
+
+def test_brand_aliases_each_receive_one_separator_folded_attempt_in_order() -> None:
+    assert search_spellings("D&G Light-Blue") == (
+        "D&G Light-Blue",
+        "D&G Light Blue",
+        "Dolce & Gabbana Light-Blue",
+        "Dolce & Gabbana Light Blue",
+        "DG Light-Blue",
+        "DG Light Blue",
+    )

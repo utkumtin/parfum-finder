@@ -43,6 +43,7 @@ def encode_result_row(row: ResultRow) -> dict[str, Any]:
         "site_label": row.site_label,
         "query_index": row.query_index,
         "product": row.product,
+        "display_title": row.display_title or row.raw_title,
         "raw_title": row.raw_title,
         "size_ml_x10": row.size_ml_x10,
         "price_kurus": row.price_kurus,

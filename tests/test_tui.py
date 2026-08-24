@@ -396,6 +396,29 @@ async def test_site_colour_lands_on_the_site_cell_and_nowhere_else(
         assert all(isinstance(cell, str) for cell in (cells[0], *cells[2:]))
 
 
+async def test_result_rows_hide_catalog_decorations_but_keep_the_raw_title(
+    tmp_path: Path,
+) -> None:
+    sites_dir = tmp_path / "sites"
+    _write_profile(sites_dir, "site-a", "Site A")
+    variant = _variant(
+        50,
+        100000,
+        title="Dior Sauvage EDP Unisex Parfüm | Ferah ve Kalıcı",
+    )
+    runner = _static_runner({"site-a": _ok_result("site-a", variant)})
+
+    app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await _submit_query(pilot)
+        table = await _wait_for_table(pilot)
+
+        assert str(table.get_row_at(0)[0]) == "Dior Sauvage EDP Unisex Parfüm"
+        row = app.screen._visible_rows[0]  # type: ignore[attr-defined]
+        assert row.raw_title == variant.raw_title
+
+
 def test_every_shipped_site_has_a_colour_that_survives_256_colours() -> None:
     """Two sites sharing a colour is worse than no colours at all.
 
@@ -1747,7 +1770,9 @@ async def test_a_mistyped_perfume_does_not_cancel_the_ones_that_parsed(
     app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
     async with app.run_test() as pilot:
         await pilot.pause()
-        await _submit_query(pilot, "Dior Sauvage EDP - Chanel - Chanel Bleu EDP")
+        await _submit_query(
+            pilot, "Dior Sauvage EDP - Dior Parfum - Chanel Bleu EDP"
+        )
         screen = app.screen
         await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
 
@@ -1781,7 +1806,7 @@ async def test_unparseable_query_mid_scan_takes_the_bar_down_with_it(
         screen = app.screen
         await _wait_until(lambda: screen._scanning, pilot)  # type: ignore[attr-defined]
 
-        await _submit_query(pilot, "Chanel")
+        await _submit_query(pilot, "Dior Parfum")
         await _wait_until(lambda: not screen._scanning, pilot)  # type: ignore[attr-defined]
 
         assert not screen.query_one("#progress", ProgressBar).display

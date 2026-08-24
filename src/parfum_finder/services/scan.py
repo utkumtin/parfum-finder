@@ -23,15 +23,16 @@ from parfum_finder.engine import (
     SiteRunner,
     SiteStatus,
     VariantsRead,
+    run_site_attempts,
 )
 from parfum_finder.fetch import Fetcher, browser_session
 from parfum_finder.logging_setup import logger
 from parfum_finder.matcher import (
     DEFAULT_THRESHOLD,
     PerfumeQuery,
+    display_title,
     listing_filter,
     product_label,
-    search_spellings,
 )
 from parfum_finder.store import (
     CachedPrice,
@@ -177,6 +178,7 @@ def _cached_result_row(price: CachedPrice, label: str, search: Search) -> Result
         site_label=label,
         query_index=search.index,
         product=product_label(price.raw_title) or price.raw_title,
+        display_title=display_title(price.raw_title),
         raw_title=price.raw_title,
         size_ml_x10=price.size_ml_x10,
         price_kurus=price.price_kurus,
@@ -234,6 +236,7 @@ def _to_result_rows(
             # one block.
             product=product_label(row.variant.raw_title or "")
             or (row.variant.raw_title or ""),
+            display_title=display_title(row.variant.raw_title or ""),
             raw_title=row.variant.raw_title or "",
             size_ml_x10=row.variant.size_ml_x10,
             price_kurus=row.variant.price_kurus,
@@ -385,25 +388,16 @@ async def run_scan(
         await queue.put(SiteStarted(site_id=site_id))
         for search in to_scan:
             try:
-                # A shop that writes the house differently ("D&G" for Dolce &
-                # Gabbana) answers the typed spelling with an empty results
-                # page, and nothing downstream can recover from a page with no
-                # products on it. So an empty answer is asked again with the
-                # other spellings of that brand, and only an empty answer:
-                # asking every spelling every time would multiply the requests
-                # rate_limit_ms exists to hold down, against shops that are
-                # small.
-                for text in search_spellings(search.text):
-                    result = await runner(
-                        profile,
-                        text,
-                        fetcher=fetcher,
-                        keep_candidate=listing_filter(search.query),
-                        variants_cache=variants_cache,
-                        pacers=pacers,
-                    )
-                    if result.status != "empty":
-                        break
+                result = await run_site_attempts(
+                    profile,
+                    search.text,
+                    search.query,
+                    runner=runner,
+                    fetcher=fetcher,
+                    keep_candidate=listing_filter(search.query),
+                    variants_cache=variants_cache,
+                    pacers=pacers,
+                )
             except Exception as e:
                 result = SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
             try:
@@ -567,6 +561,7 @@ async def run_basket_refresh(
     # Shared across every row a site is asked about, so a basket of ten does not
     # get ten requests that each skipped the wait in front of them.
     pacers: dict[str, SitePace] = {}
+    variants_cache: dict[CacheKey, VariantsRead] = {}
 
     async def refresh_site(profile: dict[str, Any], fetcher: Fetcher) -> None:
         site_id = str(profile["id"])
@@ -587,18 +582,16 @@ async def run_basket_refresh(
             # integer join.
             text = f"{row.line.brand} {row.line.name} {row.line.concentration}".strip()
             try:
-                # Same fallback a scan makes, and for the same reason: the
-                # stored identity spells the house the canonical way, so a
-                # shop whose catalog only ever says "D&G" answers it with an
-                # empty page. Without the second ask a basket row would be
-                # excluded from that shop on every refresh, while a scan of
-                # the same perfume finds it there.
-                for spelling in search_spellings(text):
-                    result = await runner(
-                        profile, spelling, fetcher=fetcher, pacers=pacers
-                    )
-                    if result.status != "empty":
-                        break
+                result = await run_site_attempts(
+                    profile,
+                    text,
+                    query,
+                    runner=runner,
+                    fetcher=fetcher,
+                    keep_candidate=listing_filter(query),
+                    variants_cache=variants_cache,
+                    pacers=pacers,
+                )
             except Exception as e:
                 result = SiteResult(site_id, "error", (), f"{type(e).__name__}: {e}")
             if result.status in ("error", "suspect"):

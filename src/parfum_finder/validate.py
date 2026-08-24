@@ -42,7 +42,13 @@ from urllib.parse import unquote, unquote_plus, urljoin, urlparse
 from selectolax.parser import HTMLParser
 
 from parfum_finder import paths
-from parfum_finder.engine import ExtractionFailed, apply_variant_rules, search_site
+from parfum_finder.engine import (
+    ExtractionFailed,
+    _redirect_product_candidate,
+    _search_url,
+    apply_variant_rules,
+    search_site,
+)
 from parfum_finder.extract import (
     EXTRACTION_LAYERS,
     RawVariant,
@@ -552,6 +558,20 @@ async def validate_live(
     try:
         hits = await search_site(profile, query, hooks_dir=hooks_dir, fetcher=recorder)
     except ExtractionFailed as e:
+        page = recorder.pages[0] if recorder.pages else None
+        if page is not None and page.status_code == 200:
+            try:
+                _redirect_product_candidate(_search_url(profile, query), page)
+            except ExtractionFailed as redirect_error:
+                checks.append(
+                    Check("reachable", True, f"search page 200, {len(page.html)} bytes")
+                )
+                checks.append(Check("search", False, str(redirect_error)))
+                return SiteValidation(
+                    site_id,
+                    tuple(checks),
+                    await _probe_other_layers(profile, recorder, fetcher),
+                )
         checks.append(Check("extraction", False, str(e)))
         return SiteValidation(
             site_id,
@@ -573,15 +593,35 @@ async def validate_live(
         return SiteValidation(site_id, tuple(checks))
     checks.append(Check("reachable", True, f"search page 200, {len(page.html)} bytes"))
 
-    cards = _count_result_cards(profile, page.html)
-    if not cards:
-        checks.append(_no_results_check(profile, page))
+    try:
+        redirected = _redirect_product_candidate(_search_url(profile, query), page)
+    except ExtractionFailed as e:
+        checks.append(Check("search", False, str(e)))
         return SiteValidation(
             site_id,
             tuple(checks),
             await _probe_other_layers(profile, recorder, fetcher),
         )
-    checks.append(Check("search", True, f"{cards} result card(s) for {query!r}"))
+    if redirected is not None:
+        cards = 1
+        checks.append(
+            Check(
+                "search",
+                True,
+                "single-product redirect recognized by "
+                f"{redirected.metadata_source or 'metadata'}",
+            )
+        )
+    else:
+        cards = _count_result_cards(profile, page.html)
+        if not cards:
+            checks.append(_no_results_check(profile, page))
+            return SiteValidation(
+                site_id,
+                tuple(checks),
+                await _probe_other_layers(profile, recorder, fetcher),
+            )
+        checks.append(Check("search", True, f"{cards} result card(s) for {query!r}"))
 
     priced = tuple(
         variant

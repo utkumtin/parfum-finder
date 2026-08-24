@@ -320,6 +320,7 @@ def test_search_streams_events_and_results_are_readable_after(
         rows = body["rows"]
         assert len(rows) == 1
         assert rows[0]["site_id"] == "site-a"
+        assert rows[0]["display_title"] == "Dior Sauvage EDP Dekant 5 ml"
         assert rows[0]["price_per_ml_kurus"] == "5000"
 
 

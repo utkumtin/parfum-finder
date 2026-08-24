@@ -24,6 +24,7 @@ export interface ResultRow {
   site_label: string;
   query_index: number;
   product: string;
+  display_title: string;
   raw_title: string;
   size_ml_x10: number;
   price_kurus: number | null;

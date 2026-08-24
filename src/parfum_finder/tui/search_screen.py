@@ -626,7 +626,7 @@ class SearchScreen(Screen[None]):
             per_ml = "-"
         else:
             per_ml = format_price(Decimal(row.price_per_ml_kurus) / Decimal(100))
-        title = row.raw_title
+        title = row.display_title or row.raw_title
         if row.clone_of:
             title = f"{title}  KLON ← {row.clone_of}"
         site_style = _SITE_STYLES.get(row.site_id)

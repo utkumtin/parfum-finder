@@ -23,8 +23,10 @@ from selectolax.parser import HTMLParser
 from parfum_finder import engine
 from parfum_finder.engine import (
     ExtractionFailed,
+    SearchHit,
     apply_variant_rules,
     run_site,
+    run_site_attempts,
     run_sites,
     search_site,
 )
@@ -39,8 +41,9 @@ from parfum_finder.fetch import (
     Strategy,
     fetch,
 )
-from parfum_finder.matcher import parse_query, title_could_match
+from parfum_finder.matcher import PerfumeQuery, parse_query, title_could_match
 from parfum_finder.probe import _PRODUCT_MARKUP_SELECTOR
+from parfum_finder.store import snapshot_rows
 
 
 def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:
@@ -125,19 +128,16 @@ async def test_query_is_escaped_for_a_path_segment_template(
     assert hit.candidate.raw_title == "/engine-echo/creed%20aventus%20edp"
 
 
-async def test_relative_links_resolve_against_the_page_that_answered(
+async def test_unclassified_search_redirect_fails_instead_of_reading_related_cards(
     server_url: str,
 ) -> None:
-    # The search redirects into /shop/, and the first row's link is relative. Read
-    # against base_url it would point at /engine-product; only resolving against
-    # the URL the fetch actually landed on gives /shop/engine-product.
+    # A redirect into a page with cards is not enough evidence that this is a
+    # product. Reading the related cards would price an arbitrary recommendation.
     profile = _profile(server_url)
     profile["search"]["url_template"] = "{base_url}/engine-redirect-search?q={query}"
 
-    hits = await search_site(profile, "test")
-
-    assert hits[0].candidate.url == f"{server_url}/shop/engine-product"
-    assert len(hits[0].variants) == 2
+    with pytest.raises(ExtractionFailed, match="material search redirect"):
+        await search_site(profile, "test")
 
 
 async def test_a_site_with_no_stock_of_the_perfume_is_not_an_error(
@@ -1734,6 +1734,22 @@ async def test_a_broken_profile_is_still_suspect_when_no_title_looked_right(
     assert "embedded_json" in str(result.detail)
 
 
+async def test_diagnostic_candidate_checks_extraction_but_never_emits_a_hit(
+    server_url: str,
+) -> None:
+    fetcher, sent = _watching_fetcher()
+
+    hits = await search_site(
+        _named_profile(server_url),
+        "louis vuitton ombre nomade",
+        fetcher=fetcher,
+        keep_candidate=lambda title: False,
+    )
+
+    assert hits == ()
+    assert sum("engine-product" in url for url in sent) == 1
+
+
 async def test_a_scan_says_how_many_listings_it_skipped(server_url: str) -> None:
     # A filter that narrows the scan silently is the same failure as a dead
     # selector: the table looks complete either way.
@@ -1830,3 +1846,501 @@ async def test_two_shops_sharing_a_url_do_not_read_each_others_pages(
     await search_site(second, "dior sauvage edp", fetcher=fetcher, variants_cache=cache)
 
     assert sum("engine-product" in url for url in sent) == 2
+
+
+def _redirect_page(
+    metadata: str, *, url: str = "https://shop.test/product/ruxan"
+) -> FetchResult:
+    return FetchResult(
+        url=url,
+        requested_url="https://shop.test/search?s=ruxan&utm_source=newsletter",
+        status_code=200,
+        html=(
+            f"<html><head>{metadata}</head><body><div class='card'>related"
+            "</div></body></html>"
+        ),
+        strategy="httpx",
+    )
+
+
+@pytest.mark.parametrize(
+    ("metadata", "name"),
+    [
+        (
+            (
+                '<script type="application/ld+json">'
+                '{"@type":"Product","name":"Ruxan"}</script>'
+            ),
+            "Ruxan",
+        ),
+        (
+            (
+                '<meta property="og:type" content="product">'
+                '<meta property="og:title" content="Luxury Dekant">'
+            ),
+            "Luxury Dekant",
+        ),
+        (
+            (
+                '<script type="application/ld+json">'
+                '{"@type":"Product","name":"Luxury Dekant",'
+                '"url":"/product/ruxan?utm_source=feed"}</script>'
+                '<meta property="og:type" content="product">'
+                '<meta property="og:title" content="Luxury Dekant">'
+                '<meta property="og:url" content="/product/ruxan">'
+            ),
+            "Luxury Dekant",
+        ),
+        (
+            (
+                '<div itemscope itemtype="https://schema.org/Product">'
+                '<span itemprop="name">Dekant Doktoru</span></div>'
+            ),
+            "Dekant Doktoru",
+        ),
+    ],
+)
+def test_redirect_product_metadata_is_the_only_page_level_identity(
+    metadata: str, name: str
+) -> None:
+    candidate = engine._redirect_product_candidate(
+        "https://shop.test/search?s=ruxan", _redirect_page(metadata)
+    )
+
+    assert candidate is not None
+    assert candidate.raw_title == name
+    assert candidate.url == "https://shop.test/product/ruxan"
+    assert candidate.identity == "https://shop.test/product/ruxan"
+
+
+def test_canonical_url_ignores_tracking_but_preserves_functional_duplicate_params() -> (
+    None
+):
+    assert (
+        engine.canonical_url(
+            "HTTPS://SHOP.TEST:443/a/../product/%72uxan/?b=2&s=x&s=x&utm_source=a#card"
+        )
+        == "https://shop.test/product/ruxan?b=2&s=x&s=x"
+    )
+    assert engine.canonical_url("https://shop.test/a%2fb") == (
+        "https://shop.test/a%2Fb"
+    )
+    assert engine.canonical_url("https://shop.test/a%2fb") != engine.canonical_url(
+        "https://shop.test/a/b"
+    )
+
+
+def test_tracking_only_url_change_is_not_a_material_redirect() -> None:
+    page = _redirect_page(
+        '<script type="application/ld+json">'
+        '{"@type":"Product","name":"Ruxan"}</script>',
+        url="https://shop.test/search?s=ruxan&UTM_medium=email&SID=abc#top",
+    )
+
+    assert (
+        engine._redirect_product_candidate(
+            "https://shop.test/search?s=ruxan&utm_source=newsletter", page
+        )
+        is None
+    )
+
+
+def test_material_redirect_cleans_tracking_and_rejects_cross_origin_metadata_url() -> (
+    None
+):
+    page = _redirect_page(
+        '<script type="application/ld+json">'
+        '{"@type":"Product","name":"Ruxan",'
+        '"url":"https://other.test/stolen"}</script>',
+        url="https://shop.test/product/ruxan?gclid=abc&variant=5ml",
+    )
+
+    candidate = engine._redirect_product_candidate(
+        "https://shop.test/search?s=ruxan", page
+    )
+
+    assert candidate is not None
+    assert candidate.url == page.url
+    assert candidate.identity == "https://shop.test/product/ruxan?variant=5ml"
+
+
+def test_metadata_formats_agree_across_typographic_separators() -> None:
+    metadata = (
+        '<script type="application/ld+json">'
+        '{"@type":"Product","name":"Prada L’Homme",'
+        '"url":"/product/ruxan"}</script>'
+        '<meta property="og:type" content="product">'
+        '<meta property="og:title" content="Prada L\'Homme">'
+        '<meta property="og:url" content="/product/ruxan">'
+    )
+
+    candidate = engine._redirect_product_candidate(
+        "https://shop.test/search?s=prada", _redirect_page(metadata)
+    )
+
+    assert candidate is not None
+    assert candidate.metadata_source == "jsonld + og"
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        (
+            '<script type="application/ld+json">'
+            '[{"@type":"Product","name":"A"},{"@type":"Product","name":"B"}]'
+            "</script>"
+        ),
+        (
+            '<script type="application/ld+json">'
+            '{"@type":"Product","name":"A","url":"/a"}</script>'
+            '<meta property="og:type" content="product">'
+            '<meta property="og:title" content="B">'
+            '<meta property="og:url" content="/b">'
+        ),
+    ],
+)
+def test_unclassified_or_conflicting_material_redirect_fails_loudly(
+    metadata: str,
+) -> None:
+    with pytest.raises(ExtractionFailed, match="material search redirect"):
+        engine._redirect_product_candidate(
+            "https://shop.test/search?s=x", _redirect_page(metadata)
+        )
+
+
+def test_multiple_top_level_microdata_products_are_ambiguous() -> None:
+    metadata = (
+        '<div itemscope itemtype="https://schema.org/Product">'
+        '<span itemprop="name">Ruxan</span></div>'
+        '<div itemscope itemtype="https://schema.org/Product"></div>'
+    )
+
+    with pytest.raises(ExtractionFailed, match="material search redirect"):
+        engine._redirect_product_candidate(
+            "https://shop.test/search?s=ruxan", _redirect_page(metadata)
+        )
+
+
+def test_nested_related_product_name_does_not_name_the_page_scope() -> None:
+    metadata = (
+        '<div itemscope itemtype="https://schema.org/Product">'
+        '<div itemscope itemtype="https://schema.org/Product">'
+        '<span itemprop="name">Related bottle</span></div></div>'
+    )
+
+    with pytest.raises(ExtractionFailed, match="material search redirect"):
+        engine._redirect_product_candidate(
+            "https://shop.test/search?s=ruxan", _redirect_page(metadata)
+        )
+
+
+async def test_redirected_embedded_page_is_not_fetched_twice() -> None:
+    html = (
+        '<script type="application/ld+json">'
+        '{"@type":"Product","name":"Test Parfum Dekant"}</script>'
+        "<div data-product_variations='"
+        '[{"attributes":{"attribute_pa_hacim":"5 ml"},"display_price":"120",'
+        "\"is_in_stock\":true}]'></div>"
+    )
+    page = FetchResult(
+        url="https://shop.test/product/test",
+        requested_url="https://shop.test/search?s=test",
+        status_code=200,
+        html=html,
+        strategy="httpx",
+    )
+    calls: list[str] = []
+
+    async def fetch_once(url: str, strategy: Strategy, **_: Any) -> FetchResult:
+        calls.append(url)
+        return page
+
+    profile = _profile("https://shop.test")
+    hits = await search_site(profile, "test", fetcher=fetch_once)
+
+    assert len(calls) == 1
+    assert hits[0].candidate.url == page.url
+    assert hits[0].variants[0].size_ml_x10 == 50
+
+
+def _attempt_hit(title: str | None, sizes_ml: Sequence[int] = (5,)) -> SearchHit:
+    candidate = engine.ProductCandidate(raw_title=title, url="https://shop.test/p")
+    variants = tuple(
+        engine.Variant(size * 10, title, candidate.url, 10000 + size, True)
+        for size in sizes_ml
+    )
+    return engine.SearchHit(candidate, variants)
+
+
+async def test_original_confident_match_stops_after_one_attempt() -> None:
+    calls: list[str] = []
+
+    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+        calls.append(text)
+        return engine.SiteResult(
+            "testsite", "ok", (_attempt_hit("Dior Sauvage EDP"),), None
+        )
+
+    result = await run_site_attempts(
+        {"id": "testsite"},
+        "Dior Sauvage EDP",
+        PerfumeQuery("Dior", "Sauvage", "EDP"),
+        runner=runner,
+    )
+
+    assert result.status == "ok"
+    assert calls == ["Dior Sauvage EDP"]
+
+
+async def test_empty_original_is_retried_with_folded_separators() -> None:
+    calls: list[str] = []
+
+    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+        calls.append(text)
+        if len(calls) == 1:
+            return engine.SiteResult("testsite", "empty", (), None)
+        return engine.SiteResult(
+            "testsite", "ok", (_attempt_hit("Dior Sauvage EDP"),), None
+        )
+
+    result = await run_site_attempts(
+        {"id": "testsite"},
+        "Dior/Sauvage EDP",
+        PerfumeQuery("Dior", "Sauvage", "EDP"),
+        runner=runner,
+    )
+
+    assert result.status == "ok"
+    assert calls == ["Dior/Sauvage EDP", "Dior Sauvage EDP"]
+
+
+async def test_attempts_continue_past_safe_alternative_until_requested_match() -> None:
+    query = PerfumeQuery("Dior", "Sauvage", "EDP")
+    calls: list[str] = []
+
+    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+        calls.append(text)
+        title = "Dior Sauvage Elixir" if len(calls) == 1 else "Dior Sauvage EDP"
+        return engine.SiteResult("testsite", "ok", (_attempt_hit(title),), None)
+
+    result = await run_site_attempts(
+        {"id": "testsite"}, "Dior/Sauvage EDP", query, runner=runner
+    )
+
+    assert calls == ["Dior/Sauvage EDP", "Dior Sauvage EDP"]
+    assert result.hits[0].candidate.raw_title == "Dior Sauvage EDP"
+
+
+async def test_prada_leau_result_does_not_block_exact_lhomme_retry() -> None:
+    query = PerfumeQuery("Prada", "L Homme", "EDT")
+    calls: list[str] = []
+
+    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+        calls.append(text)
+        title = "Prada L'Eau EDT" if len(calls) == 1 else "Prada L'Homme EDT"
+        return engine.SiteResult("testsite", "ok", (_attempt_hit(title),), None)
+
+    result = await run_site_attempts(
+        {"id": "testsite"}, "Prada L’Homme EDT", query, runner=runner
+    )
+
+    assert calls == ["Prada L’Homme EDT", "Prada L Homme EDT"]
+    assert result.hits[0].candidate.raw_title == "Prada L'Homme EDT"
+
+
+async def test_attempts_stop_immediately_for_a_suspect_result() -> None:
+    calls: list[str] = []
+
+    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+        calls.append(text)
+        return engine.SiteResult("testsite", "suspect", (), "broken selector")
+
+    result = await run_site_attempts(
+        {"id": "testsite"},
+        "Dior/Sauvage EDP",
+        PerfumeQuery("Dior", "Sauvage", "EDP"),
+        runner=runner,
+    )
+
+    assert result.status == "suspect"
+    assert calls == ["Dior/Sauvage EDP"]
+
+
+async def test_attempts_stop_immediately_for_an_error_result() -> None:
+    calls: list[str] = []
+
+    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+        calls.append(text)
+        return engine.SiteResult("testsite", "error", (), "offline")
+
+    result = await run_site_attempts(
+        {"id": "testsite"},
+        "Dior/Sauvage EDP",
+        PerfumeQuery("Dior", "Sauvage", "EDP"),
+        runner=runner,
+    )
+
+    assert result.status == "error"
+    assert calls == ["Dior/Sauvage EDP"]
+
+
+async def test_first_safe_alternative_is_returned_under_its_own_identity() -> None:
+    query = PerfumeQuery("Lattafa", "Jasoor", "")
+
+    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+        return engine.SiteResult(
+            "testsite", "ok", (_attempt_hit("Lattafa Asad", (5, 10)),), None
+        )
+
+    result = await run_site_attempts(
+        {"id": "testsite"}, "Lattafa Jasoor", query, runner=runner
+    )
+    rows = snapshot_rows(result, query)
+
+    assert [(row.brand, row.name, row.concentration) for row in rows] == [
+        ("lattafa", "asad", ""),
+        ("lattafa", "asad", ""),
+    ]
+    assert [row.variant.size_ml_x10 for row in rows] == [50, 100]
+
+
+@pytest.mark.parametrize(
+    ("query", "title"),
+    [
+        (PerfumeQuery("Lattafa", "Jasoor", ""), "Dior Jasoor"),
+        (PerfumeQuery("Prada", "L Homme", "EDT"), "Prada L'Homme EDP"),
+        (PerfumeQuery("Lattafa", "Jasoor", ""), None),
+    ],
+)
+async def test_unmatchable_rows_cannot_become_safe_fallbacks(
+    query: PerfumeQuery, title: str | None
+) -> None:
+    async def runner(profile: dict[str, Any], text: str, **_: Any) -> engine.SiteResult:
+        return engine.SiteResult("testsite", "ok", (_attempt_hit(title),), None)
+
+    result = await run_site_attempts(
+        {"id": "testsite"}, "Prada/L’Homme EDT", query, runner=runner
+    )
+
+    assert result.status == "empty"
+    assert result.hits == ()
+    assert "Prada/L’Homme EDT" in (result.detail or "")
+    assert "Prada L Homme EDT" in (result.detail or "")
+
+
+async def test_attempts_share_cache_pacer_and_hooks_directory() -> None:
+    cache: dict[engine.CacheKey, engine.VariantsRead] = {}
+    pacers: dict[str, engine.SitePace] = {}
+    hooks_dir = Path("/tmp/perfume-hooks")
+    seen: list[tuple[int, int, Path]] = []
+
+    async def runner(
+        profile: dict[str, Any], text: str, **kwargs: Any
+    ) -> engine.SiteResult:
+        seen.append(
+            (
+                id(kwargs["variants_cache"]),
+                id(kwargs["pacers"]),
+                kwargs["hooks_dir"],
+            )
+        )
+        if len(seen) == 1:
+            return engine.SiteResult("testsite", "empty", (), None)
+        return engine.SiteResult(
+            "testsite", "ok", (_attempt_hit("Dior Sauvage EDP"),), None
+        )
+
+    await run_site_attempts(
+        {"id": "testsite"},
+        "Dior/Sauvage EDP",
+        PerfumeQuery("Dior", "Sauvage", "EDP"),
+        runner=runner,
+        hooks_dir=hooks_dir,
+        variants_cache=cache,
+        pacers=pacers,
+    )
+
+    assert seen == [(id(cache), id(pacers), hooks_dir)] * 2
+
+
+@pytest.mark.parametrize(
+    ("search_text", "requested_text", "title", "sizes_ml"),
+    [
+        ("Lattafa/Jasoor", "Lattafa Jasoor", "Jasoor lattafa", (5, 10, 30)),
+        (
+            "Lattafa-Breeze",
+            "Lattafa Breeze",
+            "Lattafa Breeze Unisex Parfüm | Ferah ve Kalıcı",
+            (3, 5, 10, 30),
+        ),
+        (
+            "French Avenue/Vulcan Black Friday",
+            "French Avenue Vulcan Black Friday",
+            "French Avenue Vulcan Black Friday (Xerjoff Tonny Iommi Deified)",
+            (3, 5, 10, 30),
+        ),
+        (
+            "Rayhaan—Pharaoh",
+            "Rayhaan Pharaoh",
+            "Rayhaan Pharaoh Unisex Parfüm | Gizemli ve Kalıcı",
+            (3, 5, 10, 30),
+        ),
+        (
+            "Prada L’Homme EDT",
+            "Prada L’Homme EDT",
+            "Prada L'Homme EDT",
+            (3, 5, 10, 15, 20, 30),
+        ),
+        (
+            "Prada L’Homme Intense",
+            "Prada L’Homme Intense",
+            "Prada L'Homme Intense",
+            (3, 5, 10, 15, 20, 30),
+        ),
+    ],
+)
+async def test_reported_false_negative_searches_keep_requested_identity_and_sizes(
+    search_text: str,
+    requested_text: str,
+    title: str,
+    sizes_ml: tuple[int, ...],
+) -> None:
+    query = parse_query(requested_text)
+    calls: list[str] = []
+
+    async def runner(
+        profile: dict[str, Any],
+        text: str,
+        *,
+        keep_candidate: Any = None,
+        **_: Any,
+    ) -> engine.SiteResult:
+        calls.append(text)
+        if len(calls) == 1:
+            if requested_text == "Prada L’Homme EDT":
+                return engine.SiteResult(
+                    "testsite", "ok", (_attempt_hit("Prada L'Eau EDT"),), None
+                )
+            return engine.SiteResult("testsite", "empty", (), None)
+        hit = _attempt_hit(title, sizes_ml)
+        if keep_candidate is not None and not keep_candidate(title):
+            return engine.SiteResult("testsite", "empty", (), None)
+        return engine.SiteResult("testsite", "ok", (hit,), None)
+
+    result = await run_site_attempts(
+        {"id": "testsite"},
+        search_text,
+        query,
+        runner=runner,
+        keep_candidate=lambda raw_title: title_could_match(raw_title, query),
+    )
+    rows = snapshot_rows(result, query)
+
+    assert result.status == "ok"
+    assert {
+        (row.brand, row.name, row.concentration)
+        for row in rows
+    } == {(query.brand, query.name, query.concentration)}
+    assert [row.variant.size_ml_x10 for row in rows] == [
+        size * 10 for size in sizes_ml
+    ]
