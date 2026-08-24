@@ -1770,9 +1770,7 @@ async def test_a_mistyped_perfume_does_not_cancel_the_ones_that_parsed(
     app = _app(sites_dir, tmp_path / "db.sqlite3", runner)
     async with app.run_test() as pilot:
         await pilot.pause()
-        await _submit_query(
-            pilot, "Dior Sauvage EDP - Dior Parfum - Chanel Bleu EDP"
-        )
+        await _submit_query(pilot, "Dior Sauvage EDP - Dior Parfum - Chanel Bleu EDP")
         screen = app.screen
         await _wait_until(lambda: screen._done == 2, pilot)  # type: ignore[attr-defined]
 

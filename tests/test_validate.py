@@ -373,9 +373,7 @@ async def test_live_validation_reports_recognized_product_redirect_format() -> N
 
     assert result.ok, result.failure
     assert result.checks[3].name == "search"
-    assert result.checks[3].detail == (
-        "single-product redirect recognized by jsonld"
-    )
+    assert result.checks[3].detail == ("single-product redirect recognized by jsonld")
 
 
 async def test_live_validation_reports_unclassified_redirect_as_search_failure() -> (

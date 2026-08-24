@@ -423,10 +423,7 @@ def product_label(raw_title: str) -> str:
         token
         for token in _tokenize(own_title)
         if token not in _PACKAGING
-        and (
-            not hides_promotional_tail
-            or token not in _TRAILING_LISTING_DESCRIPTORS
-        )
+        and (not hides_promotional_tail or token not in _TRAILING_LISTING_DESCRIPTORS)
     )
     concentration, rest = _split_concentration(tokens)
     words = [word.capitalize() for word in rest]
@@ -512,9 +509,7 @@ def _own_identity(own_title: str) -> PerfumeQuery | None:
     )
 
 
-def result_identity(
-    raw_title: str, query: PerfumeQuery, match: Match
-) -> PerfumeQuery:
+def result_identity(raw_title: str, query: PerfumeQuery, match: Match) -> PerfumeQuery:
     """Name a confident result from the title when the query omitted its brand.
 
     A model-only search is parsed in the same shape as every other query, so its

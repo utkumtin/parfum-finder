@@ -105,5 +105,16 @@
   "103": "Static",
   "104": "tui/app.py",
   "105": "._load_profiles",
-  "106": "test_every_shipped_site_has_a_colour_that_survives_256_colours"
+  "106": "test_every_shipped_site_has_a_colour_that_survives_256_colours",
+  "107": ".action_sort",
+  "108": ".__init__",
+  "109": "._reset_table",
+  "110": ".on_input_submitted",
+  "111": "ScanStatus.tsx",
+  "112": "VerdictAddButton.tsx",
+  "113": "SiteScenario",
+  "114": "SplitLeg",
+  "115": "Node",
+  "116": "ComposeResult",
+  "117": "LogCaptureFixture"
 }

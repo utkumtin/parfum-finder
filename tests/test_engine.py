@@ -2040,7 +2040,7 @@ async def test_redirected_embedded_page_is_not_fetched_twice() -> None:
         '{"@type":"Product","name":"Test Parfum Dekant"}</script>'
         "<div data-product_variations='"
         '[{"attributes":{"attribute_pa_hacim":"5 ml"},"display_price":"120",'
-        "\"is_in_stock\":true}]'></div>"
+        '"is_in_stock":true}]\'></div>'
     )
     page = FetchResult(
         url="https://shop.test/product/test",
@@ -2337,10 +2337,7 @@ async def test_reported_false_negative_searches_keep_requested_identity_and_size
     rows = snapshot_rows(result, query)
 
     assert result.status == "ok"
-    assert {
-        (row.brand, row.name, row.concentration)
-        for row in rows
-    } == {(query.brand, query.name, query.concentration)}
-    assert [row.variant.size_ml_x10 for row in rows] == [
-        size * 10 for size in sizes_ml
-    ]
+    assert {(row.brand, row.name, row.concentration) for row in rows} == {
+        (query.brand, query.name, query.concentration)
+    }
+    assert [row.variant.size_ml_x10 for row in rows] == [size * 10 for size in sizes_ml]
