@@ -23,6 +23,7 @@ from parfum_finder.services.snapshots import snapshot_rows
 from parfum_finder.store import (
     SCHEMA_VERSION,
     SnapshotRow,
+    _downsample_sql,
     add_basket_item,
     basket_lines,
     basket_prices,
@@ -60,6 +61,28 @@ def test_now_iso_string_order_matches_chronological_order() -> None:
         later_str = now_iso()
 
     assert earlier_str < later_str
+
+
+def test_snapshot_timestamps_are_normalized_to_utc(
+    conn: sqlite3.Connection,
+) -> None:
+    """A local offset must not choose the month used by retained history."""
+    _seed_site(conn)
+
+    _record(conn, fetched_at="2026-07-01T00:30:00+03:00")
+
+    stored = conn.execute("SELECT fetched_at FROM price_snapshots").fetchone()[0]
+    assert stored == "2026-06-30T21:30:00Z"
+
+
+def test_snapshot_timestamps_require_a_timezone(conn: sqlite3.Connection) -> None:
+    """A naive time would make retention depend on the machine running the app."""
+    _seed_site(conn)
+
+    with pytest.raises(ValueError, match="must include a timezone"):
+        _record(conn, fetched_at="2026-07-01T00:30:00")
+
+    assert conn.execute("SELECT COUNT(*) FROM price_snapshots").fetchone()[0] == 0
 
 
 # The view exactly as earlier versions wrote it. A test that reopens a database
@@ -739,6 +762,123 @@ def test_write_snapshots_rolls_the_whole_batch_back_on_failure(
 
     assert conn.execute("SELECT COUNT(*) FROM price_snapshots").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM product_variants").fetchone()[0] == 0
+
+
+def test_write_snapshots_downsamples_only_touched_variants(
+    conn: sqlite3.Connection,
+) -> None:
+    """Active history is thinned without scanning or changing an inactive size."""
+    _seed_site(conn)
+    touched = _variant(50)
+    inactive = _variant(100)
+    touched_stamps = [
+        "2026-04-02T10:00:00Z",
+        "2026-04-20T10:00:00Z",
+        "2026-05-01T10:00:00Z",
+        "2026-05-31T10:00:00Z",
+        "2026-06-10T10:00:00Z",
+        "2026-06-20T10:00:00Z",
+    ]
+    for stamp in touched_stamps:
+        _record(conn, touched, fetched_at=stamp)
+    for stamp in ("2026-04-01T10:00:00Z", "2026-04-18T10:00:00Z"):
+        _record(conn, inactive, fetched_at=stamp)
+
+    write_snapshots(
+        conn,
+        [SnapshotRow("ornek", "Dior", "Sauvage", "EDT", 95, touched)],
+        fetched_at="2026-09-15T10:00:00Z",
+    )
+
+    rows = conn.execute(
+        "SELECT v.size_ml_x10, s.fetched_at"
+        " FROM price_snapshots s"
+        " JOIN product_variants v USING (variant_id)"
+        " ORDER BY v.size_ml_x10, s.fetched_at"
+    ).fetchall()
+    by_size: dict[int, list[str]] = {}
+    for row in rows:
+        by_size.setdefault(row["size_ml_x10"], []).append(row["fetched_at"])
+
+    assert by_size[50] == [
+        "2026-04-02T10:00:00Z",
+        "2026-05-01T10:00:00Z",
+        "2026-06-10T10:00:00Z",
+        "2026-06-20T10:00:00Z",
+        "2026-09-15T10:00:00Z",
+    ]
+    assert by_size[100] == [
+        "2026-04-01T10:00:00Z",
+        "2026-04-18T10:00:00Z",
+    ]
+
+
+def test_downsampling_breaks_equal_timestamp_ties_by_snapshot_id(
+    conn: sqlite3.Connection,
+) -> None:
+    """Repeated readings at one instant keep the row written first."""
+    _seed_site(conn)
+    stamp = "2026-04-02T10:00:00Z"
+    first_id = _record(conn, _variant(price_kurus=12500), fetched_at=stamp)
+    _record(conn, _variant(price_kurus=9900), fetched_at=stamp)
+
+    write_snapshots(
+        conn,
+        [SnapshotRow("ornek", "Dior", "Sauvage", "EDT", 95, _variant())],
+        fetched_at="2026-09-15T10:00:00Z",
+    )
+
+    april = conn.execute(
+        "SELECT snapshot_id, price_kurus FROM price_snapshots WHERE fetched_at = ?",
+        (stamp,),
+    ).fetchall()
+    assert [(row["snapshot_id"], row["price_kurus"]) for row in april] == [
+        (first_id, 12500)
+    ]
+
+
+def test_downsampling_candidate_lookup_uses_the_variant_time_index(
+    conn: sqlite3.Connection,
+) -> None:
+    """Retention runs after every batch, so a table scan would compound over time."""
+    plan = conn.execute(
+        "EXPLAIN QUERY PLAN " + _downsample_sql(2),
+        (1, 2, "2026-06-15T10:00:00Z"),
+    ).fetchall()
+    details = [str(row["detail"]) for row in plan]
+
+    assert any(
+        "SEARCH price_snapshots USING COVERING INDEX idx_snapshots_variant_time"
+        in detail
+        for detail in details
+    )
+    assert not any(detail.startswith("SCAN price_snapshots") for detail in details)
+
+
+def test_downsampling_failure_rolls_back_the_batch(
+    conn: sqlite3.Connection,
+) -> None:
+    """A retention failure must not leave the new scan committed on its own."""
+    _seed_site(conn)
+    _record(conn, fetched_at="2026-04-02T10:00:00Z")
+    _record(conn, fetched_at="2026-04-20T10:00:00Z")
+    conn.execute("DROP INDEX idx_snapshots_variant_time")
+    conn.commit()
+
+    with pytest.raises(sqlite3.OperationalError, match="idx_snapshots_variant_time"):
+        write_snapshots(
+            conn,
+            [SnapshotRow("ornek", "Dior", "Sauvage", "EDT", 95, _variant())],
+            fetched_at="2026-09-15T10:00:00Z",
+        )
+
+    stamps = conn.execute(
+        "SELECT fetched_at FROM price_snapshots ORDER BY fetched_at"
+    ).fetchall()
+    assert [row["fetched_at"] for row in stamps] == [
+        "2026-04-02T10:00:00Z",
+        "2026-04-20T10:00:00Z",
+    ]
 
 
 def test_snapshot_rows_drops_a_title_the_matcher_rejects() -> None:

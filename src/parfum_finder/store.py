@@ -1,4 +1,4 @@
-"""SQLite persistence: an append-only price history.
+"""SQLite persistence with full recent history and monthly older readings.
 
 Tables: sites, perfumes, products, product_variants, price_snapshots, basket_items.
 A latest_prices view surfaces the most recent snapshot per variant. The identity key
@@ -14,6 +14,7 @@ is why nothing here writes to it.
 """
 
 import sqlite3
+from calendar import monthrange
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -235,6 +236,8 @@ def now_iso() -> str:
 # can still be reading the site correctly, while a two week old price is
 # simply a price the shop has had plenty of time to change.
 STALE_PRICE_DAYS = 14
+_FULL_PRICE_HISTORY_MONTHS = 3
+_DOWNSAMPLE_VARIANT_CHUNK_SIZE = 500
 
 
 def snapshot_age_days(fetched_at: str, now: datetime | None = None) -> int:
@@ -247,6 +250,28 @@ def snapshot_age_days(fetched_at: str, now: datetime | None = None) -> int:
     """
     stamp = datetime.strptime(fetched_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
     return ((now or datetime.now(UTC)) - stamp).days
+
+
+def _normalize_utc_timestamp(value: str) -> str:
+    """Return one aware timestamp in the database's canonical UTC format."""
+    candidate = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        stamp = datetime.fromisoformat(candidate)
+    except ValueError as exc:
+        raise ValueError(f"invalid fetched_at timestamp {value!r}") from exc
+    if stamp.tzinfo is None or stamp.utcoffset() is None:
+        raise ValueError("fetched_at must include a timezone")
+    return stamp.astimezone(UTC).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _calendar_months_before(fetched_at: str, months: int) -> str:
+    """Move a canonical UTC timestamp back by whole calendar months."""
+    stamp = datetime.strptime(fetched_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    month_index = stamp.year * 12 + stamp.month - 1 - months
+    year, zero_based_month = divmod(month_index, 12)
+    month = zero_based_month + 1
+    day = min(stamp.day, monthrange(year, month)[1])
+    return stamp.replace(year=year, month=month, day=day).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @dataclass(frozen=True)
@@ -296,10 +321,10 @@ def record_snapshot(
 
     The perfume, the site-perfume match and the size row are upserted, so a
     second scan finds the same rows and only moves their last_seen. The price
-    row is never upserted: price_snapshots is append-only, and every scan adds
-    one line to it. That table is the only record of when something got cheaper,
-    and an UPDATE would erase exactly the reading somebody wants to compare
-    against.
+    row is never upserted, and every scan adds one line to it. Batch writes keep
+    every recent reading, then reduce older history to the first reading per UTC
+    month. Updating the latest row in place would erase exactly the reading
+    somebody wants to compare against.
 
     Returns None when the size had no price. The size still gets its row, since
     "this shop lists a 5 ml" is worth knowing even on a scan that could not read
@@ -310,8 +335,9 @@ def record_snapshot(
     Nothing is committed here beyond this one row, so a caller writing a whole
     site's results wants write_snapshots instead.
     """
+    stamp = _normalize_utc_timestamp(fetched_at or now_iso())
     with conn:
-        return _record(
+        snapshot_id, _ = _record(
             conn,
             site_id=site_id,
             brand=brand,
@@ -319,8 +345,9 @@ def record_snapshot(
             concentration=concentration,
             match_score=match_score,
             variant=variant,
-            fetched_at=fetched_at or now_iso(),
+            fetched_at=stamp,
         )
+    return snapshot_id
 
 
 def write_snapshots(
@@ -348,13 +375,14 @@ def write_snapshots(
     One transaction for the batch. A run that dies halfway through leaves the
     database as it was rather than a site with three of its eight sizes updated.
     """
-    stamp = fetched_at or now_iso()
+    stamp = _normalize_utc_timestamp(fetched_at or now_iso())
     written = 0
+    touched_variant_ids: set[int] = set()
     with conn:
         for row in rows:
             if not row.own_identity:
                 continue
-            snapshot_id = _record(
+            snapshot_id, variant_id = _record(
                 conn,
                 site_id=row.site_id,
                 brand=row.brand,
@@ -364,8 +392,10 @@ def write_snapshots(
                 variant=row.variant,
                 fetched_at=stamp,
             )
+            touched_variant_ids.add(variant_id)
             if snapshot_id is not None:
                 written += 1
+        _downsample_price_snapshots(conn, touched_variant_ids, reference_at=stamp)
     return written
 
 
@@ -379,8 +409,8 @@ def _record(
     match_score: int,
     variant: Variant,
     fetched_at: str,
-) -> int | None:
-    """Do the writing, without opening a transaction of its own."""
+) -> tuple[int | None, int]:
+    """Do the writing and return the snapshot and variant ids."""
     if variant.raw_title is None:
         # The stored title is how a person checks later whether the match was
         # right, so a row without one cannot be audited at all. Getting here
@@ -395,13 +425,49 @@ def _record(
     product_id = _product_id(conn, site_id, perfume_id, match_score, fetched_at)
     variant_id = _variant_id(conn, product_id, variant, fetched_at)
     if variant.price_kurus is None:
-        return None
+        return None, variant_id
     cursor = conn.execute(
         "INSERT INTO price_snapshots (variant_id, fetched_at, price_kurus, in_stock)"
         " VALUES (?, ?, ?, ?)",
         (variant_id, fetched_at, variant.price_kurus, int(bool(variant.in_stock))),
     )
-    return int(cursor.lastrowid or 0)
+    return int(cursor.lastrowid or 0), variant_id
+
+
+def _downsample_sql(variant_count: int) -> str:
+    placeholders = ", ".join("?" for _ in range(variant_count))
+    return f"""
+WITH ranked_old AS (
+    SELECT
+        snapshot_id,
+        ROW_NUMBER() OVER (
+            PARTITION BY variant_id, substr(fetched_at, 1, 7)
+            ORDER BY fetched_at, snapshot_id
+        ) AS month_rank
+    FROM price_snapshots INDEXED BY idx_snapshots_variant_time
+    WHERE variant_id IN ({placeholders}) AND fetched_at < ?
+)
+DELETE FROM price_snapshots
+WHERE snapshot_id IN (
+    SELECT snapshot_id FROM ranked_old WHERE month_rank > 1
+)
+"""
+
+
+def _downsample_price_snapshots(
+    conn: sqlite3.Connection,
+    variant_ids: Iterable[int],
+    *,
+    reference_at: str,
+) -> None:
+    """Keep full recent history and one older reading per UTC calendar month."""
+    ids = sorted(set(variant_ids))
+    if not ids:
+        return
+    cutoff = _calendar_months_before(reference_at, _FULL_PRICE_HISTORY_MONTHS)
+    for offset in range(0, len(ids), _DOWNSAMPLE_VARIANT_CHUNK_SIZE):
+        chunk = ids[offset : offset + _DOWNSAMPLE_VARIANT_CHUNK_SIZE]
+        conn.execute(_downsample_sql(len(chunk)), (*chunk, cutoff))
 
 
 def _perfume_id(

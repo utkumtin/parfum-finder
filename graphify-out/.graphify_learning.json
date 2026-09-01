@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-24T17:13:34.816665+00:00",
+  "generated_at": "2026-09-01T01:44:31.713707+00:00",
   "nodes": {
     "src_parfum_finder_engine": {
-      "code_fingerprint": "7b6dc83a745adee45193c56324e5c348acbc2fafdbfb341854139fd9ef0de56f",
+      "code_fingerprint": "b83bded284b6fdcb9f4416409d4b0725d665c740cc67f3d1a460d998d2bd8090",
       "label": "engine.py",
       "last": "2026-08-24T15:46:28.891292+00:00",
       "provenance": [
@@ -12,13 +12,13 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.99860347,
+      "score": 0.842543445,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
     },
     "src_parfum_finder_engine_run_site_attempts": {
-      "code_fingerprint": "7b6dc83a745adee45193c56324e5c348acbc2fafdbfb341854139fd9ef0de56f",
+      "code_fingerprint": "b83bded284b6fdcb9f4416409d4b0725d665c740cc67f3d1a460d998d2bd8090",
       "label": "run_site_attempts()",
       "last": "2026-08-24T15:46:28.891292+00:00",
       "provenance": [
@@ -28,7 +28,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.99860347,
+      "score": 0.842543445,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
@@ -44,13 +44,13 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.99860347,
+      "score": 0.842543445,
       "source_file": "src/parfum_finder/matcher.py",
       "status": "tentative",
       "uses": 1
     },
-    "src_parfum_finder_store_snapshot_rows": {
-      "code_fingerprint": "af6a4ddae48f9db809a9992fb43e76bafdd85fa39d13d7d317c28e69106f3cc2",
+    "src_parfum_finder_services_snapshots_snapshot_rows": {
+      "code_fingerprint": "da44d18bbf867a6e914ef509c71f32eecc9098ca4670d7e0721d599b08f427bc",
       "label": "snapshot_rows()",
       "last": "2026-08-24T15:46:28.891292+00:00",
       "provenance": [
@@ -60,8 +60,8 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.99860347,
-      "source_file": "src/parfum_finder/store.py",
+      "score": 0.842543445,
+      "source_file": "src/parfum_finder/services/snapshots.py",
       "status": "tentative",
       "uses": 1
     }

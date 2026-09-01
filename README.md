@@ -72,9 +72,9 @@ Sepet ekranı:
   `2` isteğin kendisi hatalı (var olmayan bir site-id sorulmuş). Varsayılan
   olarak `fixtures/` altındaki kayıtlara karşı offline çalışır; `--live` gerçek
   siteye de gider.
-- Fiyatlar append-only saklanır: her tarama yeni bir `price_snapshots` satırı
-  ekler, var olan bir kaydın üzerine yazılmaz — bu yüzden bir sitenin fiyat
-  geçmişi hiç kaybolmaz.
+- Her tarama yeni bir `price_snapshots` satırı ekler. Son üç takvim ayındaki
+  okumalar eksiksiz tutulur; daha eski kayıtlarda her varyantın UTC ayındaki ilk
+  okuması saklanır.
 - Bazı dükkanlar orijinallerin yanında klon da satar ve taklit ettiği parfümü
   başlıkta parantez içinde yazar: `Armaf – Club De Nuit Untold (Maison Francis
   Kurkdjian – Baccarat Rouge 540)`. Bir satır aradığınız parfümün klonuysa
