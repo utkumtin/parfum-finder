@@ -1,11 +1,11 @@
 # Graph Report - parfum-finder  (2026-09-01)
 
 ## Corpus Check
-- 137 files · ~318,452 words
+- 137 files · ~318,456 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2640 nodes · 7518 edges · 106 communities (99 shown, 7 thin omitted)
+- 2640 nodes · 7518 edges · 105 communities (99 shown, 6 thin omitted)
 - Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 564 edges (avg confidence: 0.58)
 - Token cost: 0 input · 0 output
 
@@ -85,7 +85,6 @@
 - JsonLdProduct
 - Variant Pattern A
 - Project Root
-- exclude_keywords
 - write_snapshots
 - _css_variant
 - ConfirmDialog.tsx
@@ -150,8 +149,8 @@
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/services/snapshots.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 
@@ -160,7 +159,7 @@
 - **İdeasoft Platform Sites and Endpoint** — docs_discovery_report_dekantparfum_site, docs_discovery_report_dekantdoktoru_site, docs_discovery_report_ideasoft_related_options_endpoint, platforms_readme_ideasoft_json [EXTRACTED 1.00]
 - **discover Command Output Artifacts (profile + fixtures + CI validation)** — architecture_md_discover_flow, sites_readme_sites_dir, fixtures_readme_fixtures_dir, github_workflows_ci_validate_profiles_step, architecture_md_validate_command [INFERRED 0.85]
 
-## Communities (106 total, 7 thin omitted)
+## Communities (105 total, 6 thin omitted)
 
 ### Community 0 - "TUI App & Screens"
 Cohesion: 0.09
@@ -171,8 +170,8 @@ Cohesion: 0.06
 Nodes (79): _check_hook_kinds(), deep_merge(), _load_json(), load_platform_template(), load_platform_templates(), load_site_hooks(), load_site_profile(), Any (+71 more)
 
 ### Community 2 - "Title Matcher"
-Cohesion: 0.16
-Nodes (24): ExtractionFailed, RuntimeError, A page answered but gave up nothing, where something was expected.      This is, Run one query against one site and read every hit's sizes.      Everything site-, search_site(), Path, Give the test profile's site id a hook file. The id is what binds them., test_a_before_search_that_returns_no_query_is_refused() (+16 more)
+Cohesion: 0.11
+Nodes (35): ExtractionFailed, RuntimeError, A page answered but gave up nothing, where something was expected.      This is, Run one query against one site and read every hit's sizes.      Everything site-, search_site(), _named_profile(), Any, Path (+27 more)
 
 ### Community 3 - "HTTP/Browser Fetching"
 Cohesion: 0.13
@@ -199,8 +198,8 @@ Cohesion: 0.05
 Nodes (53): basket Subset Enumeration + Local Improvement Algorithm, basket Optimizer (optimize function), Clone/Original Distinction (KLON ← <orijinal>), discover Discovery Flow, engine Concurrency Model (parallel sites, serial within site), Extraction Ladder (jsonld/endpoint/embedded/css), Fail-loud / status=suspect policy, hooks/<id>.py Escape Hatch (+45 more)
 
 ### Community 9 - "Search Engine Core"
-Cohesion: 0.07
-Nodes (65): HTMLParser, _check_empty_search(), _check_variant_control(), _fetch_page(), _has_product_ancestor(), _headers(), _is_excluded(), _jitter_s() (+57 more)
+Cohesion: 0.06
+Nodes (72): HTMLParser, _canonical_path(), canonical_url(), _check_empty_search(), _check_variant_control(), _decode_unreserved(), _fetch_page(), _has_product_ancestor() (+64 more)
 
 ### Community 10 - "Basket Optimizer Core"
 Cohesion: 0.10
@@ -255,8 +254,8 @@ Cohesion: 0.18
 Nodes (11): product_label(), Reduce a site's own title to the product it is about, spelled one way.      What, test_a_clone_is_labelled_by_the_bottle_it_is_and_not_what_it_imitates(), test_a_longer_named_bottle_does_not_join_the_shorter_ones_block(), test_a_title_with_no_product_words_left_has_no_label(), test_catalog_decorations_do_not_split_product_groups(), test_every_shops_spelling_of_one_bottle_lands_in_one_block(), test_one_bottle_spelled_two_ways_lands_in_one_block() (+3 more)
 
 ### Community 23 - "Price/Size Normalization"
-Cohesion: 0.25
-Nodes (11): _named_profile(), Any, The real fetcher, with a list of every URL it was asked for., A profile whose search page lists two houses' bottles, as shops do., test_a_listing_from_another_house_costs_no_product_request(), test_diagnostic_candidate_checks_extraction_but_never_emits_a_hit(), test_one_product_listed_under_two_searches_is_read_once(), test_the_product_cache_keeps_what_a_page_said_not_the_page() (+3 more)
+Cohesion: 0.22
+Nodes (9): is_newer(), _pad(), parse_version(), v0.2.1 -> (0, 2, 1). Sayıya çevrilemeyen her şey None., Okunamayan bir sürüm asla "yeni" sayılmaz.      Yanlış tarafa düşmenin bedeli si, A tag nobody can order against must not open a dialog.      The two failure dire, test_an_unreadable_tag_never_counts_as_an_update(), test_is_newer() (+1 more)
 
 ### Community 24 - "JSON Schema Primitives"
 Cohesion: 0.11
@@ -367,16 +366,16 @@ Cohesion: 0.18
 Nodes (23): format_report(), Check one site's profile against that site's saved fixtures.      Never raises f, Render the validations as the offline half of the report in APP_FLOW §6.      A, validate_offline(), _corrupted_sites_dir(), _iso_days_ago(), Any, Path (+15 more)
 
 ### Community 51 - "._refresh_table"
-Cohesion: 0.22
-Nodes (15): apply_variant_rules(), Turn raw size rows into decant variants, dropping what is not a decant.      Thr, Convert a price in lira to whole kuruş.      Integers all the way, never a float, _to_kurus(), _row(), test_a_keyword_in_the_size_label_excludes_the_row_too(), test_a_literal_zero_price_reads_as_no_price_not_a_free_perfume(), test_a_size_at_the_threshold_is_a_bottle_whatever_it_calls_itself() (+7 more)
+Cohesion: 0.27
+Nodes (13): apply_variant_rules(), Turn raw size rows into decant variants, dropping what is not a decant.      Thr, _row(), test_a_keyword_in_the_size_label_excludes_the_row_too(), test_a_literal_zero_price_reads_as_no_price_not_a_free_perfume(), test_a_size_at_the_threshold_is_a_bottle_whatever_it_calls_itself(), test_a_size_that_cannot_be_read_is_dropped(), test_an_uppercase_turkish_keyword_still_matches() (+5 more)
 
 ### Community 52 - "FetchResult"
 Cohesion: 0.13
 Nodes (47): Lock, _record_search(), _sync_profiles(), Connection, Mirror site profiles into the sites table and return how many were written., sync_to_db(), Any, BasketRow (+39 more)
 
 ### Community 53 - "conftest.py"
-Cohesion: 0.17
-Nodes (16): _canonical_path(), canonical_url(), _decode_unreserved(), _normalized_product_name(), Return the stable identity of a URL without changing its fetch URL., Recognize a single product page after a material same-origin redirect., _redirect_product_candidate(), _redirect_page() (+8 more)
+Cohesion: 0.29
+Nodes (11): _normalized_product_name(), Recognize a single product page after a material same-origin redirect., _redirect_product_candidate(), _redirect_page(), test_material_redirect_cleans_tracking_and_rejects_cross_origin_metadata_url(), test_metadata_formats_agree_across_typographic_separators(), test_multiple_top_level_microdata_products_are_ambiguous(), test_nested_related_product_name_does_not_name_the_page_scope() (+3 more)
 
 ### Community 54 - "Endpoint Schema Fields"
 Cohesion: 0.22
@@ -415,7 +414,7 @@ Cohesion: 0.12
 Nodes (17): The search screen's second search must be answered with today's numbers.      Tw, One call has to leave a row the search table can read straight off.      The cal, The old price has to survive, and it must not become a second variant.      Appe, The column is 0/1, so the tri-state has to land somewhere on purpose.      Unkno, A local offset must not choose the month used by retained history., raw_title is the audit trail for a wrong match, so it cannot be blank.      A ro, Sites come from the profiles, so an id nothing synced is a mistake., A naive time would make retention depend on the machine running the app. (+9 more)
 
 ### Community 64 - "validate_live"
-Cohesion: 0.15
+Cohesion: 0.14
 Nodes (9): Client, DownloadProgress, launch_installer(), _powershell_literal(), Path, İndirmeyi başlatır. Zaten çalışıyorsa None., state: idle | downloading | ready | installing | error., Uygulama kapanınca kurulum zincirinin de ölmemesi buna bağlı.      gui.py, playw (+1 more)
 
 ### Community 65 - "_named_profile"
@@ -427,8 +426,8 @@ Cohesion: 0.15
 Nodes (19): Fill the profile's search template with an escaped query.      The query is esca, _search_url(), _age_of(), _path(), profile_age_days(), datetime, Profile staleness checks. Two modes: offline (against saved fixtures) and live (, A URL's path with no trailing slash, for comparing two spellings of one page. (+11 more)
 
 ### Community 68 - "JsonLdProduct"
-Cohesion: 0.13
-Nodes (20): check_enabled(), check_for_update(), _installer_asset(), is_newer(), _no_update(), _pad(), parse_version(), Any (+12 more)
+Cohesion: 0.27
+Nodes (11): check_enabled(), check_for_update(), _installer_asset(), _no_update(), Any, GitHub'daki son sürümü sorar, yenisini indirir ve kurulumu devreder.  Güncellene, ReleaseInfo, No network is not an error the user has to be told about.      The check runs un (+3 more)
 
 ### Community 72 - "write_snapshots"
 Cohesion: 0.25
@@ -519,8 +518,8 @@ Cohesion: 0.40
 Nodes (4): Arayüz testleri, jsdom katmanı (`tests/`), Ne test edilmiyor, Tarayıcı katmanı (`e2e/`)
 
 ### Community 95 - "_seed_site"
-Cohesion: 0.10
-Nodes (34): ProductCandidate, Dependency-free models shared by search, persistence, and presentation., One decant size of one product, in the units the database stores.      Tenths of, A candidate together with the decant sizes its product page offers., What one site had to say about one query, and how much to trust it.      Four st, One hit on a search results page, before its product page is opened.      `raw_t, SearchHit, SiteResult (+26 more)
+Cohesion: 0.09
+Nodes (35): ProductCandidate, Dependency-free models shared by search, persistence, and presentation., One decant size of one product, in the units the database stores.      Tenths of, A candidate together with the decant sizes its product page offers., What one site had to say about one query, and how much to trust it.      Four st, One hit on a search results page, before its product page is opened.      `raw_t, SearchHit, SiteResult (+27 more)
 
 ### Community 96 - "MonkeyPatch"
 Cohesion: 0.29
@@ -549,7 +548,7 @@ Nodes (3): ComposeResult, ComposeResult, Static
 ## Knowledge Gaps
 - **229 isolated node(s):** `parfum-finder`, `$schema`, `$id`, `title`, `description` (+224 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
