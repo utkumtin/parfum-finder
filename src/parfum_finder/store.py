@@ -18,12 +18,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Lock
 
 from parfum_finder import paths
-from parfum_finder.engine import SiteResult, Variant
-from parfum_finder.matcher import PerfumeQuery, match_title, result_identity
+from parfum_finder.search_models import Variant
 
 DEFAULT_DB_PATH = paths.default_db_path()
+SCHEMA_VERSION = 1
+_INITIALIZATION_LOCK = Lock()
 
 # Transcribed from the schema doc. Money is INTEGER kurus and volume is INTEGER
 # tenths of a ml on purpose: the basket matrix joins on size and compares totals
@@ -118,18 +120,8 @@ CREATE INDEX IF NOT EXISTS idx_products_perfume
     ON products         (perfume_id);
 """
 
-# Kept apart from SCHEMA_SQL and applied through its own explicit transaction in
-# connect(), instead of executescript(): every connect() call drops and recreates
-# this view (see the comment below), and executescript runs each statement as its
-# own auto-committed step. Two connections opening the pool at the same time could
-# then land one of them between the DROP and the CREATE, and see "no such table:
-# latest_prices" on an otherwise fully migrated database.
-#
-# Dropped before it is created. A view body is metadata, and CREATE VIEW IF NOT
-# EXISTS will not replace one that already exists, so editing the text below
-# without this line would leave every database opened by an earlier version on
-# that version's view forever, with nothing anywhere saying so. Dropping a view
-# touches no rows.
+# Kept apart from SCHEMA_SQL because a migration must replace an existing view,
+# not leave its old definition behind through CREATE VIEW IF NOT EXISTS.
 _DROP_LATEST_PRICES_VIEW_SQL = "DROP VIEW IF EXISTS latest_prices"
 
 # Driven from product_variants rather than from price_snapshots, so the work is
@@ -165,29 +157,64 @@ JOIN price_snapshots  s ON s.snapshot_id = (
 
 
 def connect(db_path: Path | str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """Open the price database, creating the schema if it isn't there yet.
+    """Open the price database and initialize or migrate it when required.
 
     Foreign keys are off by default in SQLite and the setting is per
     connection, so it gets turned on here. Without it a snapshot could point
     at a variant that no longer exists and nothing would complain, which is
     exactly the kind of quiet wrongness the price history can't tolerate.
+
+    Schema work is gated by PRAGMA user_version. Once a database reaches the
+    current version, opening it performs no schema or view writes.
     """
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.executescript(SCHEMA_SQL)
-    conn.commit()
-    # One explicit transaction for both statements, so a concurrent connection
-    # never observes the moment between the DROP and the CREATE.
-    conn.execute("BEGIN IMMEDIATE")
     try:
-        conn.execute(_DROP_LATEST_PRICES_VIEW_SQL)
-        conn.execute(_CREATE_LATEST_PRICES_VIEW_SQL)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA synchronous = FULL")
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        if version > SCHEMA_VERSION:
+            raise RuntimeError(
+                f"database schema version {version} is newer than supported "
+                f"version {SCHEMA_VERSION}"
+            )
+        if version < SCHEMA_VERSION:
+            # Several UI workers can open a brand-new database together. Only
+            # one may negotiate WAL and take the migration write lock; everyone
+            # behind it rechecks the version and uses the finished schema.
+            with _INITIALIZATION_LOCK:
+                version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+                if version < SCHEMA_VERSION:
+                    _initialize_database(conn, db_path)
     except BaseException:
-        conn.rollback()
+        conn.close()
         raise
-    conn.commit()
     return conn
+
+
+def _initialize_database(conn: sqlite3.Connection, db_path: Path | str) -> None:
+    """Create the version-one schema without exposing a half-applied migration."""
+    if str(db_path) != ":memory:":
+        mode = str(conn.execute("PRAGMA journal_mode = WAL").fetchone()[0]).lower()
+        if mode != "wal":
+            raise RuntimeError(
+                f"could not enable WAL journal mode, SQLite returned {mode!r}"
+            )
+
+    migration = (
+        "BEGIN IMMEDIATE;\n"
+        f"{SCHEMA_SQL}\n"
+        f"{_DROP_LATEST_PRICES_VIEW_SQL};\n"
+        f"{_CREATE_LATEST_PRICES_VIEW_SQL};\n"
+        f"PRAGMA user_version = {SCHEMA_VERSION};\n"
+        "COMMIT;"
+    )
+    try:
+        conn.executescript(migration)
+    except BaseException:
+        if conn.in_transaction:
+            conn.rollback()
+        raise
 
 
 def now_iso() -> str:
@@ -252,64 +279,6 @@ class SnapshotRow:
     variant: Variant
     clone_of: str = ""
     own_identity: bool = True
-
-
-def snapshot_rows(result: SiteResult, query: PerfumeQuery) -> list[SnapshotRow]:
-    """Turn one site's hits into the rows write_snapshots is ready to store.
-
-    Shared by the CLI and the TUI so the two can never diverge on which titles
-    get stored as this perfume: both call this, neither hand-rolls the match.
-    """
-    rows: list[SnapshotRow] = []
-    for hit in result.hits:
-        if hit.candidate.raw_title is None:
-            continue
-        match = match_title(hit.candidate.raw_title, query)
-        if match is None:
-            # A rejection, not a weak score: the title names another brand or
-            # another concentration. Storing it would put a different perfume's
-            # price into this one's history.
-            continue
-        # A clone is a different bottle that happens to have been found by this
-        # search, so it is filed under what its own title says it is. Using the
-        # query here would put an imitation's price into the searched perfume's
-        # history, and the concentration would be wrong too: match.concentration
-        # is the one read off the parenthesis, which belongs to the original.
-        #
-        # A non-clone match that missed `confident` gets the same treatment.
-        # "Layton" matching "Layton Exclusif" at a low score is the matcher
-        # working as intended, not a mistake, but the two are different bottles
-        # with different prices. Filing the low-score one under the searched
-        # perfume's identity would give both one shared price history and one
-        # shared basket line, so adding "Layton" to the basket would light up
-        # "Layton Exclusif" rows too and hand its price to "Layton".
-        identity = (
-            match.clone_identity
-            if match.clone_of
-            else match.own_identity
-            if not match.confident
-            else result_identity(hit.candidate.raw_title, query, match)
-        )
-        rows.extend(
-            SnapshotRow(
-                site_id=result.site_id,
-                brand=identity.brand if identity else query.brand,
-                name=identity.name if identity else query.name,
-                # What the title named, not what was asked for. An EDT and an
-                # EDP are two products with two prices, and a query that named
-                # neither would otherwise merge them into one perfume row.
-                concentration=(
-                    identity.concentration if identity else match.concentration
-                ),
-                match_score=match.score,
-                variant=variant,
-                clone_of=match.clone_of,
-                own_identity=not match.clone_of or identity is not None,
-            )
-            for variant in hit.variants
-            if variant.raw_title is not None
-        )
-    return rows
 
 
 def record_snapshot(

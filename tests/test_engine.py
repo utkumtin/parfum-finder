@@ -43,7 +43,7 @@ from parfum_finder.fetch import (
 )
 from parfum_finder.matcher import PerfumeQuery, parse_query, title_could_match
 from parfum_finder.probe import _PRODUCT_MARKUP_SELECTOR
-from parfum_finder.store import snapshot_rows
+from parfum_finder.services.snapshots import snapshot_rows
 
 
 def _profile(server_url: str, **overrides: Any) -> dict[str, Any]:

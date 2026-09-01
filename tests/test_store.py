@@ -10,6 +10,7 @@ make "most recent" silently return the wrong row.
 import re
 import sqlite3
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -18,7 +19,9 @@ import pytest
 
 from parfum_finder.engine import ProductCandidate, SearchHit, SiteResult, Variant
 from parfum_finder.matcher import PerfumeQuery, parse_query
+from parfum_finder.services.snapshots import snapshot_rows
 from parfum_finder.store import (
+    SCHEMA_VERSION,
     SnapshotRow,
     add_basket_item,
     basket_lines,
@@ -35,7 +38,6 @@ from parfum_finder.store import (
     remove_wishlist_item,
     save_wishlist_item,
     set_basket_qty,
-    snapshot_rows,
     wishlist_rows,
     write_snapshots,
 )
@@ -243,6 +245,65 @@ def test_connect_enforces_foreign_keys(conn: sqlite3.Connection) -> None:
         )
 
 
+def test_new_file_database_uses_current_schema_and_wal(tmp_path: Path) -> None:
+    db_path = tmp_path / "new.db"
+
+    conn = connect(db_path)
+    try:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        synchronous = conn.execute("PRAGMA synchronous").fetchone()[0]
+    finally:
+        conn.close()
+
+    assert version == SCHEMA_VERSION
+    assert journal_mode == "wal"
+    assert synchronous == 2
+
+
+def test_memory_database_initializes_without_wal() -> None:
+    conn = connect(":memory:")
+    try:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        synchronous = conn.execute("PRAGMA synchronous").fetchone()[0]
+    finally:
+        conn.close()
+
+    assert version == SCHEMA_VERSION
+    assert journal_mode == "memory"
+    assert synchronous == 2
+
+
+def test_concurrent_first_opens_share_one_initialization(tmp_path: Path) -> None:
+    db_path = tmp_path / "new.db"
+
+    def open_database(_: int) -> tuple[int, str]:
+        conn = connect(db_path)
+        try:
+            return (
+                conn.execute("PRAGMA user_version").fetchone()[0],
+                conn.execute("PRAGMA journal_mode").fetchone()[0],
+            )
+        finally:
+            conn.close()
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = list(executor.map(open_database, range(4)))
+
+    assert results == [(SCHEMA_VERSION, "wal")] * 4
+
+
+def test_connect_rejects_a_database_from_a_newer_app(tmp_path: Path) -> None:
+    db_path = tmp_path / "future.db"
+    future = sqlite3.connect(db_path)
+    future.execute(f"PRAGMA user_version = {SCHEMA_VERSION + 1}")
+    future.close()
+
+    with pytest.raises(RuntimeError, match="newer than supported"):
+        connect(db_path)
+
+
 def test_latest_prices_breaks_same_second_ties_by_snapshot_id(
     conn: sqlite3.Connection,
 ) -> None:
@@ -364,12 +425,14 @@ def test_connect_creates_the_expected_indexes(conn: sqlite3.Connection) -> None:
     } <= names
 
 
-def test_connect_is_idempotent_on_an_existing_database(tmp_path: Path) -> None:
-    """Reopening an existing database must not wipe or re-raise on its schema."""
+def test_migration_repairs_an_unversioned_database_without_losing_rows(
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "test.db"
     first = connect(db_path)
     variant_id = _seed_variant(first)
     first.execute("DROP TABLE wishlist_items")
+    first.execute("PRAGMA user_version = 0")
     first.commit()
     first.close()
 
@@ -388,6 +451,27 @@ def test_connect_is_idempotent_on_an_existing_database(tmp_path: Path) -> None:
 
     assert row is not None
     assert wishlist_table is not None
+
+
+def test_current_database_opens_while_another_connection_is_writing(
+    tmp_path: Path,
+) -> None:
+    """A routine open must not request the schema write lock."""
+    db_path = tmp_path / "test.db"
+    writer = connect(db_path)
+    writer.execute("BEGIN IMMEDIATE")
+    raw_connect = sqlite3.connect
+
+    try:
+        with patch(
+            "parfum_finder.store.sqlite3.connect",
+            side_effect=lambda path: raw_connect(path, timeout=0),
+        ):
+            reader = connect(db_path)
+        reader.close()
+    finally:
+        writer.rollback()
+        writer.close()
 
 
 def test_wishlist_identity_keeps_variants_separate_and_upserts_in_place(

@@ -54,7 +54,8 @@ from parfum_finder.matcher import (
 from parfum_finder.probe import format_report as format_probe_report
 from parfum_finder.probe import probe
 from parfum_finder.profiles import load_site_profile, sync_to_db
-from parfum_finder.store import DEFAULT_DB_PATH, connect, now_iso, snapshot_rows
+from parfum_finder.services.snapshots import snapshot_rows
+from parfum_finder.store import DEFAULT_DB_PATH, connect, now_iso
 from parfum_finder.store import write_snapshots as write_site_snapshots
 from parfum_finder.validate import (
     format_live_report,
@@ -215,7 +216,7 @@ def _store_site_result(
     prices too, and this command exists to prove that one site breaking leaves
     the others alone.
 
-    The matching and row-building itself lives in store.snapshot_rows, so the
+    The matching and row-building itself lives in services.snapshots, so the
     TUI's own scan can call the same function and never drift from these rules.
     """
     return write_site_snapshots(conn, snapshot_rows(result, query))

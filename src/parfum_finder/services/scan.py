@@ -34,13 +34,13 @@ from parfum_finder.matcher import (
     listing_filter,
     product_label,
 )
+from parfum_finder.services.snapshots import snapshot_rows
 from parfum_finder.store import (
     CachedPrice,
     SnapshotRow,
     cached_prices,
     connect,
     snapshot_age_days,
-    snapshot_rows,
     write_snapshots,
 )
 from parfum_finder.validate import STALE_PROFILE_DAYS, profile_age_days

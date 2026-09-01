@@ -5,12 +5,12 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2615 nodes · 7329 edges · 106 communities (97 shown, 9 thin omitted)
+- 2615 nodes · 7328 edges · 105 communities (97 shown, 8 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 507 edges (avg confidence: 0.54)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1e46f268`
+- Built from commit: `714ee900`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -113,7 +113,6 @@
 - _redirect_product_candidate
 - cached_prices
 - .on_mount
-- _collect_products
 - .get_system_commands
 - Static
 - tui/app.py
@@ -160,7 +159,7 @@
 - **İdeasoft Platform Sites and Endpoint** — docs_discovery_report_dekantparfum_site, docs_discovery_report_dekantdoktoru_site, docs_discovery_report_ideasoft_related_options_endpoint, platforms_readme_ideasoft_json [EXTRACTED 1.00]
 - **discover Command Output Artifacts (profile + fixtures + CI validation)** — architecture_md_discover_flow, sites_readme_sites_dir, fixtures_readme_fixtures_dir, github_workflows_ci_validate_profiles_step, architecture_md_validate_command [INFERRED 0.85]
 
-## Communities (106 total, 9 thin omitted)
+## Communities (105 total, 8 thin omitted)
 
 ### Community 0 - "TUI App & Screens"
 Cohesion: 0.09
@@ -168,7 +167,7 @@ Nodes (100): The Textual-based terminal UI: search and basket screens., _app(), 
 
 ### Community 1 - "Site Profiles & Templates"
 Cohesion: 0.06
-Nodes (79): _check_hook_kinds(), deep_merge(), _load_json(), load_platform_template(), load_platform_templates(), load_site_hooks(), load_site_profile(), Any (+71 more)
+Nodes (78): _check_hook_kinds(), deep_merge(), _load_json(), load_platform_template(), load_platform_templates(), load_site_hooks(), load_site_profile(), Any (+70 more)
 
 ### Community 2 - "Title Matcher"
 Cohesion: 0.07
@@ -191,8 +190,8 @@ Cohesion: 0.15
 Nodes (59): PlatformChooser, _ask_chooser(), discover(), Put the question only when there is one, and hold the answer to it.      An answ, Measure the strategies a site needs, then read its JSON-LD with the winner., _attempt(), _fake_probe(), Any (+51 more)
 
 ### Community 7 - "CLI Entry Points"
-Cohesion: 0.10
-Nodes (52): CaptureFixture, ask_which_platform(), main(), Path, Scan every site for the perfumes named, store what came back, print it.      One, Ask at the terminal which of several matching templates to apply.      Asked whi, run_search(), A multi-site price and stock comparison tool for perfume decants.  Includes a sh (+44 more)
+Cohesion: 0.11
+Nodes (50): CaptureFixture, ask_which_platform(), main(), Path, Scan every site for the perfumes named, store what came back, print it.      One, Ask at the terminal which of several matching templates to apply.      Asked whi, run_search(), Path (+42 more)
 
 ### Community 8 - "Architecture Rationale Docs"
 Cohesion: 0.05
@@ -203,8 +202,8 @@ Cohesion: 0.10
 Nodes (37): HTMLParser, _canonical_path(), canonical_url(), _check_empty_search(), _decode_unreserved(), _has_product_ancestor(), _jitter_s(), _jsonld_objects() (+29 more)
 
 ### Community 10 - "Basket Optimizer Core"
-Cohesion: 0.12
-Nodes (43): BasketRow, _score_basket(), BasketItem, optimize(), Prices, Score one site against the basket, or against a subset of it.      `item_ids` is, Score every enabled site against the whole basket and sort the results.      Sit, Search for the cheapest way to split the basket across several sites.      Retur (+35 more)
+Cohesion: 0.09
+Nodes (58): Collection, BasketRow, _score_basket(), basket_inputs(), BasketItem, build_basket_rows(), _label(), optimize() (+50 more)
 
 ### Community 11 - "Basket Store & Pricing"
 Cohesion: 0.24
@@ -227,8 +226,8 @@ Cohesion: 0.09
 Nodes (29): apply_variant_rules(), _is_excluded(), Decimal, Give a size the listing's title and URL when the page gave it none,     and make, Turn raw size rows into decant variants, dropping what is not a decant.      Thr, Read one row's volume in millilitres, or None if the text does not say.      "fi, Whether this row is something other than a decant.      The size threshold is in, Convert a price in lira to whole kuruş.      Integers all the way, never a float (+21 more)
 
 ### Community 16 - "Schema Field Patterns"
-Cohesion: 0.05
-Nodes (39): css, embedded_json, endpoint, jsonld, format, pattern, type, pattern (+31 more)
+Cohesion: 0.06
+Nodes (33): format, pattern, type, pattern, type, default, type, pattern (+25 more)
 
 ### Community 17 - "Offline Profile Validation"
 Cohesion: 0.19
@@ -263,8 +262,8 @@ Cohesion: 0.11
 Nodes (25): integer, null, string, properties, type, type, type, type (+17 more)
 
 ### Community 25 - "SQLite Store"
-Cohesion: 0.06
-Nodes (48): Collection, encode_split_plan(), The split plan plus its verdict against the best full-coverage site.      Named, basket_inputs(), BasketReport, build_basket_rows(), compare_split_to_best_full(), _label() (+40 more)
+Cohesion: 0.33
+Nodes (9): BasketReport, compare_split_to_best_full(), Every site's single-site scenario, split by whether it covers everything.      A, Score a split plan against the cheapest full-coverage single site.      Only the, _full_scenario(), _plan(), SiteScenario, test_compare_split_to_best_full_reports_the_cheaper_side() (+1 more)
 
 ### Community 26 - "Site Profile Fields"
 Cohesion: 0.10
@@ -276,7 +275,7 @@ Nodes (17): Draft202012Validator, _load_schema(), _platform_validator(), Any, Te
 
 ### Community 28 - "Variant Rule Fields"
 Cohesion: 0.11
-Nodes (19): exclude_keywords, field, max_size_ml, size_from, size_pattern, title, variant_label, exclusiveMinimum (+11 more)
+Nodes (18): field, title, variant_label, items, type, type, exclusiveMinimum, type (+10 more)
 
 ### Community 29 - "Discovery CLI Reporting"
 Cohesion: 0.37
@@ -291,8 +290,8 @@ Cohesion: 0.09
 Nodes (35): Pattern, _brand_pattern(), _canonical(), _canonical_brands(), _covers(), _ends_with(), _index_of(), _match_text() (+27 more)
 
 ### Community 32 - "Variant Extraction Fields"
-Cohesion: 0.12
-Nodes (16): attribute, script, type, additionalProperties, allOf, description, properties, type (+8 more)
+Cohesion: 0.11
+Nodes (18): attribute, in_stock, price, script, size_raw, type, properties, additionalProperties (+10 more)
 
 ### Community 33 - "_ResultRow"
 Cohesion: 0.08
@@ -303,8 +302,8 @@ Cohesion: 0.14
 Nodes (15): How long the shop asked to be left alone, or None if it did not say.      A refu, _retry_after_s(), FetchResult, One fetched page, uniform regardless of which strategy produced it., _FixtureFetcher, FormData, Headers, Method (+7 more)
 
 ### Community 35 - "Platform Field Mapping"
-Cohesion: 0.18
-Nodes (11): field_map, product_json, source, variants_path, required, additionalProperties, allOf, description (+3 more)
+Cohesion: 0.12
+Nodes (16): field_map, product_json, source, variants_path, additionalProperties, allOf, description, required (+8 more)
 
 ### Community 36 - "Shipping Config Schema"
 Cohesion: 0.14
@@ -315,8 +314,8 @@ Cohesion: 0.18
 Nodes (17): _classify_single_separator(), _parse_number(), parse_price(), parse_size_ml(), Decimal, Number parsing and formatting for prices and volumes, plus text folding.  This i, Decide whether a lone separator marks a fraction or a thousands group.      Retu, Parse a price string, e.g. '1.250,00 TL' -> Decimal('1250.00').      Recognizes (+9 more)
 
 ### Community 38 - "TUI Confirm Dialog"
-Cohesion: 0.10
-Nodes (30): basket_lines(), basket_prices(), basket_sites(), _perfume_id(), _product_id(), Connection, datetime, SQLite persistence: an append-only price history.  Tables: sites, perfumes, prod (+22 more)
+Cohesion: 0.09
+Nodes (35): _load_profiles(), Any, Path, _read_wishlist(), _recent_searches(), _remove_basket_item(), _remove_wishlist_item(), _save_wishlist_item() (+27 more)
 
 ### Community 39 - "TUI App Shell"
 Cohesion: 0.15
@@ -332,7 +331,7 @@ Nodes (14): GET, POST, properties, default, enum, type, type, type (+6 more)
 
 ### Community 42 - "Fixture Fetcher (Tests)"
 Cohesion: 0.13
-Nodes (52): BaseModel, FastAPI, AcceptedSearch, _add_basket_item(), _AppState, BasketAddRequest, BasketQtyRequest, create_app() (+44 more)
+Nodes (48): BaseModel, FastAPI, AcceptedSearch, _add_basket_item(), _AppState, BasketAddRequest, BasketQtyRequest, create_app() (+40 more)
 
 ### Community 43 - "FieldConfidence"
 Cohesion: 0.16
@@ -391,8 +390,8 @@ Cohesion: 0.04
 Nodes (45): jsdom, motion, @playwright/test, react, react-dom, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event (+37 more)
 
 ### Community 57 - "_FixtureFetcher"
-Cohesion: 0.15
-Nodes (7): _Change, BasketScreen, BasketRow, Path, The basket: the list on top, one scenario per site underneath., _remove(), _set_qty()
+Cohesion: 0.07
+Nodes (26): _Change, The cheapest basket split the search found. A heuristic, not a proof.      Every, SplitPlan, format_price(), Format a price for display (comma-thousands, dot-decimal).      Decimal('1250'), BasketScreen, _heading(), _leg_block() (+18 more)
 
 ### Community 58 - "setup_logging"
 Cohesion: 0.07
@@ -471,8 +470,12 @@ Cohesion: 0.14
 Nodes (20): _balanced_value(), _collect_products(), _embedded_documents(), _has_type(), _loads_or_skip(), _parse_selector(), Node, Extraction ladder: JSON-LD -> platform JSON endpoint -> embedded JS state -> CSS (+12 more)
 
 ### Community 81 - "run_sites"
-Cohesion: 0.08
-Nodes (55): Pressed, ScanEvent, BasketRefreshEvent and viewmodel dataclasses as JSON-safe dicts.  Eve, Protocol, What one site had to say about one query, and how much to trust it.      Four st, What a caller needs of run_site, as a type callers can stand a fake in for., SiteResult, SiteRunner, display_title() (+47 more)
+Cohesion: 0.07
+Nodes (61): Pressed, ScanEvent, BasketRefreshEvent and viewmodel dataclasses as JSON-safe dicts.  Eve, Protocol, What one site had to say about one query, and how much to trust it.      Four st, What a caller needs of run_site, as a type callers can stand a fake in for., SiteResult, SiteRunner, A multi-site price and stock comparison tool for perfume decants.  Includes a sh (+53 more)
+
+### Community 82 - "test_connect_is_idempotent_on_an_existing_database"
+Cohesion: 0.25
+Nodes (8): exclude_keywords, max_size_ml, size_from, size_pattern, variant_rules, additionalProperties, required, type
 
 ### Community 84 - "_wait_until"
 Cohesion: 0.11
@@ -504,7 +507,7 @@ Nodes (4): _FakeClient, _FakeStreamResponse, Any, Exception
 
 ### Community 93 - "_scenario_block"
 Cohesion: 0.21
-Nodes (12): encode_basket_report(), encode_basket_row(), encode_result_row(), encode_scan_event(), encode_site_scenario(), _encode_split_leg(), Any, BasketReport (+4 more)
+Nodes (14): encode_basket_report(), encode_basket_row(), encode_result_row(), encode_scan_event(), encode_site_scenario(), _encode_split_leg(), encode_split_plan(), Any (+6 more)
 
 ### Community 94 - "Arayüz testleri"
 Cohesion: 0.40
@@ -515,8 +518,8 @@ Cohesion: 0.10
 Nodes (29): Turn one site's hits into the rows write_snapshots is ready to store.      Share, Write a whole scan at once and return how many prices were recorded.      Every, snapshot_rows(), write_snapshots(), The identity a real scan writes must be the identity these lookups accept., A shop's imitation must not be stored as the perfume it imitates.      The clone, The drop happens here so no caller can forget it.      Both the CLI and the scre, A slow site must not spread one reading across several timestamps.      Rows wri (+21 more)
 
 ### Community 96 - "_redirect_product_candidate"
-Cohesion: 0.29
-Nodes (7): in_stock, price, size_raw, additionalProperties, required, type, field_map
+Cohesion: 0.33
+Nodes (6): css, embedded_json, endpoint, jsonld, enum, extraction
 
 ### Community 97 - "cached_prices"
 Cohesion: 0.20
@@ -525,10 +528,6 @@ Nodes (10): cached_prices(), Return the latest stored price of every size of thi
 ### Community 98 - ".on_mount"
 Cohesion: 0.13
 Nodes (5): HeaderSelected, RowSelected, Any, The initial screen: search bar, streaming results table, notices, footer., SearchScreen
-
-### Community 99 - "_collect_products"
-Cohesion: 0.29
-Nodes (7): items, type, type, items, type, exclude_keywords, needs_review
 
 ### Community 102 - ".get_system_commands"
 Cohesion: 0.22
@@ -541,16 +540,16 @@ Nodes (3): ComposeResult, ComposeResult, Static
 ## Knowledge Gaps
 - **229 isolated node(s):** `parfum-finder`, `$schema`, `$id`, `title`, `description` (+224 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **9 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SiteRunner` connect `run_sites` to `_named_profile`, `Fetch Strategy Probing`, `.on_mount`, `Search/Basket Domain Models`, `Search Engine Core`, `Fixture Fetcher (Tests)`, `_ResultRow`, `Product Extraction`, `Playwright Errors`, `test_connect_is_idempotent_on_an_existing_database`, `FetchResult`, `SQLite Store`, `_FixtureFetcher`?**
+- **Why does `SiteRunner` connect `run_sites` to `_named_profile`, `Fetch Strategy Probing`, `.on_mount`, `Search/Basket Domain Models`, `Search Engine Core`, `Fixture Fetcher (Tests)`, `_ResultRow`, `Product Extraction`, `Playwright Errors`, `FetchResult`, `_FixtureFetcher`?**
   _High betweenness centrality (0.032) - this node is a cross-community bridge._
-- **Why does `BasketScreen` connect `_FixtureFetcher` to `TUI App & Screens`, `Site Profiles & Templates`, `.on_mount`, `TUI Confirm Dialog`, `Static`, `Basket Optimizer Core`, `Fixture Fetcher (Tests)`, `run_sites`, `SQLite Store`?**
+- **Why does `BasketScreen` connect `_FixtureFetcher` to `TUI App & Screens`, `.on_mount`, `Static`, `Basket Optimizer Core`, `Fixture Fetcher (Tests)`, `run_sites`, `SQLite Store`?**
   _High betweenness centrality (0.029) - this node is a cross-community bridge._
-- **Why does `connect()` connect `FetchResult` to `TUI App & Screens`, `Site Profiles & Templates`, `Search/Basket Domain Models`, `TUI Confirm Dialog`, `CLI Entry Points`, `exclude_keywords`, `Fixture Fetcher (Tests)`, `run_sites`, `Candidate Filtering`, `SQLite Store`, `._start_search`, `_FixtureFetcher`?**
+- **Why does `connect()` connect `FetchResult` to `TUI App & Screens`, `Site Profiles & Templates`, `Search/Basket Domain Models`, `TUI Confirm Dialog`, `CLI Entry Points`, `exclude_keywords`, `Fixture Fetcher (Tests)`, `run_sites`, `Candidate Filtering`, `_FixtureFetcher`, `._start_search`?**
   _High betweenness centrality (0.026) - this node is a cross-community bridge._
 - **Are the 25 inferred relationships involving `SiteResult` (e.g. with `RawVariant` and `Fetcher`) actually correct?**
   _`SiteResult` has 25 INFERRED edges - model-reasoned connections that need verification._

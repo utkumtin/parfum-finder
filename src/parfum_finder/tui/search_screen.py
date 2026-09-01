@@ -30,7 +30,7 @@ The first layer never appears on screen -- what was typed is what the person
 already knows -- it only keeps the blocks in the order they asked for them.
 
 Matching and row-building are not redone here: both this screen's table and
-the database go through store.snapshot_rows, so the two can never disagree
+    the database go through services.snapshots, so the two can never disagree
 about which titles are this perfume.
 """
 
