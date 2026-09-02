@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-02T18:55:36.509754+00:00",
+  "generated_at": "2026-09-02T19:02:33.637173+00:00",
   "nodes": {
     "src_parfum_finder_engine": {
       "code_fingerprint": "b83bded284b6fdcb9f4416409d4b0725d665c740cc67f3d1a460d998d2bd8090",
@@ -12,7 +12,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.809791307,
+      "score": 0.809700982,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
@@ -28,7 +28,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.809791307,
+      "score": 0.809700982,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
@@ -44,7 +44,7 @@
           "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
         }
       ],
-      "score": 0.962220366,
+      "score": 0.962113039,
       "source_file": "src/parfum_finder/matcher.py",
       "status": "tentative",
       "uses": 1
@@ -60,7 +60,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.809791307,
+      "score": 0.809700982,
       "source_file": "src/parfum_finder/matcher.py",
       "status": "tentative",
       "uses": 1
@@ -76,7 +76,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.809791307,
+      "score": 0.809700982,
       "source_file": "src/parfum_finder/services/snapshots.py",
       "status": "tentative",
       "uses": 1
@@ -92,7 +92,7 @@
           "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
         }
       ],
-      "score": 0.962220366,
+      "score": 0.962113039,
       "source_file": "src/parfum_finder/store.py",
       "status": "tentative",
       "uses": 1
@@ -113,7 +113,7 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 1.924225873,
+      "score": 1.924011243,
       "source_file": "src/parfum_finder/store.py",
       "status": "preferred",
       "uses": 2
@@ -129,7 +129,7 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 0.962005507,
+      "score": 0.961898204,
       "source_file": "src/parfum_finder/store.py",
       "status": "tentative",
       "uses": 1
@@ -145,7 +145,7 @@
           "q": "In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?"
         }
       ],
-      "score": 0.999159872,
+      "score": 0.999048425,
       "source_file": "src/parfum_finder/updater.py",
       "status": "tentative",
       "uses": 1
@@ -161,7 +161,7 @@
           "q": "In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?"
         }
       ],
-      "score": 0.999159872,
+      "score": 0.999048425,
       "source_file": "src/parfum_finder/updater.py",
       "status": "tentative",
       "uses": 1
@@ -177,7 +177,7 @@
           "q": "In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?"
         }
       ],
-      "score": 0.999159872,
+      "score": 0.999048425,
       "source_file": "src/parfum_finder/updater.py",
       "status": "tentative",
       "uses": 1
@@ -193,7 +193,7 @@
           "q": "In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?"
         }
       ],
-      "score": 0.999159872,
+      "score": 0.999048425,
       "source_file": "src/parfum_finder/updater.py",
       "status": "tentative",
       "uses": 1
@@ -214,7 +214,7 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 1.924225873,
+      "score": 1.924011243,
       "source_file": "ui/src/screens/BasketScreen.tsx",
       "status": "preferred",
       "uses": 2
@@ -230,7 +230,7 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 0.962005507,
+      "score": 0.961898204,
       "source_file": "ui/src/screens/ResultsScreen.tsx",
       "status": "tentative",
       "uses": 1
@@ -246,7 +246,7 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 0.962005507,
+      "score": 0.961898204,
       "source_file": "ui/src/screens/WishlistScreen.tsx",
       "status": "tentative",
       "uses": 1
@@ -262,7 +262,7 @@
           "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
         }
       ],
-      "score": 0.962220366,
+      "score": 0.962113039,
       "source_file": "ui/tests/helpers/fixtures.ts",
       "status": "tentative",
       "uses": 1
