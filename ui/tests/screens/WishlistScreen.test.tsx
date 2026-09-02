@@ -51,6 +51,36 @@ function renderScreen() {
   );
 }
 
+function renderSearchRows() {
+  render(
+    <WishlistScreen
+      rows={[
+        resultRow({
+          site_id: "site-a",
+          site_label: "İnci Dekant",
+          raw_title: "IŞIK Eau de Parfum",
+        }),
+        resultRow({
+          site_id: "site-b",
+          site_label: "Beta Mağaza",
+          raw_title: "Sauvagé Elixir",
+        }),
+        resultRow({
+          site_id: "site-c",
+          site_label: "Gamma Parfümeri",
+          raw_title: "Amber Night",
+        }),
+      ]}
+      wishlistReady
+      pendingWishlistKeys={new Set()}
+      config={DEFAULT_CONFIG}
+      notify={vi.fn()}
+      onBasketChanged={vi.fn()}
+      onWishlistToggle={vi.fn()}
+    />,
+  );
+}
+
 describe("WishlistScreen sorting", () => {
   it("sorts price ascending, puts missing prices last, then restores saved order", async () => {
     renderScreen();
@@ -72,5 +102,65 @@ describe("WishlistScreen sorting", () => {
     await userEvent.click(screen.getByRole("columnheader", { name: /₺\/ml/ }));
 
     expect(titles()).toEqual(["Large", "Small", "Missing"]);
+  });
+});
+
+describe("WishlistScreen search", () => {
+  it("filters visible product titles and shop names on each keystroke", async () => {
+    renderSearchRows();
+    const searchInput = screen.getByRole("searchbox", { name: "İstek listesinde ara" });
+
+    await userEvent.type(searchInput, "amb");
+    expect(titles()).toEqual(["Amber Night"]);
+    expect(screen.getByText("1 / 3 ürün")).toBeInTheDocument();
+
+    await userEvent.clear(searchInput);
+    await userEvent.type(searchInput, "beta");
+    expect(titles()).toEqual(["Sauvagé Elixir"]);
+  });
+
+  it("normalizes Turkish casing, diacritics, and whitespace-separated terms", async () => {
+    renderSearchRows();
+    const searchInput = screen.getByRole("searchbox", { name: "İstek listesinde ara" });
+
+    await userEvent.type(searchInput, "  ışık   parfum  ");
+    expect(titles()).toEqual(["IŞIK Eau de Parfum"]);
+
+    await userEvent.clear(searchInput);
+    await userEvent.type(searchInput, "sauvage");
+    expect(titles()).toEqual(["Sauvagé Elixir"]);
+
+    await userEvent.clear(searchInput);
+    await userEvent.type(searchInput, "inci");
+    expect(titles()).toEqual(["IŞIK Eau de Parfum"]);
+  });
+
+  it("shows a dedicated no-match state and clears back to a focused full list", async () => {
+    renderSearchRows();
+    const searchInput = screen.getByRole("searchbox", { name: "İstek listesinde ara" });
+
+    await userEvent.type(searchInput, "bulunmayan");
+    expect(screen.getByText("Aramanızla eşleşen ürün bulunamadı.")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Aramayı temizle" }));
+    expect(searchInput).toHaveValue("");
+    expect(searchInput).toHaveFocus();
+    expect(titles()).toEqual(["IŞIK Eau de Parfum", "Sauvagé Elixir", "Amber Night"]);
+  });
+
+  it("keeps the active sort when the wishlist is filtered", async () => {
+    renderScreen();
+    await userEvent.click(screen.getByRole("columnheader", { name: /Fiyat/ }));
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: "İstek listesinde ara" }),
+      "large",
+    );
+
+    expect(titles()).toEqual(["Large"]);
+    expect(screen.getByRole("columnheader", { name: /Fiyat/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
   });
 });

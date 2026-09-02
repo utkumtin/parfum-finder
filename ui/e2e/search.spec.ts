@@ -36,11 +36,13 @@ test("the results and wishlist action buttons stay inside their tables", async (
     resultBounds.x + resultBounds.width,
   );
 
-  await resultActions.getByRole("button", { name: "İstek listesine ekle" }).click();
+  const wishlistButtons = resultTable.getByRole("button", { name: "İstek listesine ekle" });
+  await wishlistButtons.first().click();
+  await wishlistButtons.last().click();
   await tab(page, "İstek listesi").click();
 
   const wishlistTable = page.getByRole("table");
-  const wishlistActions = wishlistTable.locator(".row-actions");
+  const wishlistActions = wishlistTable.locator(".row-actions").first();
   await expect(wishlistActions).toBeVisible();
 
   const wishlistBounds = await wishlistTable.boundingBox();
@@ -50,6 +52,15 @@ test("the results and wishlist action buttons stay inside their tables", async (
   expect(wishlistActionBounds.x + wishlistActionBounds.width).toBeLessThanOrEqual(
     wishlistBounds.x + wishlistBounds.width,
   );
+
+  const wishlistSearch = page.getByRole("searchbox", { name: "İstek listesinde ara" });
+  await wishlistSearch.fill("Beta");
+  await expect(wishlistTable.getByText("Beta Dekant").first()).toBeVisible();
+  await expect(wishlistTable.getByText("Alfa Dekant").first()).toBeHidden();
+
+  await page.getByRole("button", { name: "Aramayı temizle" }).click();
+  await expect(wishlistSearch).toBeFocused();
+  await expect(wishlistTable.getByText("Alfa Dekant").first()).toBeVisible();
 });
 
 test("the recommendation names a sample size and the shop selling it", async ({

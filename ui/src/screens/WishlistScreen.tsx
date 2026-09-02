@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api/client";
 import { AddButton } from "../components/AddButton";
 import { Badge } from "../components/Badge";
@@ -8,6 +8,13 @@ import { basketKey } from "../lib/basket";
 import { formatAge, formatMl, formatPerMl, formatPrice } from "../lib/format";
 import { wishlistKey } from "../lib/wishlist";
 import type { AppConfig, ResultRow } from "../types";
+
+function normalizeSearchText(value: string): string {
+  return value
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
 
 export function WishlistScreen({
   rows,
@@ -29,10 +36,29 @@ export function WishlistScreen({
   const [basketKeys, setBasketKeys] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState<ResultRow | null>(null);
   const [sort, setSort] = useState<"price" | "per_ml" | null>(null);
+  const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const queryTokens = useMemo(
+    () =>
+      normalizeSearchText(query)
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean),
+    [query],
+  );
+
+  const filteredRows = useMemo(() => {
+    if (queryTokens.length === 0) return rows;
+    return rows.filter((row) => {
+      const searchable = normalizeSearchText(`${row.raw_title} ${row.site_label}`);
+      return queryTokens.every((token) => searchable.includes(token));
+    });
+  }, [queryTokens, rows]);
 
   const sortedRows = useMemo(() => {
-    if (sort === null) return rows;
-    return rows
+    if (sort === null) return filteredRows;
+    return filteredRows
       .map((row, index) => ({ row, index }))
       .sort((left, right) => {
         const a = left.row;
@@ -58,7 +84,7 @@ export function WishlistScreen({
         return aRate < bRate ? -1 : aRate > bRate ? 1 : left.index - right.index;
       })
       .map(({ row }) => row);
-  }, [rows, sort]);
+  }, [filteredRows, sort]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +139,11 @@ export function WishlistScreen({
             <p className="eyebrow">Kaydedilenler</p>
             <h1 id="wishlist-heading">İstek listesi</h1>
           </div>
-          {rows.length > 0 && <span className="section-count">{rows.length} ürün</span>}
+          {rows.length > 0 && (
+            <span className="section-count">
+              {queryTokens.length > 0 ? `${filteredRows.length} / ${rows.length}` : rows.length} ürün
+            </span>
+          )}
         </div>
 
         {!wishlistReady ? (
@@ -121,9 +151,61 @@ export function WishlistScreen({
         ) : rows.length === 0 ? (
           <p className="dim">Henüz istek listenize ürün eklemediniz.</p>
         ) : (
-          <div className="tray table-tray">
-            <div className="core">
-              <table className="rows wishlist-rows">
+          <>
+            <div className="tray wishlist-filter">
+              <div className="core">
+                <svg
+                  className="wishlist-filter-icon"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden="true"
+                >
+                  <circle cx="8.5" cy="8.5" r="5.25" />
+                  <path d="m12.5 12.5 4 4" strokeLinecap="round" />
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={query}
+                  aria-label="İstek listesinde ara"
+                  placeholder="Ürün veya mağaza ara"
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+                {query.length > 0 && (
+                  <button
+                    type="button"
+                    className="wishlist-filter-clear"
+                    aria-label="Aramayı temizle"
+                    onClick={() => {
+                      setQuery("");
+                      searchInputRef.current?.focus();
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                    >
+                      <path d="m2.5 2.5 7 7m0-7-7 7" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {filteredRows.length === 0 ? (
+              <p className="dim wishlist-filter-empty" role="status">
+                Aramanızla eşleşen ürün bulunamadı.
+              </p>
+            ) : (
+              <div className="tray table-tray">
+                <div className="core">
+                  <table className="rows wishlist-rows">
                 <colgroup>
                   <col style={{ width: "33%" }} />
                   <col style={{ width: "16%" }} />
@@ -206,9 +288,11 @@ export function WishlistScreen({
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
-          </div>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </section>
 
