@@ -57,7 +57,7 @@ describe("App startup", () => {
 describe("App tabs", () => {
   it("loads saved items from the backend before enabling wishlist actions", async () => {
     const row = resultRow({ product_url: null });
-    server.reply("GET /api/wishlist", { rows: [row] });
+    server.reply("GET /api/wishlist", { rows: [{ ...row, prices: {} }] });
 
     render(<App />);
     await screen.findByRole("button", { name: /^Ara$/ });
@@ -97,6 +97,14 @@ describe("App tabs", () => {
     server.on("GET /api/results/:searchId", () => ({
       body: { rows: [row], hidden_out_of_stock: 0, finished: true },
     }));
+    server.on("GET /api/wishlist", () => ({
+      body: {
+        rows:
+          server.requestsTo("PUT", "/api/wishlist/items").length > 0
+            ? [{ ...row, prices: { [row.site_id]: row.price_kurus } }]
+            : [],
+      },
+    }));
     render(<App />);
     await screen.findByRole("button", { name: /^Ara$/ });
 
@@ -119,7 +127,7 @@ describe("App tabs", () => {
 
   it("removes a hydrated item using its complete identity", async () => {
     const row = resultRow({ product_url: null });
-    server.reply("GET /api/wishlist", { rows: [row] });
+    server.reply("GET /api/wishlist", { rows: [{ ...row, prices: {} }] });
 
     render(<App />);
     await screen.findByRole("button", { name: /^Ara$/ });

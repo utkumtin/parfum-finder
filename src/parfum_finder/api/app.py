@@ -83,6 +83,7 @@ from parfum_finder.store import (
     basket_lines,
     basket_prices,
     basket_sites,
+    cached_prices,
     connect,
     now_iso,
     recent_searches,
@@ -729,7 +730,22 @@ def _save_wishlist_item(db_path: Path, body: WishlistItemRequest) -> None:
 def _read_wishlist(db_path: Path) -> list[dict[str, Any]]:
     conn = connect(db_path)
     try:
-        return [json.loads(row) for row in wishlist_rows(conn)]
+        rows = [json.loads(row) for row in wishlist_rows(conn)]
+        for row in rows:
+            prices = cached_prices(
+                conn,
+                brand=row["brand"],
+                name=row["name"],
+                concentration=row["concentration"],
+            )
+            row["prices"] = {
+                price.site_id: price.price_kurus
+                for price in prices
+                if price.concentration == row["concentration"]
+                and price.size_ml_x10 == row["size_ml_x10"]
+                and price.in_stock
+            }
+        return rows
     finally:
         conn.close()
 

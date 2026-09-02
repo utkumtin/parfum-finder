@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api/client";
 import { AddButton } from "../components/AddButton";
 import { Badge } from "../components/Badge";
@@ -7,7 +7,7 @@ import { WishlistButton } from "../components/WishlistButton";
 import { basketKey } from "../lib/basket";
 import { formatAge, formatMl, formatPerMl, formatPrice } from "../lib/format";
 import { wishlistKey } from "../lib/wishlist";
-import type { AppConfig, ResultRow } from "../types";
+import type { AppConfig, ResultRow, WishlistRow } from "../types";
 
 function normalizeSearchText(value: string): string {
   return value
@@ -21,14 +21,16 @@ export function WishlistScreen({
   wishlistReady,
   pendingWishlistKeys,
   config,
+  siteNames,
   notify,
   onBasketChanged,
   onWishlistToggle,
 }: {
-  rows: ResultRow[];
+  rows: WishlistRow[];
   wishlistReady: boolean;
   pendingWishlistKeys: Set<string>;
   config: AppConfig;
+  siteNames: Record<string, string>;
   notify: (message: string, kind: "info" | "error") => void;
   onBasketChanged: () => void;
   onWishlistToggle: (row: ResultRow) => void | Promise<void>;
@@ -37,7 +39,18 @@ export function WishlistScreen({
   const [confirming, setConfirming] = useState<ResultRow | null>(null);
   const [sort, setSort] = useState<"price" | "per_ml" | null>(null);
   const [query, setQuery] = useState("");
+  const [openRows, setOpenRows] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const toggleRow = (row: WishlistRow) => {
+    const key = wishlistKey(row);
+    setOpenRows((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const queryTokens = useMemo(
     () =>
@@ -239,26 +252,40 @@ export function WishlistScreen({
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedRows.map((row) => (
+                  {sortedRows.map((row, index) => {
+                    const key = wishlistKey(row);
+                    const isOpen = openRows.has(key);
+                    const panelId = `wishlist-offers-${index}`;
+                    const otherPrices = Object.entries(row.prices)
+                      .filter(([siteId]) => siteId !== row.site_id)
+                      .sort((left, right) => left[1] - right[1]);
+                    return (
+                    <Fragment key={key}>
                     <tr
-                      key={wishlistKey(row)}
-                      className={row.product_url ? "clickable" : ""}
-                      onClick={() => {
-                        if (row.product_url)
-                          window.open(row.product_url, "_blank", "noopener");
-                      }}
+                      className="clickable t-acc wishlist-summary-row"
+                      data-open={String(isOpen)}
+                      data-wishlist-summary
+                      onClick={() => toggleRow(row)}
                     >
                       <td className="title-cell" title={row.raw_title}>
-                        <span className="title-inner">
+                        <button
+                          type="button"
+                          className="wishlist-accordion-trigger t-acc-head"
+                          aria-expanded={isOpen}
+                          aria-controls={panelId}
+                          aria-label={`${row.raw_title} diğer mağaza fiyatları`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleRow(row);
+                          }}
+                        >
+                          <span className="t-acc-chevron" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M4 6.5L8 10.5L12 6.5" />
+                            </svg>
+                          </span>
                           <span className="title-text">{row.raw_title}</span>
-                          {row.product_url && (
-                            <span className="row-go" aria-hidden="true">
-                              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                                <path d="M3 9 9 3M4.5 3H9v4.5" />
-                              </svg>
-                            </span>
-                          )}
-                        </span>
+                        </button>
                       </td>
                       <td className="site-cell">{row.site_label}</td>
                       <td className="num">{formatMl(row.size_ml_x10)}</td>
@@ -271,7 +298,7 @@ export function WishlistScreen({
                           <span className="dim">{formatAge(row.age_days)}</span>
                         )}
                       </td>
-                      <td className="add-cell">
+                      <td className="add-cell" onClick={(event) => event.stopPropagation()}>
                         <div className="row-actions">
                           <WishlistButton
                             inWishlist
@@ -286,7 +313,63 @@ export function WishlistScreen({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    <tr className="t-acc wishlist-offers-row" data-open={String(isOpen)}>
+                      <td colSpan={7}>
+                        <div className="t-acc-panel">
+                          <div
+                            id={panelId}
+                            className="t-acc-panel-inner wishlist-offers"
+                            role="region"
+                            aria-label={`${row.raw_title} diğer mağaza fiyatları`}
+                            aria-hidden={!isOpen}
+                          >
+                            <div className="wishlist-offers-head">
+                              <span className="wishlist-offers-label">Diğer mağazalardaki fiyatlar</span>
+                              <span className="wishlist-offer-ml">ml</span>
+                              <span className="wishlist-offer-price">Fiyat</span>
+                            </div>
+                            {otherPrices.length > 0 ? (
+                              <ul className="wishlist-offer-list">
+                                {otherPrices.map(([siteId, price]) => (
+                                  <li key={siteId}>
+                                    <span className="wishlist-offer-site">
+                                      {siteNames[siteId] ?? siteId}
+                                    </span>
+                                    <span className="wishlist-offer-ml">
+                                      {formatMl(row.size_ml_x10)}
+                                    </span>
+                                    <strong className="wishlist-offer-price">
+                                      {formatPrice(price)}
+                                    </strong>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="dim wishlist-offers-empty">
+                                Bu varyasyon için başka mağaza fiyatı bulunamadı.
+                              </p>
+                            )}
+                            {row.product_url && (
+                              <a
+                                className="wishlist-product-link"
+                                href={row.product_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                tabIndex={isOpen ? 0 : -1}
+                              >
+                                {row.site_label} ürün sayfasını aç
+                                <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                                  <path d="M3 9 9 3M4.5 3H9v4.5" />
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                    </Fragment>
+                    );
+                  })}
                 </tbody>
                   </table>
                 </div>

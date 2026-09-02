@@ -64,14 +64,18 @@ def _write_profile(sites_dir: Path, **overrides: Any) -> None:
 
 
 def _ok_result(
-    site_id: str, *, score_title: str = "Dior Sauvage EDP Dekant"
+    site_id: str,
+    *,
+    score_title: str = "Dior Sauvage EDP Dekant",
+    price_kurus: int = 25_000,
+    size_ml_x10: int = 50,
 ) -> SiteResult:
     candidate = ProductCandidate(raw_title=score_title, url="https://example.com/p")
     variant = Variant(
-        size_ml_x10=50,
-        raw_title=f"{score_title} 5 ml",
+        size_ml_x10=size_ml_x10,
+        raw_title=f"{score_title} {size_ml_x10 / 10:g} ml",
         product_url="https://example.com/p",
-        price_kurus=25000,
+        price_kurus=price_kurus,
         in_stock=True,
     )
     hit = SearchHit(candidate, (variant,))
@@ -502,7 +506,10 @@ def test_wishlist_crud_is_idempotent_and_preserves_saved_order(
         )
 
         saved = c.get("/api/wishlist", headers=_auth(token)).json()["rows"]
-        assert saved == [updated, second]
+        assert saved == [
+            {**updated, "prices": {}},
+            {**second, "prices": {}},
+        ]
 
         identity = {
             key: first[key]
@@ -520,7 +527,47 @@ def test_wishlist_crud_is_idempotent_and_preserves_saved_order(
             ).status_code
             == 204
         )
-        assert c.get("/api/wishlist", headers=_auth(token)).json()["rows"] == [second]
+        assert c.get("/api/wishlist", headers=_auth(token)).json()["rows"] == [
+            {**second, "prices": {}}
+        ]
+
+
+def test_wishlist_returns_other_shops_prices_for_the_exact_saved_variation(
+    sites_dir: Path, db_path: Path
+) -> None:
+    _write_profile(sites_dir, id="site-a", name="Site A")
+    _write_profile(sites_dir, id="site-b", name="Site B")
+    _write_profile(sites_dir, id="site-c", name="Site C")
+    runner = _static_runner(
+        {
+            "site-a": _ok_result("site-a", price_kurus=25_000),
+            "site-b": _ok_result("site-b", price_kurus=21_000),
+            "site-c": _ok_result("site-c", price_kurus=39_000, size_ml_x10=100),
+        }
+    )
+    for c, token in _client(sites_dir, db_path, runner):
+        search_id = c.post(
+            "/api/search",
+            json={"query": "Dior Sauvage EDP"},
+            headers=_auth(token),
+        ).json()["search_id"]
+        with c.websocket_connect(f"/api/search/{search_id}?token={token}") as ws:
+            while ws.receive_json()["type"] != "scan_finished":
+                pass
+
+        result_rows = c.get(f"/api/results/{search_id}", headers=_auth(token)).json()[
+            "rows"
+        ]
+        saved_row = next(row for row in result_rows if row["site_id"] == "site-a")
+        assert (
+            c.put(
+                "/api/wishlist/items", headers=_auth(token), json=saved_row
+            ).status_code
+            == 204
+        )
+
+        wishlist_row = c.get("/api/wishlist", headers=_auth(token)).json()["rows"][0]
+        assert wishlist_row["prices"] == {"site-a": 25_000, "site-b": 21_000}
 
 
 def test_wishlist_rejects_an_invalid_variant_size(
@@ -544,7 +591,9 @@ def test_wishlist_survives_app_recreation(sites_dir: Path, db_path: Path) -> Non
         )
 
     for c, token in _client(sites_dir, db_path, _static_runner({})):
-        assert c.get("/api/wishlist", headers=_auth(token)).json()["rows"] == [row]
+        assert c.get("/api/wishlist", headers=_auth(token)).json()["rows"] == [
+            {**row, "prices": {}}
+        ]
 
 
 # -- basket -----------------------------------------------------------------

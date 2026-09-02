@@ -7,7 +7,7 @@ import { ResultsScreen } from "./screens/ResultsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
 import { WishlistScreen } from "./screens/WishlistScreen";
 import { wishlistKey } from "./lib/wishlist";
-import type { AppConfig, ResultRow, SearchStart, UpdateInfo } from "./types";
+import type { AppConfig, ResultRow, SearchStart, UpdateInfo, WishlistRow } from "./types";
 
 type View = "search" | "results" | "wishlist" | "basket";
 
@@ -22,7 +22,7 @@ export function App() {
   const [startupError, setStartupError] = useState<string | null>(null);
   const [view, setView] = useState<View>("search");
   const [search, setSearch] = useState<SearchStart | null>(null);
-  const [wishlist, setWishlist] = useState<ResultRow[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistRow[]>([]);
   const [wishlistReady, setWishlistReady] = useState(false);
   const [pendingWishlistKeys, setPendingWishlistKeys] = useState<Set<string>>(
     new Set(),
@@ -143,15 +143,16 @@ export function App() {
       pendingWishlistRef.current.add(key);
       setPendingWishlistKeys((current) => new Set(current).add(key));
       try {
-        if (removing) await api.removeWishlistItem(row);
-        else await api.saveWishlistItem(row);
-        setWishlist((current) =>
-          removing
-            ? current.filter((saved) => wishlistKey(saved) !== key)
-            : current.some((saved) => wishlistKey(saved) === key)
-              ? current
-              : [...current, row],
-        );
+        if (removing) {
+          await api.removeWishlistItem(row);
+          setWishlist((current) =>
+            current.filter((saved) => wishlistKey(saved) !== key),
+          );
+        } else {
+          await api.saveWishlistItem(row);
+          const response = await api.wishlist();
+          setWishlist(response.rows);
+        }
       } catch (error) {
         notify(error instanceof ApiError ? error.message : String(error), "error");
       } finally {
@@ -269,6 +270,7 @@ export function App() {
             wishlistReady={wishlistReady}
             pendingWishlistKeys={pendingWishlistKeys}
             config={config}
+            siteNames={siteNames}
             notify={notify}
             onBasketChanged={onBasketChanged}
             onWishlistToggle={onWishlistToggle}

@@ -4,6 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WishlistScreen } from "../../src/screens/WishlistScreen";
 import { resultRow } from "../helpers/fixtures";
 import { DEFAULT_CONFIG, installFakeServer } from "../helpers/server";
+import type { ResultRow, WishlistRow } from "../../src/types";
+
+const SITE_NAMES = {
+  "site-a": "İnci Dekant",
+  "site-b": "Beta Mağaza",
+  "site-c": "Gamma Parfümeri",
+};
 
 beforeEach(() => {
   installFakeServer();
@@ -11,28 +18,34 @@ beforeEach(() => {
 });
 
 function titles(): string[] {
-  return screen
-    .getAllByRole("row")
-    .slice(1)
-    .map((row) => within(row).getAllByRole("cell")[0]?.textContent ?? "");
+  return Array.from(document.querySelectorAll("[data-wishlist-summary]")).map(
+    (row) => within(row as HTMLElement).getAllByRole("cell")[0]?.textContent ?? "",
+  );
+}
+
+function wishlistRow(
+  overrides: Partial<ResultRow> & { prices?: Record<string, number> } = {},
+): WishlistRow {
+  const { prices = {}, ...rowOverrides } = overrides;
+  return { ...resultRow(rowOverrides), prices };
 }
 
 function renderScreen() {
-  const expensiveSmall = resultRow({
+  const expensiveSmall = wishlistRow({
     site_id: "site-a",
     raw_title: "Small",
     size_ml_x10: 10,
     price_kurus: 10_000,
     price_per_ml_kurus: "10000",
   });
-  const cheapLarge = resultRow({
+  const cheapLarge = wishlistRow({
     site_id: "site-b",
     raw_title: "Large",
     size_ml_x10: 100,
     price_kurus: 20_000,
     price_per_ml_kurus: "2000",
   });
-  const missing = resultRow({
+  const missing = wishlistRow({
     site_id: "site-c",
     raw_title: "Missing",
     price_kurus: null,
@@ -44,6 +57,7 @@ function renderScreen() {
       wishlistReady
       pendingWishlistKeys={new Set()}
       config={DEFAULT_CONFIG}
+      siteNames={SITE_NAMES}
       notify={vi.fn()}
       onBasketChanged={vi.fn()}
       onWishlistToggle={vi.fn()}
@@ -55,17 +69,17 @@ function renderSearchRows() {
   render(
     <WishlistScreen
       rows={[
-        resultRow({
+        wishlistRow({
           site_id: "site-a",
           site_label: "İnci Dekant",
           raw_title: "IŞIK Eau de Parfum",
         }),
-        resultRow({
+        wishlistRow({
           site_id: "site-b",
           site_label: "Beta Mağaza",
           raw_title: "Sauvagé Elixir",
         }),
-        resultRow({
+        wishlistRow({
           site_id: "site-c",
           site_label: "Gamma Parfümeri",
           raw_title: "Amber Night",
@@ -74,6 +88,7 @@ function renderSearchRows() {
       wishlistReady
       pendingWishlistKeys={new Set()}
       config={DEFAULT_CONFIG}
+      siteNames={SITE_NAMES}
       notify={vi.fn()}
       onBasketChanged={vi.fn()}
       onWishlistToggle={vi.fn()}
@@ -162,5 +177,85 @@ describe("WishlistScreen search", () => {
       "aria-sort",
       "ascending",
     );
+  });
+});
+
+describe("WishlistScreen shop prices accordion", () => {
+  it("keeps multiple rows open and closes only the row clicked again", async () => {
+    render(
+      <WishlistScreen
+        rows={[
+          wishlistRow({
+            site_id: "site-a",
+            raw_title: "Amber Night 5 ml",
+            prices: { "site-a": 20_000, "site-b": 18_000 },
+          }),
+          wishlistRow({
+            site_id: "site-b",
+            raw_title: "IŞIK 5 ml",
+            prices: { "site-a": 24_000, "site-b": 21_000, "site-c": 23_000 },
+          }),
+        ]}
+        wishlistReady
+        pendingWishlistKeys={new Set()}
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+        onBasketChanged={vi.fn()}
+        onWishlistToggle={vi.fn()}
+      />,
+    );
+
+    const amber = screen.getByRole("button", {
+      name: "Amber Night 5 ml diğer mağaza fiyatları",
+    });
+    const light = screen.getByRole("button", {
+      name: "IŞIK 5 ml diğer mağaza fiyatları",
+    });
+
+    await userEvent.click(amber);
+    expect(amber).toHaveAttribute("aria-expanded", "true");
+    const amberOffers = screen.getByRole("region", { name: /Amber Night/ });
+    expect(amberOffers).toHaveTextContent("Beta Mağaza5 ml180.00 ₺");
+    expect(amberOffers.querySelector("li .wishlist-offer-ml")).toHaveTextContent("5 ml");
+    expect(amberOffers.querySelector("li .wishlist-offer-price")).toHaveTextContent("180.00 ₺");
+
+    await userEvent.click(light);
+    expect(amber).toHaveAttribute("aria-expanded", "true");
+    expect(light).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getAllByRole("region", { name: /diğer mağaza fiyatları/ }),
+    ).toHaveLength(2);
+
+    await userEvent.click(amber);
+    expect(amber).toHaveAttribute("aria-expanded", "false");
+    expect(light).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getAllByRole("region", { name: /diğer mağaza fiyatları/ }),
+    ).toHaveLength(1);
+  });
+
+  it("keeps row actions from changing the accordion state", async () => {
+    const onWishlistToggle = vi.fn();
+    render(
+      <WishlistScreen
+        rows={[wishlistRow({ raw_title: "Amber Night 5 ml" })]}
+        wishlistReady
+        pendingWishlistKeys={new Set()}
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+        onBasketChanged={vi.fn()}
+        onWishlistToggle={onWishlistToggle}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: "Amber Night 5 ml diğer mağaza fiyatları",
+    });
+    await userEvent.click(screen.getByRole("button", { name: "İstek listesinden çıkar" }));
+
+    expect(onWishlistToggle).toHaveBeenCalledOnce();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 });

@@ -103,7 +103,14 @@
   "101": "setup.ts",
   "102": "_fake_runner",
   "103": "split_queries",
+  "104": "variant_rules",
   "105": "search_spellings",
   "106": "Q: In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?",
-  "110": "extract_css_variants"
+  "107": "enum",
+  "108": "WishlistRow",
+  "109": "Static",
+  "110": "extract_css_variants",
+  "111": "_retry_after_s",
+  "112": "test_every_shipped_site_has_a_colour_that_survives_256_colours",
+  "113": "search.spec.ts"
 }

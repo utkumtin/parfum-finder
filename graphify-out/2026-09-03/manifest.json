@@ -470,8 +470,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/api/app.py": {
-    "mtime": 1788388068.330723,
-    "ast_hash": "0d4939ec41af61b2bc9f57d106f8d5ee",
+    "mtime": 1788373922.0690708,
+    "ast_hash": "eb482537f880b9e129330d4c2bb10c78",
     "semantic_hash": ""
   },
   "src/parfum_finder/api/serialize.py": {
@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "tests/test_api.py": {
-    "mtime": 1788388241.1112723,
-    "ast_hash": "4cb67793fe59aef25ef25deceb527f3c",
+    "mtime": 1788374500.5136387,
+    "ast_hash": "3ec71a9b5fcdcc559cff15274542a5ba",
     "semantic_hash": ""
   },
   "ui/package.json": {
@@ -495,8 +495,8 @@
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
-    "mtime": 1788387846.58989,
-    "ast_hash": "62e18a041154baab809f0aaf3eb45407",
+    "mtime": 1787427442.321307,
+    "ast_hash": "bfc42f5e01076a076d788990dacdf8a0",
     "semantic_hash": ""
   },
   "ui/src/api/client.ts": {
@@ -550,8 +550,8 @@
     "semantic_hash": ""
   },
   "ui/src/types.ts": {
-    "mtime": 1788387846.5178912,
-    "ast_hash": "14a228aca77676d1cbb2a03e5225a957",
+    "mtime": 1787588144.85624,
+    "ast_hash": "ce765ae44b8413a379421cd701003d4a",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -630,8 +630,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/search.spec.ts": {
-    "mtime": 1788390248.4845672,
-    "ast_hash": "3bb7092f256f484ccce6ac2893e2897d",
+    "mtime": 1788377374.8731856,
+    "ast_hash": "605dae6ad58ecea59f2b6a12f35058d6",
     "semantic_hash": ""
   },
   "ui/playwright.config.ts": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1788388300.8324301,
-    "ast_hash": "c939464a20b904dbf4e60ee0a42deaa0",
+    "mtime": 1787427996.677521,
+    "ast_hash": "aa7eae34eac6b6f1ea9219c1b35fa023",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/WishlistScreen.tsx": {
-    "mtime": 1788389093.785601,
-    "ast_hash": "a61a6c038d46f36de1405005b018a7be",
+    "mtime": 1788377344.596675,
+    "ast_hash": "bd3dcbc384572be38c80db95c6b2ee3d",
     "semantic_hash": ""
   },
   "ui/tests/components/BookmarkIcon.test.tsx": {
@@ -740,8 +740,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/WishlistScreen.test.tsx": {
-    "mtime": 1788389114.3483255,
-    "ast_hash": "adb2b8ebced6eb6fcb981827bb4a3c9d",
+    "mtime": 1788377344.7406726,
+    "ast_hash": "84df4902c31e3eb5209cf66d179f10f2",
     "semantic_hash": ""
   },
   "ui/tests/lib/wishlist.test.ts": {

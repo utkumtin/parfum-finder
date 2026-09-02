@@ -54,13 +54,43 @@ test("the results and wishlist action buttons stay inside their tables", async (
   );
 
   const wishlistSearch = page.getByRole("searchbox", { name: "İstek listesinde ara" });
+  const summaries = wishlistTable.locator(".wishlist-summary-row");
   await wishlistSearch.fill("Beta");
-  await expect(wishlistTable.getByText("Beta Dekant").first()).toBeVisible();
-  await expect(wishlistTable.getByText("Alfa Dekant").first()).toBeHidden();
+  await expect(summaries.locator(".site-cell", { hasText: "Beta Dekant" }).first()).toBeVisible();
+  await expect(summaries.locator(".site-cell", { hasText: "Alfa Dekant" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Aramayı temizle" }).click();
   await expect(wishlistSearch).toBeFocused();
-  await expect(wishlistTable.getByText("Alfa Dekant").first()).toBeVisible();
+  await expect(summaries.locator(".site-cell", { hasText: "Alfa Dekant" }).first()).toBeVisible();
+
+  await summaries.first().click();
+  const firstOffers = wishlistTable.locator('.wishlist-offers-row[data-open="true"]').first();
+  const offerMl = firstOffers.locator("li .wishlist-offer-ml").first();
+  const offerPrice = firstOffers.locator("li .wishlist-offer-price").first();
+  await expect(offerMl).toBeVisible();
+  await expect(offerPrice).toBeVisible();
+
+  const summaryMlBounds = await summaries.first().locator("td.num").first().boundingBox();
+  const summaryPriceBounds = await summaries.first().locator("td.num").nth(1).boundingBox();
+  const offerMlBounds = await offerMl.boundingBox();
+  const offerPriceBounds = await offerPrice.boundingBox();
+  if (
+    summaryMlBounds === null ||
+    summaryPriceBounds === null ||
+    offerMlBounds === null ||
+    offerPriceBounds === null
+  ) {
+    throw new Error("the wishlist price columns are not measurable");
+  }
+  expect(Math.abs(summaryMlBounds.x + summaryMlBounds.width - (offerMlBounds.x + offerMlBounds.width))).toBeLessThanOrEqual(1);
+  expect(Math.abs(summaryPriceBounds.x + summaryPriceBounds.width - (offerPriceBounds.x + offerPriceBounds.width))).toBeLessThanOrEqual(1);
+
+  await summaries.last().click();
+  await expect(wishlistTable.locator('.wishlist-offers-row[data-open="true"]')).toHaveCount(2);
+  await expect(wishlistTable.getByText("Diğer mağazalardaki fiyatlar").first()).toBeVisible();
+
+  await summaries.first().click();
+  await expect(wishlistTable.locator('.wishlist-offers-row[data-open="true"]')).toHaveCount(1);
 });
 
 test("the recommendation names a sample size and the shop selling it", async ({

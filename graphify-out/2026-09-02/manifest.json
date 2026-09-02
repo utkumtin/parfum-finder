@@ -630,12 +630,12 @@
     "semantic_hash": ""
   },
   "ui/e2e/search.spec.ts": {
-    "mtime": 1787410907.681429,
-    "ast_hash": "55e90b04665a85a4a5bc209c91042647",
+    "mtime": 1788377374.8731856,
+    "ast_hash": "605dae6ad58ecea59f2b6a12f35058d6",
     "semantic_hash": ""
   },
   "ui/playwright.config.ts": {
-    "mtime": 1786972698.850096,
+    "mtime": 1788377797.1902146,
     "ast_hash": "0a6a3130a6cc903249ad5ecc0b66c771",
     "semantic_hash": ""
   },
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/WishlistScreen.tsx": {
-    "mtime": 1787427729.4948254,
-    "ast_hash": "82ead63a185de85b143e7c8eeec22a82",
+    "mtime": 1788377344.596675,
+    "ast_hash": "bd3dcbc384572be38c80db95c6b2ee3d",
     "semantic_hash": ""
   },
   "ui/tests/components/BookmarkIcon.test.tsx": {
@@ -740,8 +740,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/WishlistScreen.test.tsx": {
-    "mtime": 1787427636.4896472,
-    "ast_hash": "f9a4ac213e3e16bab3733928d19cbd32",
+    "mtime": 1788377344.7406726,
+    "ast_hash": "84df4902c31e3eb5209cf66d179f10f2",
     "semantic_hash": ""
   },
   "ui/tests/lib/wishlist.test.ts": {
@@ -792,6 +792,101 @@
   "graphify-out/memory/query_20260902_180313_in_the_windows_application__when_i_release_a_new_v.md": {
     "mtime": 1788372193.56113,
     "ast_hash": "b7aab637df81ce8c0ac88e61094b2aee",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-30-36-403Z.yml": {
+    "mtime": 1788377436.4045284,
+    "ast_hash": "da5f45fa95bb2ce044cf4dbc1e092a0d",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-31-30-457Z.yml": {
+    "mtime": 1788377490.4582791,
+    "ast_hash": "eb69270aae3718d8817dd5d2103f0ea5",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-32-02-435Z.yml": {
+    "mtime": 1788377522.4338007,
+    "ast_hash": "9d917062af729273578fc2fe4e08c492",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-32-03-596Z.yml": {
+    "mtime": 1788377523.596937,
+    "ast_hash": "f60074b1a0ee2976e398bd10719eb25f",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-32-38-484Z.yml": {
+    "mtime": 1788377558.4849315,
+    "ast_hash": "d5bd0a65ad50b117c3e25c28b34d00c5",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/results-inspection.md": {
+    "mtime": 1788377494.0924294,
+    "ast_hash": "65785c5951757dbe9fffd485ac77eb1e",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/wishlist-desktop.md": {
+    "mtime": 1788377528.273661,
+    "ast_hash": "7e131bb3279bb859500e912a53ebc423",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/wishlist-inspection.md": {
+    "mtime": 1788377447.0990295,
+    "ast_hash": "890ecc31c189acf69ef381f26d9f29a4",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/wishlist-desktop.png": {
+    "mtime": 1788377528.5217025,
+    "ast_hash": "927e17aa202ec0a4129fe44663a1a92f",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/wishlist-filtered-1280.png": {
+    "mtime": 1788377558.789663,
+    "ast_hash": "22f8eefaa22d88740162b89dbfde7d71",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/wishlist-filtered-680.png": {
+    "mtime": 1788377568.9303894,
+    "ast_hash": "944a7c0f799b2a6236d2a50280eb6689",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-41-51-958Z.yml": {
+    "mtime": 1788378111.9589784,
+    "ast_hash": "74e9b45ff819e818a118be634370a378",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-41-53-306Z.yml": {
+    "mtime": 1788378113.3058462,
+    "ast_hash": "37c8b7c9941617e986f1e1cdeb10caf6",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-42-08-970Z.yml": {
+    "mtime": 1788378128.9711497,
+    "ast_hash": "d0e27b1ed2a3bbc299dfd081e5cb5b52",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-42-14-844Z.yml": {
+    "mtime": 1788378134.8451002,
+    "ast_hash": "f3feea0af133599208ba9eb3cb60088d",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-42-28-325Z.yml": {
+    "mtime": 1788378148.3256598,
+    "ast_hash": "d3e6f27f9b1dc6e111bcf04d4c4853f2",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-42-29-503Z.yml": {
+    "mtime": 1788378149.5032315,
+    "ast_hash": "29f7a9bcc5adf99ffb3b4e9837f477d1",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-09-02T19-42-30-167Z.yml": {
+    "mtime": 1788378150.1675184,
+    "ast_hash": "52d843b6c8e607ca3d34fca8780e3605",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/wishlist-focus-fixed.png": {
+    "mtime": 1788378150.4632733,
+    "ast_hash": "608396ef24b01a3d1586884f1b5b74eb",
     "semantic_hash": ""
   }
 }

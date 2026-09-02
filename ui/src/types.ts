@@ -51,7 +51,12 @@ export interface ResultsResponse {
 }
 
 export interface WishlistResponse {
-  rows: ResultRow[];
+  rows: WishlistRow[];
+}
+
+export interface WishlistRow extends ResultRow {
+  // The latest in-stock unit price for this exact variation at each shop.
+  prices: Record<string, number>;
 }
 
 export type ScanEvent =
