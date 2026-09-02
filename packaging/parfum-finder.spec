@@ -24,6 +24,7 @@ REPO_ROOT = Path(SPECPATH).resolve().parent
 # (source, destination-inside-bundle). destination is resolved at runtime
 # through paths.resource_dir() -- never through Path(__file__).
 datas = [
+    (str(REPO_ROOT / "packaging" / "updater-bootstrapper.exe"), "."),
     (str(REPO_ROOT / "ui" / "dist"), "ui"),
     (str(REPO_ROOT / "schema"), "schema"),
     (str(REPO_ROOT / "sites"), "sites"),

@@ -29,7 +29,7 @@ from parfum_finder.engine import (
 )
 from parfum_finder.matcher import MAX_QUERIES, QUERY_SEPARATOR_PATTERN
 from parfum_finder.store import STALE_PRICE_DAYS, now_iso
-from parfum_finder.updater import UpdateDownload
+from parfum_finder.updater import DownloadProgress, UpdateDownload
 
 _PROFILE_TEMPLATE: dict[str, Any] = {
     "schema_version": 1,
@@ -893,4 +893,34 @@ def test_install_closes_the_window_only_after_it_has_answered(
     # Nothing downloaded yet: no spawn, no quit, and a status the dialog can
     # tell apart from a network failure.
     assert c.post("/api/update/install", headers=_auth(token)).status_code == 409
+    assert quits == []
+
+
+def test_install_reports_handoff_failure_without_closing_the_window(
+    sites_dir: Path, db_path: Path
+) -> None:
+    class FailedHandoff(UpdateDownload):
+        def install(self) -> bool:
+            return False
+
+        def progress(self) -> DownloadProgress:
+            return DownloadProgress(
+                state="error", message="güncelleme yardımcısı başlatılamadı"
+            )
+
+    quits: list[bool] = []
+    c, token = next(
+        _update_client(
+            sites_dir,
+            db_path,
+            _AN_UPDATE,
+            download=FailedHandoff(),
+            request_quit=lambda: quits.append(True),
+        )
+    )
+
+    response = c.post("/api/update/install", headers=_auth(token))
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "güncelleme yardımcısı başlatılamadı"
     assert quits == []

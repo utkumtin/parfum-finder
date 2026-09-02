@@ -146,9 +146,13 @@ Kaynaktan Windows exe üretmek için (CI'ın yaptığının aynısı):
 ```powershell
 cd ui; npm ci; npm run build; cd ..
 uv sync --locked --extra gui
+cl /nologo /std:c11 /W4 /WX /O2 /MT /DUNICODE /D_UNICODE /Fe:packaging\updater-bootstrapper.exe packaging\updater-bootstrapper.c /link /SUBSYSTEM:WINDOWS shell32.lib
 uv run pyinstaller packaging/parfum-finder.spec
 .\dist\parfum-finder\parfum-finder.exe --selftest   # pencere açmadan arka ucu dener
 ```
+
+`cl` komutunu Visual Studio Developer PowerShell içinde çalıştırın. `/MT`,
+güncelleme yardımcısının Visual C++ runtime DLL'ine ihtiyaç duymamasını sağlar.
 
 ## Geliştirme ortamı
 

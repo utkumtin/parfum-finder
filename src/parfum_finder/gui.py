@@ -227,10 +227,10 @@ def _kill_children_with_app() -> None:
     kapanıyor ve KILL_ON_JOB_CLOSE o anda job'daki her şeyi sonlandırıyor.
     Handle bilerek kapatılmıyor, kimsenin tutmasına da gerek yok.
 
-    BREAKAWAY_OK'in yanında durmasının tek sebebi güncelleme devri: updater.py
-    kurulumu yapan cmd zincirini CREATE_BREAKAWAY_FROM_JOB ile başlatıyor,
-    çünkü onun uygulamadan sonra yaşaması gerekiyor. O bayrak olmadan zincir
-    uygulama kapanır kapanmaz ölür ve güncelleme hiç kurulmaz.
+    BREAKAWAY_OK güncelleme devri için gerekli. updater.py yerel yardımcıyı
+    CREATE_BREAKAWAY_FROM_JOB ile başlatır çünkü uygulamadan sonra yaşamalıdır.
+    Bu bayrak olmadan yardımcı uygulama kapanır kapanmaz ölür ve güncelleme
+    hiç kurulmaz.
     """
     if sys.platform != "win32":
         return

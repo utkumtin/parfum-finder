@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/matcher.py": {
-    "mtime": 1787590434.1826138,
-    "ast_hash": "f167c755adb88497b9d98245164a39b5",
+    "mtime": 1788367288.450101,
+    "ast_hash": "ca4e566e1f96db123c0ebda301ca943e",
     "semantic_hash": ""
   },
   "src/parfum_finder/normalize.py": {
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "tests/test_matcher.py": {
-    "mtime": 1787589141.1050518,
-    "ast_hash": "16b6f26d00d07b6c9b834a1410b2cc47",
+    "mtime": 1788367261.6445434,
+    "ast_hash": "854cf927b171cdd9a364f9cf44694ca8",
     "semantic_hash": ""
   },
   "tests/test_normalize.py": {
@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1788229638.5917253,
-    "ast_hash": "cc1cafa135c03ee1f322d08bedd4219e",
+    "mtime": 1788374338.0862873,
+    "ast_hash": "4b128f5721aefd3f2e66ec55274e318f",
     "semantic_hash": ""
   },
   "docs/discovery-report.md": {
@@ -470,8 +470,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/api/app.py": {
-    "mtime": 1787427387.2828007,
-    "ast_hash": "5bd7fa62a208808ff3cb318d10f11dee",
+    "mtime": 1788373922.0690708,
+    "ast_hash": "eb482537f880b9e129330d4c2bb10c78",
     "semantic_hash": ""
   },
   "src/parfum_finder/api/serialize.py": {
@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "tests/test_api.py": {
-    "mtime": 1787588145.0752368,
-    "ast_hash": "0a45e93859a27ffe17c776569cde36db",
+    "mtime": 1788374500.5136387,
+    "ast_hash": "3ec71a9b5fcdcc559cff15274542a5ba",
     "semantic_hash": ""
   },
   "ui/package.json": {
@@ -575,8 +575,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/gui.py": {
-    "mtime": 1787427393.925741,
-    "ast_hash": "a676037ca1f2c967a19964f314c870a2",
+    "mtime": 1788374199.007555,
+    "ast_hash": "fc8e26514197436adb6d13dba5bc49a5",
     "semantic_hash": ""
   },
   "tests/test_gui.py": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/build-windows.yml": {
-    "mtime": 1787407840.3788536,
-    "ast_hash": "bd05e880891f755576e371664f020529",
+    "mtime": 1788374310.145743,
+    "ast_hash": "2d2b77df22747c5954239f984173a4e6",
     "semantic_hash": ""
   },
   "ui/src/components/AddButton.tsx": {
@@ -600,13 +600,13 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/updater.py": {
-    "mtime": 1787495042.8754506,
-    "ast_hash": "c7c826860c9b9e7d5eedc716e1a04b24",
+    "mtime": 1788374539.1150153,
+    "ast_hash": "401b4c5ee5c4c57c4e1d50a9d8918dfc",
     "semantic_hash": ""
   },
   "tests/test_updater.py": {
-    "mtime": 1787495042.8754506,
-    "ast_hash": "ae9faf715076456205d451e1aaf4e89e",
+    "mtime": 1788374227.0220983,
+    "ast_hash": "b000373bb1b922ccd732924726168976",
     "semantic_hash": ""
   },
   "ui/src/components/UpdateDialog.tsx": {
@@ -767,6 +767,31 @@
   "tests/test_architecture.py": {
     "mtime": 1788225838.231919,
     "ast_hash": "090b904e86fdc7e9aaded1439147b47e",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260901_024127_i_d_like_to_have_a_brainstorming_session_with_you.md": {
+    "mtime": 1788230487.9240234,
+    "ast_hash": "380fe72e69b95140f5a78ffac3fa5c86",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260901_025523_after_correcting_the_free_delivery_wishlist_idea.md": {
+    "mtime": 1788231323.020399,
+    "ast_hash": "8357a0f5c9c8c9c7bf0151d6f215536b",
+    "semantic_hash": ""
+  },
+  "packaging/updater-bootstrapper.c": {
+    "mtime": 1788373978.1821558,
+    "ast_hash": "54d00748667143f8c737c576436a6a4e",
+    "semantic_hash": ""
+  },
+  "tests/test_windows_updater_bootstrapper.py": {
+    "mtime": 1788374553.4827838,
+    "ast_hash": "df6e065eced364db780184e80f5acc03",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260902_180313_in_the_windows_application__when_i_release_a_new_v.md": {
+    "mtime": 1788372193.56113,
+    "ast_hash": "b7aab637df81ce8c0ac88e61094b2aee",
     "semantic_hash": ""
   }
 }

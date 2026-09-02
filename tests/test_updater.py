@@ -10,7 +10,7 @@ for real.
 
 from __future__ import annotations
 
-import base64
+import tempfile
 import threading
 from pathlib import Path
 from typing import Any
@@ -23,6 +23,7 @@ from parfum_finder.updater import (
     DownloadProgress,
     ReleaseInfo,
     UpdateDownload,
+    UpdateHandoffError,
     check_for_update,
     fetch_latest_release,
     handoff_command,
@@ -302,86 +303,62 @@ def test_install_hands_the_downloaded_file_over(tmp_path: Path) -> None:
     assert download.progress().state == "installing"
 
 
-def _handoff_script(command: list[str]) -> str:
-    encoded = command[command.index("-EncodedCommand") + 1]
-    return base64.b64decode(encoded).decode("utf-16-le")
+def test_copy_bootstrapper_uses_a_unique_temp_executable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir()
+    source = bundle_dir / "updater-bootstrapper.exe"
+    source.write_bytes(b"MZ")
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+
+    monkeypatch.setattr(updater_module.paths, "resource_dir", lambda: bundle_dir)
+    monkeypatch.setattr(updater_module.paths, "is_frozen", lambda: True)
+    monkeypatch.setattr(updater_module.tempfile, "gettempdir", lambda: str(temp_dir))
+    monkeypatch.setattr(
+        updater_module.uuid, "uuid4", lambda: type("Id", (), {"hex": "a"})()
+    )
+
+    copied = updater_module._copy_bootstrapper()
+
+    assert copied == temp_dir / "parfum-finder-updater-a.exe"
+    assert copied.read_bytes() == b"MZ"
 
 
-def test_the_handoff_waits_for_the_app_before_installing() -> None:
+def test_handoff_command_passes_structured_native_helper_arguments() -> None:
     command = handoff_command(
         Path(r"C:\Users\u\AppData\Local\Temp\parfum-finder-setup.exe"),
-        Path(r"C:\Program Files\parfum-finder\parfum-finder.exe"),
+        helper=Path(r"C:\Users\u\AppData\Local\Temp\updater-bootstrapper.exe"),
+        ready_event=r"Local\parfum-finder-update-123",
         parent_pid=42,
     )
-    script = _handoff_script(command)
 
-    assert command[:6] == [
-        "powershell.exe",
-        "-NoProfile",
-        "-NonInteractive",
-        "-WindowStyle",
-        "Hidden",
-        "-EncodedCommand",
+    assert command == [
+        r"C:\Users\u\AppData\Local\Temp\updater-bootstrapper.exe",
+        "--parent-pid",
+        "42",
+        "--installer",
+        r"C:\Users\u\AppData\Local\Temp\parfum-finder-setup.exe",
+        "--ready-event",
+        r"Local\parfum-finder-update-123",
+        "--log",
+        str(Path(tempfile.gettempdir()) / "parfum-finder-update.log"),
+        "--setup-log",
+        str(Path(tempfile.gettempdir()) / "parfum-finder-setup.log"),
     ]
-    assert "Get-Process -Id 42" in script
-    assert "$parent.WaitForExit(60000)" in script
-    assert script.index("$parent.WaitForExit") < script.index(
-        "Start-Process -FilePath $installer"
-    )
 
 
-def test_the_handoff_reopens_the_app_only_after_a_successful_install() -> None:
-    command = handoff_command(
-        Path(r"C:\Temp\parfum-finder-setup.exe"),
-        Path(r"C:\Program Files\parfum-finder\parfum-finder.exe"),
-        parent_pid=42,
-    )
-    script = _handoff_script(command)
-
-    failure_check = "if ($setup.ExitCode -ne 0)"
-    restart = "Start-Process -FilePath $app"
-    assert "$setup = Start-Process" in script
-    assert "-Wait -PassThru" in script
-    assert script.index(failure_check) < script.index(restart)
-    assert "exit $setup.ExitCode" in script
-
-
-def test_the_handoff_logs_setup_and_handoff_failures() -> None:
-    command = handoff_command(
-        Path(r"C:\Users\O'Brien\Temp\parfum-finder-setup.exe"),
-        Path(r"C:\Program Files\parfum-finder\parfum-finder.exe"),
-        parent_pid=42,
-        log_path=Path(r"C:\Users\O'Brien\Temp\parfum-finder-update.log"),
-    )
-    script = _handoff_script(command)
-
-    assert r"$logPath = 'C:\Users\O''Brien\Temp\parfum-finder-update.log'" in script
-    assert '/LOG="' in script
-    assert "app did not exit in time" in script
-    assert "installer exit code" in script
-    assert "$_.Exception.Message" in script
-
-
-def test_the_handoff_breaks_out_of_the_apps_job_object(
+def test_native_handoff_breaks_out_of_the_apps_job_object(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Uygulama kapanınca kurulum zincirinin de ölmemesi buna bağlı.
-
-    gui.py, playwright'in açtığı tarayıcı süreçlerinin geride kalmaması için
-    süreci öldüğünde içindekileri sonlandıran bir job object'e alıyor. Kurulumu
-    yapan cmd zinciri ise tam da uygulama kapandıktan sonra çalışıyor, yani
-    job'dan çıkmak zorunda: bayrak düşerse güncelleme, hiçbir hata vermeden,
-    hiç kurulmaz.
-    """
     recorded: dict[str, int] = {}
 
     def fake_popen(command: list[str], **kwargs: Any) -> None:
         recorded["creationflags"] = kwargs["creationflags"]
-        assert command[0] == "powershell.exe"
+        assert command[0] == "helper.exe"
 
     monkeypatch.setattr(updater_module.sys, "platform", "win32")
-    # Üçü de subprocess'te yalnızca Windows'ta var; değerler gerçek olanlarla
-    # aynı, testin baktığı da zaten hangisinin bayrağa girdiği.
     for name, value in (
         ("CREATE_BREAKAWAY_FROM_JOB", 0x01000000),
         ("DETACHED_PROCESS", 0x00000008),
@@ -389,11 +366,58 @@ def test_the_handoff_breaks_out_of_the_apps_job_object(
     ):
         monkeypatch.setattr(updater_module.subprocess, name, value, raising=False)
     monkeypatch.setattr(updater_module.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(updater_module, "_create_ready_event", lambda _: 99)
+    monkeypatch.setattr(updater_module, "_wait_for_ready", lambda *_: True)
+    monkeypatch.setattr(updater_module, "_close_handle", lambda _: None)
 
-    launch_installer(Path("setup.exe"), app_exe=Path("parfum-finder.exe"))
+    launch_installer(
+        Path("setup.exe"), helper=Path("helper.exe"), ready_event="event-name"
+    )
 
     assert recorded["creationflags"] & 0x01000000
     assert recorded["creationflags"] & 0x00000008
+
+
+def test_native_handoff_fails_fast_when_the_helper_never_acknowledges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(updater_module.sys, "platform", "win32")
+    for name, value in (
+        ("CREATE_BREAKAWAY_FROM_JOB", 0x01000000),
+        ("DETACHED_PROCESS", 0x00000008),
+        ("CREATE_NEW_PROCESS_GROUP", 0x00000200),
+    ):
+        monkeypatch.setattr(updater_module.subprocess, name, value, raising=False)
+    monkeypatch.setattr(updater_module.subprocess, "Popen", lambda *_a, **_k: None)
+    monkeypatch.setattr(updater_module, "_create_ready_event", lambda _: 99)
+    monkeypatch.setattr(updater_module, "_wait_for_ready", lambda *_: False)
+    monkeypatch.setattr(updater_module, "_close_handle", lambda _: None)
+
+    with pytest.raises(UpdateHandoffError, match="zamanında"):
+        launch_installer(
+            Path("setup.exe"),
+            helper=Path("helper.exe"),
+            ready_event="event-name",
+            ready_timeout_ms=1,
+        )
+
+
+def test_install_keeps_the_application_open_when_handoff_fails(tmp_path: Path) -> None:
+    def fail(_: Path) -> None:
+        raise UpdateHandoffError("güncelleme yardımcısı başlatılamadı")
+
+    download = UpdateDownload(
+        dest_dir=tmp_path,
+        client_factory=_factory([b"MZ"]),
+        spawn=fail,
+    )
+    download.start("https://x.invalid/setup.exe")
+    _wait_for(download, "ready")
+
+    assert download.install() is False
+    progress = download.progress()
+    assert progress.state == "error"
+    assert progress.message == "güncelleme yardımcısı başlatılamadı"
 
 
 def test_install_refuses_before_anything_has_been_downloaded(tmp_path: Path) -> None:

@@ -607,7 +607,11 @@ def create_app(
     async def install_update(request: Request) -> dict[str, Any]:
         app_state = get_state(request)
         if not app_state.update_download.install():
-            raise HTTPException(status_code=409, detail="kurulum dosyası hazır değil")
+            progress = app_state.update_download.progress()
+            raise HTTPException(
+                status_code=409,
+                detail=progress.message or "kurulum dosyası hazır değil",
+            )
         # Pencere hemen değil, bu yanıt istemciye ulaştıktan sonra kapanır:
         # aynı çağrı içinde kapatmak, kullanıcıya kurulumun başladığını
         # söyleyen yanıtı yolda öldürürdü.

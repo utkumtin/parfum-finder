@@ -11,12 +11,13 @@ Inno Setup, hâlâ çalışan parfum-finder.exe dosyasının üzerine yazamaz.
 
 from __future__ import annotations
 
-import base64
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import threading
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -38,7 +39,10 @@ _CHECK_TIMEOUT_S = 5.0
 _DOWNLOAD_TIMEOUT_S = 60.0
 _INSTALLER_NAME = "parfum-finder-setup.exe"
 _HANDOFF_TIMEOUT_MS = 60_000
+_HANDOFF_READY_TIMEOUT_MS = 5_000
 _UPDATE_LOG_NAME = "parfum-finder-update.log"
+_SETUP_LOG_NAME = "parfum-finder-setup.log"
+_BOOTSTRAPPER_NAME = "updater-bootstrapper.exe"
 
 
 @dataclass(frozen=True)
@@ -175,75 +179,140 @@ def _no_update(current: str) -> dict[str, Any]:
     }
 
 
-def _powershell_literal(value: Path) -> str:
-    return "'" + str(value).replace("'", "''") + "'"
+class UpdateHandoffError(RuntimeError):
+    """The native helper could not take responsibility for an update."""
+
+
+def _kernel32() -> Any:
+    import ctypes
+
+    loader_name = "WinDLL"
+    return getattr(ctypes, loader_name)("kernel32", use_last_error=True)
+
+
+def _windows_creation_flag(name: str) -> int:
+    return int(getattr(subprocess, name))
 
 
 def handoff_command(
     installer: Path,
-    app_exe: Path,
     *,
+    helper: Path,
+    ready_event: str,
     parent_pid: int | None = None,
     log_path: Path | None = None,
 ) -> list[str]:
-    """Uygulamanın kapanmasını bekleyen ayrık PowerShell komutu."""
+    """Build the native helper command without involving a command shell."""
     pid = os.getpid() if parent_pid is None else parent_pid
     log = (
         Path(tempfile.gettempdir()) / _UPDATE_LOG_NAME if log_path is None else log_path
     )
-    script = f"""
-$ErrorActionPreference = 'Stop'
-$installer = {_powershell_literal(installer)}
-$app = {_powershell_literal(app_exe)}
-$logPath = {_powershell_literal(log)}
-try {{
-    $parent = Get-Process -Id {pid} -ErrorAction SilentlyContinue
-    if ($null -ne $parent -and -not $parent.WaitForExit({_HANDOFF_TIMEOUT_MS})) {{
-        $message = 'handoff error: app did not exit in time'
-        Add-Content -LiteralPath $logPath -Value $message
-        exit 1
-    }}
-    $setupArgs = '/SILENT /NORESTART /SUPPRESSMSGBOXES /LOG="' + $logPath + '"'
-    $setup = Start-Process -FilePath $installer -ArgumentList $setupArgs -Wait -PassThru
-    if ($setup.ExitCode -ne 0) {{
-        $message = 'handoff error: installer exit code ' + $setup.ExitCode
-        Add-Content -LiteralPath $logPath -Value $message
-        exit $setup.ExitCode
-    }}
-    Start-Process -FilePath $app
-}} catch {{
-    Add-Content -LiteralPath $logPath -Value ('handoff error: ' + $_.Exception.Message)
-    exit 1
-}}
-""".strip()
-    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     return [
-        "powershell.exe",
-        "-NoProfile",
-        "-NonInteractive",
-        "-WindowStyle",
-        "Hidden",
-        "-EncodedCommand",
-        encoded,
+        str(helper),
+        "--parent-pid",
+        str(pid),
+        "--installer",
+        str(installer),
+        "--ready-event",
+        ready_event,
+        "--log",
+        str(log),
+        "--setup-log",
+        str(log.with_name(_SETUP_LOG_NAME)),
     ]
 
 
-def launch_installer(installer: Path, *, app_exe: Path | None = None) -> None:
-    command = handoff_command(
-        installer, app_exe if app_exe is not None else Path(sys.executable)
+def _copy_bootstrapper() -> Path:
+    resource_dir = paths.resource_dir()
+    source = resource_dir / _BOOTSTRAPPER_NAME
+    if not source.is_file() and not paths.is_frozen():
+        source = resource_dir / "packaging" / _BOOTSTRAPPER_NAME
+    if not source.is_file():
+        raise UpdateHandoffError("güncelleme yardımcısı bulunamadı")
+    destination = Path(tempfile.gettempdir()) / (
+        f"parfum-finder-updater-{uuid.uuid4().hex}.exe"
     )
-    creationflags = 0
-    if sys.platform == "win32":
-        # CREATE_BREAKAWAY_FROM_JOB, gui.py'nin kurduğu job object yüzünden
-        # şart: o job kapanırken içindeki her şeyi öldürüyor ve bu zincir tam
-        # da uygulama kapandıktan sonra çalışmak üzere var. DETACHED_PROCESS
-        # tek başına job'dan çıkarmaz, sadece konsoldan ayırır.
+    try:
+        shutil.copy2(source, destination)
+    except OSError as exc:
+        raise UpdateHandoffError("güncelleme yardımcısı kopyalanamadı") from exc
+    return destination
+
+
+def _create_ready_event(name: str) -> int:
+    if sys.platform != "win32":
+        raise UpdateHandoffError("güncelleme yalnızca Windows'ta kullanılabilir")
+    import ctypes
+
+    kernel32 = _kernel32()
+    kernel32.CreateEventW.argtypes = (
+        ctypes.c_void_p,
+        ctypes.c_bool,
+        ctypes.c_bool,
+        ctypes.c_wchar_p,
+    )
+    kernel32.CreateEventW.restype = ctypes.c_void_p
+    handle = kernel32.CreateEventW(None, True, False, name)
+    if not handle:
+        raise UpdateHandoffError("güncelleme yardımcısı için olay oluşturulamadı")
+    return int(handle)
+
+
+def _wait_for_ready(handle: int, timeout_ms: int) -> bool:
+    import ctypes
+
+    kernel32 = _kernel32()
+    kernel32.WaitForSingleObject.argtypes = (ctypes.c_void_p, ctypes.c_uint32)
+    kernel32.WaitForSingleObject.restype = ctypes.c_uint32
+    result = kernel32.WaitForSingleObject(handle, timeout_ms)
+    return result == 0
+
+
+def _close_handle(handle: int) -> None:
+    import ctypes
+
+    kernel32 = _kernel32()
+    kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+    kernel32.CloseHandle(handle)
+
+
+def launch_installer(
+    installer: Path,
+    *,
+    ready_timeout_ms: int = _HANDOFF_READY_TIMEOUT_MS,
+    helper: Path | None = None,
+    parent_pid: int | None = None,
+    ready_event: str | None = None,
+    log_path: Path | None = None,
+) -> None:
+    helper_path = _copy_bootstrapper() if helper is None else helper
+    event_name = (
+        f"Local\\parfum-finder-update-{uuid.uuid4().hex}"
+        if ready_event is None
+        else ready_event
+    )
+    event_handle = _create_ready_event(event_name)
+    command = handoff_command(
+        installer,
+        helper=helper_path,
+        ready_event=event_name,
+        parent_pid=parent_pid,
+        log_path=log_path,
+    )
+    try:
+        # The helper must leave the GUI job before that job is closed.
         creationflags = (
-            subprocess.DETACHED_PROCESS
-            | subprocess.CREATE_NEW_PROCESS_GROUP
-            | subprocess.CREATE_BREAKAWAY_FROM_JOB
+            _windows_creation_flag("DETACHED_PROCESS")
+            | _windows_creation_flag("CREATE_NEW_PROCESS_GROUP")
+            | _windows_creation_flag("CREATE_BREAKAWAY_FROM_JOB")
         )
-    subprocess.Popen(command, creationflags=creationflags, close_fds=True)  # noqa: S603
+        subprocess.Popen(command, creationflags=creationflags, close_fds=True)  # noqa: S603
+        if not _wait_for_ready(event_handle, ready_timeout_ms):
+            raise UpdateHandoffError("güncelleme yardımcısı zamanında başlamadı")
+    except OSError as exc:
+        raise UpdateHandoffError("güncelleme yardımcısı başlatılamadı") from exc
+    finally:
+        _close_handle(event_handle)
 
 
 class UpdateDownload:
@@ -289,7 +358,14 @@ class UpdateDownload:
                 return False
             path = self._path
             self._progress = replace(self._progress, state="installing")
-        self._spawn(path)
+        try:
+            self._spawn(path)
+        except (OSError, UpdateHandoffError) as exc:
+            with self._lock:
+                self._progress = replace(
+                    self._progress, state="error", message=str(exc)
+                )
+            return False
         return True
 
     def _set(self, progress: DownloadProgress) -> None:

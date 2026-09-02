@@ -79,6 +79,28 @@ jobs:
           Add-MpPreference -ExclusionPath "${{ github.workspace }}"
           Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\parfum-finder"
 
+      - name: Build native update bootstrapper
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) {
+            throw "Visual Studio C++ build tools are unavailable."
+          }
+          $vcvars = Join-Path $installation "VC\Auxiliary\Build\vcvars64.bat"
+          $source = Join-Path $PWD "packaging\updater-bootstrapper.c"
+          $output = Join-Path $PWD "packaging\updater-bootstrapper.exe"
+          $object = Join-Path $env:RUNNER_TEMP "updater-bootstrapper.obj"
+          $compile = 'call "' + $vcvars + '" && cl.exe /nologo /std:c11 /W4 /WX /O2 /MT /DUNICODE /D_UNICODE /Fo"' + $object + '" /Fe"' + $output + '" "' + $source + '" /link /SUBSYSTEM:WINDOWS shell32.lib'
+          & cmd.exe /d /s /c $compile
+          if ($LASTEXITCODE -ne 0) {
+            throw "updater-bootstrapper.exe compilation failed with exit code $LASTEXITCODE"
+          }
+          $dependencies = & cmd.exe /d /s /c ('call "' + $vcvars + '" && dumpbin.exe /dependents "' + $output + '"')
+          if ($LASTEXITCODE -ne 0 -or $dependencies -match '(?i)VCRUNTIME|MSVCP') {
+            throw "updater-bootstrapper.exe must not depend on the Visual C++ runtime."
+          }
+
       - name: Build exe
         run: uv run pyinstaller packaging/parfum-finder.spec
 
@@ -91,6 +113,10 @@ jobs:
           $exePath = ".\dist\parfum-finder\parfum-finder.exe"
           if (-not (Test-Path $exePath)) {
             throw "$exePath is missing after the PyInstaller build (quarantined by antivirus?)."
+          }
+          $bootstrapperPath = ".\dist\parfum-finder\_internal\updater-bootstrapper.exe"
+          if (-not (Test-Path $bootstrapperPath)) {
+            throw "$bootstrapperPath is missing after the native helper build."
           }
           # Bundling playwright depends on its own PyInstaller hook firing
           # (see packaging/parfum-finder.spec) rather than an explicit datas
@@ -120,6 +146,9 @@ jobs:
           if ($proc.ExitCode -ne 0) {
             throw "parfum-finder.exe --selftest failed with exit code $($proc.ExitCode)"
           }
+
+      - name: Test native update bootstrapper
+        run: uv run pytest tests/test_windows_updater_bootstrapper.py -q
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress

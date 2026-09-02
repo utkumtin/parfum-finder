@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-01T02:36:13.391554+00:00",
+  "generated_at": "2026-09-02T16:47:50.798678+00:00",
   "nodes": {
     "src_parfum_finder_engine": {
       "code_fingerprint": "b83bded284b6fdcb9f4416409d4b0725d665c740cc67f3d1a460d998d2bd8090",
@@ -12,7 +12,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.841844892,
+      "score": 0.81145304,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
@@ -28,13 +28,29 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.841844892,
+      "score": 0.81145304,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
     },
+    "src_parfum_finder_matcher_match_title": {
+      "code_fingerprint": "a66b90a34288595d5283191967502640957273c41531962ac5af297ff23f76f0",
+      "label": "match_title()",
+      "last": "2026-09-01T02:55:23.020217+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-01T02:55:23.020217+00:00",
+          "outcome": "useful",
+          "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
+        }
+      ],
+      "score": 0.964194891,
+      "source_file": "src/parfum_finder/matcher.py",
+      "status": "tentative",
+      "uses": 1
+    },
     "src_parfum_finder_matcher_search_spellings": {
-      "code_fingerprint": "f50165b32f502c5eb6162596a2d3b548f27a8cabbb2d63397631779d534fc991",
+      "code_fingerprint": "a66b90a34288595d5283191967502640957273c41531962ac5af297ff23f76f0",
       "label": "search_spellings()",
       "last": "2026-08-24T15:46:28.891292+00:00",
       "provenance": [
@@ -44,7 +60,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.841844892,
+      "score": 0.81145304,
       "source_file": "src/parfum_finder/matcher.py",
       "status": "tentative",
       "uses": 1
@@ -60,8 +76,130 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.841844892,
+      "score": 0.81145304,
       "source_file": "src/parfum_finder/services/snapshots.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_parfum_finder_store_cached_prices": {
+      "code_fingerprint": "158ff8a67b6f91c4494cdb048f723a003621d01ca8e0d1dd1156f4a0616e42c4",
+      "label": "cached_prices()",
+      "last": "2026-09-01T02:55:23.020217+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-01T02:55:23.020217+00:00",
+          "outcome": "useful",
+          "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
+        }
+      ],
+      "score": 0.964194891,
+      "source_file": "src/parfum_finder/store.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "src_parfum_finder_store_price_history": {
+      "code_fingerprint": "158ff8a67b6f91c4494cdb048f723a003621d01ca8e0d1dd1156f4a0616e42c4",
+      "label": "price_history()",
+      "last": "2026-09-01T02:55:23.020217+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-01T02:55:23.020217+00:00",
+          "outcome": "useful",
+          "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
+        },
+        {
+          "date": "2026-09-01T02:41:27.923776+00:00",
+          "outcome": "useful",
+          "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
+        }
+      ],
+      "score": 1.928174482,
+      "source_file": "src/parfum_finder/store.py",
+      "status": "preferred",
+      "uses": 2
+    },
+    "src_parfum_finder_store_recent_searches": {
+      "code_fingerprint": "158ff8a67b6f91c4494cdb048f723a003621d01ca8e0d1dd1156f4a0616e42c4",
+      "label": "recent_searches()",
+      "last": "2026-09-01T02:41:27.923776+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-01T02:41:27.923776+00:00",
+          "outcome": "useful",
+          "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
+        }
+      ],
+      "score": 0.963979591,
+      "source_file": "src/parfum_finder/store.py",
+      "status": "tentative",
+      "uses": 1
+    },
+    "ui_src_screens_basketscreen_basketscreen": {
+      "code_fingerprint": "3c910b2d8e63468d303a03664e52c19c6f7d34d4c95cf9ad164206d7e96463b3",
+      "label": "BasketScreen()",
+      "last": "2026-09-01T02:55:23.020217+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-01T02:55:23.020217+00:00",
+          "outcome": "useful",
+          "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
+        },
+        {
+          "date": "2026-09-01T02:41:27.923776+00:00",
+          "outcome": "useful",
+          "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
+        }
+      ],
+      "score": 1.928174482,
+      "source_file": "ui/src/screens/BasketScreen.tsx",
+      "status": "preferred",
+      "uses": 2
+    },
+    "ui_src_screens_resultsscreen_resultsscreen": {
+      "code_fingerprint": "f1762670811999839a223b0411362945a174681f53e31641792557facd0e9f39",
+      "label": "ResultsScreen()",
+      "last": "2026-09-01T02:41:27.923776+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-01T02:41:27.923776+00:00",
+          "outcome": "useful",
+          "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
+        }
+      ],
+      "score": 0.963979591,
+      "source_file": "ui/src/screens/ResultsScreen.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
+    "ui_src_screens_wishlistscreen_wishlistscreen": {
+      "code_fingerprint": "86c157ebb67295fb62bf9d813c545ed476a138fd8aa7843e7b801dc17d5ebeaa",
+      "label": "WishlistScreen()",
+      "last": "2026-09-01T02:41:27.923776+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-01T02:41:27.923776+00:00",
+          "outcome": "useful",
+          "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
+        }
+      ],
+      "score": 0.963979591,
+      "source_file": "ui/src/screens/WishlistScreen.tsx",
+      "status": "tentative",
+      "uses": 1
+    },
+    "ui_tests_helpers_fixtures_basket": {
+      "code_fingerprint": "ddab4e64350945da800986dfa77bf0d47989d2b8580e57c603e86802213f1f94",
+      "label": "basket()",
+      "last": "2026-09-01T02:55:23.020217+00:00",
+      "provenance": [
+        {
+          "date": "2026-09-01T02:55:23.020217+00:00",
+          "outcome": "useful",
+          "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
+        }
+      ],
+      "score": 0.964194891,
+      "source_file": "ui/tests/helpers/fixtures.ts",
       "status": "tentative",
       "uses": 1
     }
