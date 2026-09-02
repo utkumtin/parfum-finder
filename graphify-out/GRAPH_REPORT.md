@@ -1,16 +1,16 @@
 # Graph Report - parfum-finder  (2026-09-02)
 
 ## Corpus Check
-- 142 files · ~320,686 words
+- 142 files · ~320,688 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2689 nodes · 7615 edges · 117 communities (111 shown, 6 thin omitted)
+- 2689 nodes · 7615 edges · 117 communities (110 shown, 7 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 570 edges (avg confidence: 0.58)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b39462a5`
+- Built from commit: `025e9c43`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -155,14 +155,14 @@
   tests/test_engine.py → src/parfum_finder/engine.py
 
 ## Import Cycles
-- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/logging_setup.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 3-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
-- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/services/snapshots.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/discover.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
+- 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/services/snapshots.py -> src/parfum_finder/store.py -> src/parfum_finder/__init__.py`
 - 4-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 - 5-file cycle: `src/parfum_finder/__init__.py -> src/parfum_finder/cli.py -> src/parfum_finder/validate.py -> src/parfum_finder/engine.py -> src/parfum_finder/profiles.py -> src/parfum_finder/__init__.py`
 
@@ -171,7 +171,7 @@
 - **İdeasoft Platform Sites and Endpoint** — docs_discovery_report_dekantparfum_site, docs_discovery_report_dekantdoktoru_site, docs_discovery_report_ideasoft_related_options_endpoint, platforms_readme_ideasoft_json [EXTRACTED 1.00]
 - **discover Command Output Artifacts (profile + fixtures + CI validation)** — architecture_md_discover_flow, sites_readme_sites_dir, fixtures_readme_fixtures_dir, github_workflows_ci_validate_profiles_step, architecture_md_validate_command [INFERRED 0.85]
 
-## Communities (117 total, 6 thin omitted)
+## Communities (117 total, 7 thin omitted)
 
 ### Community 0 - "TUI App & Screens"
 Cohesion: 0.09
@@ -458,8 +458,8 @@ Cohesion: 0.53
 Nodes (4): FormData, Headers, Method, Strategy
 
 ### Community 75 - "ResultRow"
-Cohesion: 0.09
-Nodes (39): _as_str(), _build_offer(), _build_product(), _coerce_in_stock(), _collect_offers(), _collect_products(), _collect_variants(), _css_variant() (+31 more)
+Cohesion: 0.10
+Nodes (32): _as_str(), _build_offer(), _build_product(), _coerce_in_stock(), _collect_offers(), _collect_products(), _collect_variants(), _has_type() (+24 more)
 
 ### Community 76 - "SplitPlan"
 Cohesion: 0.19
@@ -530,8 +530,8 @@ Cohesion: 0.18
 Nodes (4): _FakeClient, _FakeStreamResponse, Any, Exception
 
 ### Community 93 - "extract_endpoint_variants"
-Cohesion: 0.14
-Nodes (15): _balanced_value(), _embedded_documents(), extract_endpoint_variants(), _loads_or_skip(), Any, Rung 2: read the variant list out of a platform's JSON response.      `document`, Yield every JSON document the page hides, in document order., Parse `text` as JSON, yielding nothing when it isn't JSON.      Pages are full o (+7 more)
+Cohesion: 0.13
+Nodes (15): _balanced_value(), _embedded_documents(), extract_css_variants(), extract_endpoint_variants(), _loads_or_skip(), Any, Rung 2: read the variant list out of a platform's JSON response.      `document`, Rung 4: read the rendered markup with selectors. Last resort.      `config["vari (+7 more)
 
 ### Community 94 - "Arayüz testleri"
 Cohesion: 0.40
@@ -590,36 +590,32 @@ Cohesion: 0.40
 Nodes (5): The most recently run query lines, newest first, as (text, searched_at)., recent_searches(), The recents list has five slots, so a repeat must not consume two.      Someone, test_recent_searches_stops_at_the_limit(), test_rerunning_a_search_moves_it_up_instead_of_adding_a_second_copy()
 
 ### Community 110 - "extract_css_variants"
-Cohesion: 0.50
-Nodes (4): extract_css_variants(), Rung 4: read the rendered markup with selectors. Last resort.      `config["vari, test_css_reads_one_row_per_container(), test_css_without_a_container_reads_the_page_as_one_variant()
+Cohesion: 0.25
+Nodes (11): _css_variant(), _parse_selector(), Node, Read one variant's fields out of its container node., Run one "<css>::text" / "<css>::attr(name)" selector inside a node.      The nod, Run one "<css>::text" / "<css>::attr(name)" selector, reading every match., Split a "<css>::text" / "<css>::attr(name)" selector into its two parts., Read the attribute or text of one already-selected node, or None. (+3 more)
 
 ### Community 111 - "set_basket_qty"
 Cohesion: 0.50
 Nodes (4): Set a basket line's quantity, clamped to at least 1, and return it.      The tab, set_basket_qty(), An update aimed at a row that isn't there means the caller is out of sync., test_set_basket_qty_on_an_unknown_id_raises()
 
 ### Community 114 - "test_architecture.py"
-Cohesion: 0.09
-Nodes (34): ProductCandidate, Dependency-free models shared by search, persistence, and presentation., One decant size of one product, in the units the database stores.      Tenths of, A candidate together with the decant sizes its product page offers., What one site had to say about one query, and how much to trust it.      Four st, One hit on a search results page, before its product page is opened.      `raw_t, SearchHit, SiteResult (+26 more)
-
-### Community 115 - "test_the_low_confidence_dialog_can_be_answered_with_the_keyboard_alone"
-Cohesion: 0.67
-Nodes (3): _basket_count(), The confirm dialog has to look and behave like something answerable.      Its ke, test_the_low_confidence_dialog_can_be_answered_with_the_keyboard_alone()
+Cohesion: 0.10
+Nodes (36): ProductCandidate, Dependency-free models shared by search, persistence, and presentation., One decant size of one product, in the units the database stores.      Tenths of, A candidate together with the decant sizes its product page offers., What one site had to say about one query, and how much to trust it.      Four st, One hit on a search results page, before its product page is opened.      `raw_t, SearchHit, SiteResult (+28 more)
 
 ## Knowledge Gaps
 - **238 isolated node(s):** `parfum-finder`, `$schema`, `$id`, `title`, `description` (+233 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Work-memory lessons
 
 **Preferred sources** — corroborated by past sessions; start here.
-- `price_history()` (2× useful, score=1.92442575)
-- `BasketScreen()` (2× useful, score=1.92442575)
+- `price_history()` (2× useful, score=1.924225873)
+- `BasketScreen()` (2× useful, score=1.924225873)
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `connect()` connect `FetchResult` to `TUI App & Screens`, `Site Profiles & Templates`, `extract_embedded_variants`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `CLI Entry Points`, `write_snapshots`, `TUI App Shell`, `Fixture Fetcher (Tests)`, `field_map`, `run_sites`, `test_architecture.py`, `test_one_query_finding_two_bottles_gets_two_blocks`, `test_the_low_confidence_dialog_can_be_answered_with_the_keyboard_alone`, `SQLite Store`, `test_every_shipped_site_has_a_colour_that_survives_256_colours`?**
+- **Why does `connect()` connect `FetchResult` to `TUI App & Screens`, `Site Profiles & Templates`, `extract_embedded_variants`, `Search/Basket Domain Models`, `Search Engine per Site`, `TUI Confirm Dialog`, `CLI Entry Points`, `write_snapshots`, `TUI App Shell`, `Fixture Fetcher (Tests)`, `field_map`, `run_sites`, `test_architecture.py`, `test_one_query_finding_two_bottles_gets_two_blocks`, `SQLite Store`, `test_every_shipped_site_has_a_colour_that_survives_256_colours`?**
   _High betweenness centrality (0.035) - this node is a cross-community bridge._
 - **Why does `PerfumeQuery` connect `_ResultRow` to `_named_profile`, `extract_embedded_variants`, `Fixture Fetcher (Tests)`, `run_sites`, `_RecordingFetcher`, `Search TUI Screen`, `test_one_query_finding_two_bottles_gets_two_blocks`, `FetchResult`, `test_architecture.py`, `_wait_for_table`, `Live Profile Validation`?**
   _High betweenness centrality (0.024) - this node is a cross-community bridge._

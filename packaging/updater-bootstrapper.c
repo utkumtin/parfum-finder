@@ -92,7 +92,7 @@ static DWORD launch_setup(
     DWORD wait_result;
 
     execution.cbSize = sizeof(execution);
-    execution.fMask = SEE_MASK_NOCLOSEPROCESS;
+    execution.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
     execution.lpVerb = L"open";
     execution.lpFile = installer;
     execution.lpParameters = parameters;
