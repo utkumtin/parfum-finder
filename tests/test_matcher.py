@@ -504,6 +504,18 @@ def test_an_audience_label_before_a_promotional_tail_is_not_part_of_the_name(
     assert title_could_match(title, query)
 
 
+def test_inflected_perfume_label_does_not_hide_a_close_name_match() -> None:
+    title = "Lattafa Mishlal Erkek Parfümü | Güçlü ve Kalıcı"
+    query = parse_query("Lattafa Mishlah")
+
+    match = match_title(title, query)
+
+    assert match is not None
+    assert match.confident
+    assert match.score == 86
+    assert title_could_match(title, query)
+
+
 @pytest.mark.parametrize(
     ("raw_title", "expected"),
     [

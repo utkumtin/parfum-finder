@@ -144,6 +144,8 @@ _NOISE = frozenset(
         "dekanti",
         "dekantı",
         "parfüm",
+        "parfümü",
+        "parfumu",
         "orijinal",
         "original",
         "tester",

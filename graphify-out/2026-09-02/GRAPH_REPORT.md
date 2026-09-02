@@ -5,12 +5,12 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2643 nodes · 7472 edges · 96 communities (90 shown, 6 thin omitted)
+- 2643 nodes · 7471 edges · 96 communities (90 shown, 6 thin omitted)
 - Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 536 edges (avg confidence: 0.57)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e738c2eb`
+- Built from commit: `7b214dbc`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -178,8 +178,8 @@ Cohesion: 0.15
 Nodes (59): PlatformChooser, _ask_chooser(), discover(), Put the question only when there is one, and hold the answer to it.      An answ, Measure the strategies a site needs, then read its JSON-LD with the winner., _attempt(), _fake_probe(), Any (+51 more)
 
 ### Community 7 - "CLI Entry Points"
-Cohesion: 0.10
-Nodes (52): CaptureFixture, ask_which_platform(), main(), Path, Scan every site for the perfumes named, store what came back, print it.      One, Ask at the terminal which of several matching templates to apply.      Asked whi, run_search(), A multi-site price and stock comparison tool for perfume decants.  Includes a sh (+44 more)
+Cohesion: 0.11
+Nodes (50): CaptureFixture, ask_which_platform(), main(), Path, Scan every site for the perfumes named, store what came back, print it.      One, Ask at the terminal which of several matching templates to apply.      Asked whi, run_search(), Path (+42 more)
 
 ### Community 8 - "Architecture Rationale Docs"
 Cohesion: 0.05
@@ -190,8 +190,8 @@ Cohesion: 0.06
 Nodes (74): HTMLParser, _canonical_path(), canonical_url(), _check_variant_control(), _decode_unreserved(), _fetch_page(), _has_product_ancestor(), _headers() (+66 more)
 
 ### Community 10 - "Basket Optimizer Core"
-Cohesion: 0.12
-Nodes (42): BasketItem, optimize(), Prices, Score one site against the basket, or against a subset of it.      `item_ids` is, Score every enabled site against the whole basket and sort the results.      Sit, Search for the cheapest way to split the basket across several sites.      Retur, One line of the shopping list: a basket row, not a unit count.      `item_id` is, single_site_scenarios() (+34 more)
+Cohesion: 0.13
+Nodes (38): Collection, BasketRow, _score_basket(), BasketItem, optimize(), Prices, Score one site against the basket, or against a subset of it.      `item_ids` is, Score every enabled site against the whole basket and sort the results.      Sit (+30 more)
 
 ### Community 11 - "Basket Store & Pricing"
 Cohesion: 0.24
@@ -303,11 +303,11 @@ Nodes (17): _classify_single_separator(), _parse_number(), parse_price(), parse_
 
 ### Community 38 - "TUI Confirm Dialog"
 Cohesion: 0.08
-Nodes (41): datetime, _recent_searches(), _remove_basket_item(), _set_basket_qty(), cached_prices(), _calendar_months_before(), _downsample_price_snapshots(), _downsample_sql() (+33 more)
+Nodes (39): datetime, _recent_searches(), _remove_basket_item(), _set_basket_qty(), cached_prices(), _calendar_months_before(), _downsample_price_snapshots(), _downsample_sql() (+31 more)
 
 ### Community 39 - "TUI App Shell"
-Cohesion: 0.12
-Nodes (10): _Change, BasketScreen, BasketReport, BasketRow, Path, The one line that says the screen is holding something back, or is not., The basket: the list on top, one scenario per site underneath., _remove() (+2 more)
+Cohesion: 0.15
+Nodes (16): format_price(), Format a price for display (comma-thousands, dot-decimal).      Decimal('1250'), _heading(), _leg_block(), BasketReport, Prices, SiteScenario, SplitLeg (+8 more)
 
 ### Community 40 - "Fetch Backends"
 Cohesion: 0.14
@@ -318,8 +318,8 @@ Cohesion: 0.14
 Nodes (14): GET, POST, properties, default, enum, type, type, type (+6 more)
 
 ### Community 42 - "Fixture Fetcher (Tests)"
-Cohesion: 0.15
-Nodes (42): BaseModel, FastAPI, AcceptedSearch, _add_basket_item(), _AppState, BasketAddRequest, BasketQtyRequest, create_app() (+34 more)
+Cohesion: 0.13
+Nodes (45): BaseModel, FastAPI, AcceptedSearch, _add_basket_item(), _AppState, BasketAddRequest, BasketQtyRequest, create_app() (+37 more)
 
 ### Community 43 - "FieldConfidence"
 Cohesion: 0.14
@@ -359,7 +359,7 @@ Nodes (25): apply_variant_rules(), Turn raw size rows into decant variants, drop
 
 ### Community 52 - "FetchResult"
 Cohesion: 0.14
-Nodes (43): Lock, _record_search(), Any, BasketRow, Path, A site's display name, with a badge when its profile is old enough     to be wor, Show what storage already knows, then go to the shops for the rest.      `force=, Ask every enabled site for today's price of every basket row.      One task per (+35 more)
+Nodes (45): Lock, _record_search(), Any, BasketRow, Path, A site's display name, with a badge when its profile is old enough     to be wor, Rebuild the table's rows for every searched perfume already on record.      Site, Show what storage already knows, then go to the shops for the rest.      `force= (+37 more)
 
 ### Community 53 - "conftest.py"
 Cohesion: 0.29
@@ -438,8 +438,8 @@ Cohesion: 0.29
 Nodes (7): _fold_search_separators(), One search line, then the same line with the brand written the other ways., Turn punctuation that commonly splits catalog tokens into spaces., search_spellings(), test_a_brand_nobody_abbreviates_is_asked_for_once(), test_brand_aliases_each_receive_one_separator_folded_attempt_in_order(), test_the_typed_spelling_is_asked_first_and_the_rest_only_follow()
 
 ### Community 81 - "run_sites"
-Cohesion: 0.09
-Nodes (48): Pressed, ScanEvent, BasketRefreshEvent and viewmodel dataclasses as JSON-safe dicts.  Eve, One site's pacing state, for as long as whoever holds it says.      The gate and, SitePace, display_title(), Hide catalog decorations while preserving the shop title for storage., _about(), BasketPriceExcluded (+40 more)
+Cohesion: 0.07
+Nodes (50): _Change, Pressed, ScanEvent, BasketRefreshEvent and viewmodel dataclasses as JSON-safe dicts.  Eve, One site's pacing state, for as long as whoever holds it says.      The gate and, SitePace, A multi-site price and stock comparison tool for perfume decants.  Includes a sh, File logging for the app's own diagnostics.  Nothing here ever writes to the con, display_title() (+42 more)
 
 ### Community 82 - "Node"
 Cohesion: 0.12
@@ -478,8 +478,8 @@ Cohesion: 0.18
 Nodes (4): _FakeClient, _FakeStreamResponse, Any, Exception
 
 ### Community 93 - "_scenario_block"
-Cohesion: 0.06
-Nodes (61): Collection, BasketRow, _read_basket(), _score_basket(), basket_inputs(), BasketReport, build_basket_rows(), _ClimbState (+53 more)
+Cohesion: 0.07
+Nodes (56): _read_basket(), basket_inputs(), BasketReport, build_basket_rows(), _ClimbState, compare_split_to_best_full(), _label(), BasketRow (+48 more)
 
 ### Community 94 - "Arayüz testleri"
 Cohesion: 0.40
@@ -505,11 +505,11 @@ Nodes (3): ComposeResult, ComposeResult, Static
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SearchScreen` connect `.on_mount` to `TUI App & Screens`, `Search/Basket Domain Models`, `TUI App Shell`, `Static`, `.__init__`, `Fixture Fetcher (Tests)`, `run_sites`, `Node`, `Search TUI Screen`, `FetchResult`, `_FixtureFetcher`, `._start_search`?**
+- **Why does `SearchScreen` connect `.on_mount` to `TUI App & Screens`, `Search/Basket Domain Models`, `Static`, `.__init__`, `Fixture Fetcher (Tests)`, `run_sites`, `Node`, `Search TUI Screen`, `FetchResult`, `_FixtureFetcher`, `._start_search`?**
   _High betweenness centrality (0.027) - this node is a cross-community bridge._
-- **Why does `BasketScreen` connect `TUI App Shell` to `TUI App & Screens`, `Site Profiles & Templates`, `.on_mount`, `Static`, `Basket Optimizer Core`, `Fixture Fetcher (Tests)`, `run_sites`, `_scenario_block`?**
+- **Why does `BasketScreen` connect `run_sites` to `TUI App & Screens`, `Site Profiles & Templates`, `.on_mount`, `Static`, `TUI App Shell`, `Basket Optimizer Core`, `Fixture Fetcher (Tests)`, `_scenario_block`?**
   _High betweenness centrality (0.026) - this node is a cross-community bridge._
-- **Why does `SiteRunner` connect `Fixture Fetcher (Tests)` to `_named_profile`, `.on_mount`, `Search/Basket Domain Models`, `TUI App Shell`, `.__init__`, `Search Engine Core`, `FieldConfidence`, `_ResultRow`, `_RecordingFetcher`, `run_sites`, `._refresh_table`, `FetchResult`, `_scenario_block`?**
+- **Why does `SiteRunner` connect `Fixture Fetcher (Tests)` to `_named_profile`, `.on_mount`, `Search/Basket Domain Models`, `.__init__`, `Search Engine Core`, `FieldConfidence`, `_ResultRow`, `_RecordingFetcher`, `run_sites`, `._refresh_table`, `FetchResult`, `_scenario_block`?**
   _High betweenness centrality (0.025) - this node is a cross-community bridge._
 - **Are the 19 inferred relationships involving `PerfumeQuery` (e.g. with `BasketPriceExcluded` and `BasketRefreshFinished`) actually correct?**
   _`PerfumeQuery` has 19 INFERRED edges - model-reasoned connections that need verification._

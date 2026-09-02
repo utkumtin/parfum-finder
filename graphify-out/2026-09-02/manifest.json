@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/matcher.py": {
-    "mtime": 1788367288.450101,
-    "ast_hash": "ca4e566e1f96db123c0ebda301ca943e",
+    "mtime": 1787590434.1826138,
+    "ast_hash": "f167c755adb88497b9d98245164a39b5",
     "semantic_hash": ""
   },
   "src/parfum_finder/normalize.py": {
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "tests/test_matcher.py": {
-    "mtime": 1788367261.6445434,
-    "ast_hash": "854cf927b171cdd9a364f9cf44694ca8",
+    "mtime": 1787589141.1050518,
+    "ast_hash": "16b6f26d00d07b6c9b834a1410b2cc47",
     "semantic_hash": ""
   },
   "tests/test_normalize.py": {
@@ -767,16 +767,6 @@
   "tests/test_architecture.py": {
     "mtime": 1788225838.231919,
     "ast_hash": "090b904e86fdc7e9aaded1439147b47e",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260901_024127_i_d_like_to_have_a_brainstorming_session_with_you.md": {
-    "mtime": 1788230487.9240234,
-    "ast_hash": "380fe72e69b95140f5a78ffac3fa5c86",
-    "semantic_hash": ""
-  },
-  "graphify-out/memory/query_20260901_025523_after_correcting_the_free_delivery_wishlist_idea.md": {
-    "mtime": 1788231323.020399,
-    "ast_hash": "8357a0f5c9c8c9c7bf0151d6f215536b",
     "semantic_hash": ""
   }
 }
