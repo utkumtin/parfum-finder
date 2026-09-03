@@ -79,10 +79,10 @@ export const api = {
 
   sites: () => request<SiteSummary[]>("/api/sites"),
 
-  startSearch: (query: string, force: boolean) =>
+  startSearch: (query: string, force: boolean, siteIds?: string[]) =>
     request<SearchStart>("/api/search", {
       method: "POST",
-      json: { query, force },
+      json: { query, force, ...(siteIds === undefined ? {} : { site_ids: siteIds }) },
     }),
 
   recentSearches: () => request<RecentSearch[]>("/api/searches/recent"),

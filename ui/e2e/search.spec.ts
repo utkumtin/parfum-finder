@@ -18,6 +18,18 @@ test("a search fills the table from the shops that stock the perfume", async ({
   await expect(table.getByText("Beta Dekant").first()).toBeVisible();
 });
 
+test("a search scans only the shops selected on the search screen", async ({ page }) => {
+  await openApp(page);
+  const beta = page.getByRole("checkbox", { name: "Beta Dekant" });
+  await page.getByText("Beta Dekant", { exact: true }).click();
+  await expect(beta).not.toBeChecked();
+  await search(page, "Dior Sauvage EDP");
+
+  const table = page.getByRole("table").first();
+  await expect(table.getByText("Alfa Dekant").first()).toBeVisible();
+  await expect(table.getByText("Beta Dekant")).toHaveCount(0);
+});
+
 test("the results and wishlist row content stays inside its tables", async ({
   page,
 }) => {

@@ -77,6 +77,16 @@ export const DEFAULT_CONFIG: AppConfig = {
   query_separator_pattern: "\\s+-\\s+|,|;|\\n",
 };
 
+export const DEFAULT_SITES: SiteSummary[] = [
+  {
+    id: "site-a",
+    name: "Alfa Dekant",
+    enabled: true,
+    needs_review: false,
+    discovered_at: "2026-08-01T00:00:00Z",
+  },
+];
+
 export const EMPTY_BASKET: BasketResponse = {
   rows: [],
   report: { full: [], partial: [], unavailable: [] },
@@ -247,7 +257,7 @@ export function installFakeServer(): FakeServer {
 
   server
     .reply("GET /api/config", DEFAULT_CONFIG)
-    .reply("GET /api/sites", [] satisfies SiteSummary[])
+    .reply("GET /api/sites", DEFAULT_SITES)
     .reply("GET /api/searches/recent", [] satisfies RecentSearch[])
     .reply("GET /api/wishlist", { rows: [] } satisfies WishlistResponse)
     .reply("PUT /api/wishlist/items", undefined, 204)

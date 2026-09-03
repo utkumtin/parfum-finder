@@ -127,6 +127,7 @@ _TOKEN_ENV_VAR = "PARFUM_FINDER_TOKEN"
 
 class SearchRequest(BaseModel):
     query: str
+    site_ids: list[str] | None = None
     # Mirrors the TUI's [r]: every perfume goes to the shops regardless of
     # what is already cached, instead of a table mixing two moments.
     force: bool = False
@@ -319,6 +320,23 @@ def create_app(
         body: SearchRequest, request: Request
     ) -> SearchStartResponse:
         app_state = get_state(request)
+        site_ids: frozenset[str] | None = None
+        if body.site_ids is not None:
+            if not body.site_ids:
+                raise HTTPException(status_code=422, detail="en az bir mağaza seçin")
+            profiles_by_id = {profile["id"]: profile for profile in app_state.profiles}
+            unavailable = sorted(
+                site_id
+                for site_id in set(body.site_ids)
+                if site_id not in profiles_by_id
+                or not profiles_by_id[site_id].get("enabled", True)
+            )
+            if unavailable:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"aranamayan mağazalar: {', '.join(unavailable)}",
+                )
+            site_ids = frozenset(body.site_ids)
         parts = split_queries(body.query)
         if len(parts) > MAX_QUERIES:
             raise HTTPException(
@@ -346,7 +364,11 @@ def create_app(
             )
         search_id = uuid4().hex
         app_state.scan_sessions[search_id] = ScanSession(
-            id=search_id, searches=searches, rejected=rejected, force=body.force
+            id=search_id,
+            searches=searches,
+            rejected=rejected,
+            site_ids=site_ids,
+            force=body.force,
         )
         # The whole line as typed, so replaying it reproduces the multi-perfume
         # query. A history that cannot be written is a convenience nobody gets,
@@ -387,7 +409,12 @@ def create_app(
                     "AsyncGenerator[ScanEvent, None]",
                     run_scan(
                         session.searches,
-                        app_state.profiles,
+                        [
+                            profile
+                            for profile in app_state.profiles
+                            if session.site_ids is None
+                            or profile["id"] in session.site_ids
+                        ],
                         runner=app_state.runner,
                         db_path=app_state.db_path,
                         write_lock=app_state.write_lock,

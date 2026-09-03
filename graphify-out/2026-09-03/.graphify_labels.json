@@ -94,7 +94,6 @@
   "92": "_FakeStreamResponse",
   "93": "extract_endpoint_variants",
   "94": "Arayüz testleri",
-  "95": "variant_rules",
   "96": "test_updater.py",
   "97": "product_label",
   "98": "cached_prices",
@@ -109,14 +108,8 @@
   "107": "_NoRootParser",
   "108": "apply_variant_rules",
   "109": "Static",
-  "110": "_fake_runner",
   "111": "ParfumFinderApp",
-  "112": "recent_searches",
   "113": "WishlistScreen.test.tsx",
-  "114": "_wait_for_table",
-  "115": "set_basket_qty",
-  "116": "test_every_shipped_site_has_a_colour_that_survives_256_colours",
-  "117": "BasketRow",
-  "118": "MonkeyPatch",
-  "119": "search.spec.ts"
+  "114": "MonkeyPatch",
+  "115": "parfum-search-desktop.md"
 }

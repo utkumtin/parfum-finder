@@ -25,6 +25,7 @@ class ScanSession:
     id: str
     searches: list[Search]
     rejected: list[str]
+    site_ids: frozenset[str] | None = None
     force: bool = False
     rows: list[ResultRow] = field(default_factory=list)
     started: bool = False

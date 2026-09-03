@@ -1,0 +1,32 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: PARFUM FINDER
+    - navigation [ref=e6]:
+      - button "Arama" [ref=e7] [cursor=pointer]
+      - button "Sonuçlar" [disabled] [ref=e8]
+      - button "İstek listesi" [ref=e9] [cursor=pointer]
+      - button "Sepet" [ref=e12] [cursor=pointer]
+  - main [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]: Birden fazla parfümü - ile ayırın. En fazla 10 parfüm.
+        - generic [ref=e17]:
+          - textbox "Aranacak parfümler" [active] [ref=e18]
+          - generic [ref=e19]: 0 / 10
+          - button "Ara" [disabled] [ref=e20]
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27]: Aranacak mağazalar
+          - generic [ref=e28]: 2 / 2 seçili
+        - group "Aranacak mağazalar" [ref=e29]:
+          - generic [ref=e30] [cursor=pointer]:
+            - checkbox "Alfa Dekant" [checked]
+            - generic [ref=e34]: Alfa Dekant
+          - generic [ref=e35] [cursor=pointer]:
+            - checkbox "Beta Dekant" [checked]
+            - generic [ref=e39]: Beta Dekant
+      - generic [ref=e40]:
+        - generic [ref=e41] [cursor=pointer]:
+          - checkbox "Kayıttakileri de yeniden tara"
+          - text: Kayıttakileri de yeniden tara
+        - generic [ref=e45]: Kapalıyken 14 günden yeni fiyatlar kayıttan gelir.

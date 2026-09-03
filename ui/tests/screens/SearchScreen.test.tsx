@@ -6,6 +6,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SearchScreen } from "../../src/screens/SearchScreen";
+import type { SiteSummary } from "../../src/types";
 import {
   DEFAULT_CONFIG,
   installFakeServer,
@@ -15,13 +16,30 @@ import {
 
 let server: FakeServer;
 
+const SITES: SiteSummary[] = [
+  {
+    id: "alpha",
+    name: "Alfa Dekant",
+    enabled: true,
+    needs_review: false,
+    discovered_at: "2026-08-01T00:00:00Z",
+  },
+  {
+    id: "beta",
+    name: "Beta Parfüm",
+    enabled: true,
+    needs_review: false,
+    discovered_at: "2026-08-01T00:00:00Z",
+  },
+];
+
 beforeEach(() => {
   server = installFakeServer();
   window.__PARFUM_TOKEN__ = "test-token";
 });
 
 function renderScreen(onStarted = vi.fn()) {
-  render(<SearchScreen config={DEFAULT_CONFIG} onStarted={onStarted} />);
+  render(<SearchScreen config={DEFAULT_CONFIG} sites={SITES} onStarted={onStarted} />);
   return { onStarted, field: screen.getByLabelText("Aranacak parfümler") };
 }
 
@@ -107,7 +125,36 @@ describe("SearchScreen", () => {
     expect(server.requestsTo("POST", "/api/search")[0]?.body).toEqual({
       query: "Dior Sauvage EDP",
       force: false,
+      site_ids: ["alpha", "beta"],
     });
+  });
+
+  it("sends only the shops the user keeps selected", async () => {
+    server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
+    const { field } = renderScreen();
+
+    expect(screen.getByText("2 / 2 seçili")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Beta Parfüm" }));
+    await userEvent.type(field, "Dior Sauvage EDP{Enter}");
+
+    await waitFor(() =>
+      expect(server.requestsTo("POST", "/api/search")[0]?.body).toEqual({
+        query: "Dior Sauvage EDP",
+        force: false,
+        site_ids: ["alpha"],
+      }),
+    );
+  });
+
+  it("requires at least one selected shop before starting", async () => {
+    const { field, onStarted } = renderScreen();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Alfa Dekant" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Beta Parfüm" }));
+    await userEvent.type(field, "Dior Sauvage EDP");
+
+    expect(screen.getByText("Aramak için en az bir mağaza seçin.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ara/ })).toBeDisabled();
+    expect(onStarted).not.toHaveBeenCalled();
   });
 
   it("passes the rescan choice to the request", async () => {
@@ -115,13 +162,16 @@ describe("SearchScreen", () => {
     const { field } = renderScreen();
 
     await userEvent.type(field, "Dior Sauvage EDP");
-    await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Kayıttakileri de yeniden tara/ }),
+    );
     await userEvent.click(screen.getByRole("button", { name: /Ara/ }));
 
     await waitFor(() =>
       expect(server.requestsTo("POST", "/api/search")[0]?.body).toEqual({
         query: "Dior Sauvage EDP",
         force: true,
+        site_ids: ["alpha", "beta"],
       }),
     );
   });

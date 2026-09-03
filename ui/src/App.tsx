@@ -7,7 +7,7 @@ import { ResultsScreen } from "./screens/ResultsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
 import { WishlistScreen } from "./screens/WishlistScreen";
 import { wishlistKey } from "./lib/wishlist";
-import type { AppConfig, ResultRow, SearchStart, UpdateInfo, WishlistRow } from "./types";
+import type { AppConfig, ResultRow, SearchStart, SiteSummary, UpdateInfo, WishlistRow } from "./types";
 
 type View = "search" | "results" | "wishlist" | "basket";
 
@@ -18,6 +18,7 @@ interface Toast {
 
 export function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [sites, setSites] = useState<SiteSummary[]>([]);
   const [siteNames, setSiteNames] = useState<Record<string, string>>({});
   const [startupError, setStartupError] = useState<string | null>(null);
   const [view, setView] = useState<View>("search");
@@ -75,6 +76,7 @@ export function App() {
     Promise.all([api.config(), api.sites()])
       .then(([loadedConfig, sites]) => {
         setConfig(loadedConfig);
+        setSites(sites);
         setSiteNames(Object.fromEntries(sites.map((s) => [s.id, s.name])));
       })
       .catch((e: unknown) => {
@@ -240,6 +242,7 @@ export function App() {
         {view === "search" && (
           <SearchScreen
             config={config}
+            sites={sites}
             onStarted={(start) => {
               setSearch(start);
               setView("results");

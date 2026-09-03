@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { ApiError, api } from "../api/client";
 import { formatAge } from "../lib/format";
-import type { AppConfig, RecentSearch, SearchStart } from "../types";
+import type { AppConfig, RecentSearch, SearchStart, SiteSummary } from "../types";
 
 /**
  * Splits a half-typed line the way the backend will.
@@ -41,9 +41,11 @@ function daysSince(iso: string): number {
 
 export function SearchScreen({
   config,
+  sites,
   onStarted,
 }: {
   config: AppConfig;
+  sites: SiteSummary[];
   onStarted: (start: SearchStart, force: boolean) => void;
 }) {
   const [text, setText] = useState("");
@@ -52,6 +54,10 @@ export function SearchScreen({
   const [starting, setStarting] = useState(false);
   const [recents, setRecents] = useState<RecentSearch[]>([]);
   const [focused, setFocused] = useState(false);
+  const enabledSites = useMemo(() => sites.filter((site) => site.enabled), [sites]);
+  const [selectedSiteIds, setSelectedSiteIds] = useState(
+    () => new Set(enabledSites.map((site) => site.id)),
+  );
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
@@ -83,11 +89,11 @@ export function SearchScreen({
     // Refused rather than trimmed to the first ten, the same call the TUI
     // makes: a scan that quietly answered a shorter question is worse than no
     // scan, because nothing on screen says which perfumes were dropped.
-    if (overLimit || parts.length === 0 || starting) return;
+    if (overLimit || parts.length === 0 || selectedSiteIds.size === 0 || starting) return;
     setStarting(true);
     setError(null);
     try {
-      onStarted(await api.startSearch(text, force), force);
+      onStarted(await api.startSearch(text, force, [...selectedSiteIds]), force);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
     } finally {
@@ -135,7 +141,7 @@ export function SearchScreen({
           <button
             type="button"
             className="button primary"
-            disabled={overLimit || parts.length === 0 || starting}
+            disabled={overLimit || parts.length === 0 || selectedSiteIds.size === 0 || starting}
             onClick={() => void submit()}
           >
             {starting ? "Başlatılıyor…" : "Ara"}
@@ -182,6 +188,54 @@ export function SearchScreen({
         </div>
       )}
       {error && <div className="notice error">{error}</div>}
+
+      <motion.div
+        className="tray site-picker"
+        aria-labelledby="site-picker-label"
+        initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={
+          reducedMotion
+            ? { duration: 0 }
+            : { duration: 0.6, ease: [0.32, 0.72, 0, 1] }
+        }
+      >
+        <div className="core">
+          <div className="site-picker-heading">
+            <span id="site-picker-label" className="eyebrow">Aranacak mağazalar</span>
+            <span className="site-picker-count">
+              {selectedSiteIds.size} / {enabledSites.length} seçili
+            </span>
+          </div>
+          <div className="site-picker-options" role="group" aria-labelledby="site-picker-label">
+            {enabledSites.map((site) => (
+              <label className="site-choice" key={site.id}>
+                <input
+                  type="checkbox"
+                  checked={selectedSiteIds.has(site.id)}
+                  onChange={(event) => {
+                    setSelectedSiteIds((current) => {
+                      const next = new Set(current);
+                      if (event.target.checked) next.add(site.id);
+                      else next.delete(site.id);
+                      return next;
+                    });
+                  }}
+                />
+                <span className="site-choice-mark" aria-hidden="true">
+                  <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1.5 5.2 4 7.5 8.5 2.5" />
+                  </svg>
+                </span>
+                <span>{site.name}</span>
+              </label>
+            ))}
+          </div>
+          {selectedSiteIds.size === 0 && (
+            <span className="site-picker-warning" role="status">Aramak için en az bir mağaza seçin.</span>
+          )}
+        </div>
+      </motion.div>
 
       <div className="search-actions">
         <label className="checkbox">

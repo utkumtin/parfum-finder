@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-03T03:30:02.845740+00:00",
+  "generated_at": "2026-09-03T04:02:59.454221+00:00",
   "nodes": {
     "src_parfum_finder_engine": {
       "code_fingerprint": "b83bded284b6fdcb9f4416409d4b0725d665c740cc67f3d1a460d998d2bd8090",
@@ -12,7 +12,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.803134629,
+      "score": 0.80271022,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
@@ -28,7 +28,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.803134629,
+      "score": 0.80271022,
       "source_file": "src/parfum_finder/engine.py",
       "status": "tentative",
       "uses": 1
@@ -44,7 +44,7 @@
           "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
         }
       ],
-      "score": 0.954310685,
+      "score": 0.953806389,
       "source_file": "src/parfum_finder/matcher.py",
       "status": "tentative",
       "uses": 1
@@ -60,7 +60,7 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.803134629,
+      "score": 0.80271022,
       "source_file": "src/parfum_finder/matcher.py",
       "status": "tentative",
       "uses": 1
@@ -76,13 +76,13 @@
           "q": "Review redirect classification, diagnostic suppression, and shared attempt cache and pacing"
         }
       ],
-      "score": 0.803134629,
+      "score": 0.80271022,
       "source_file": "src/parfum_finder/services/snapshots.py",
       "status": "tentative",
       "uses": 1
     },
     "src_parfum_finder_store_cached_prices": {
-      "code_fingerprint": "158ff8a67b6f91c4494cdb048f723a003621d01ca8e0d1dd1156f4a0616e42c4",
+      "code_fingerprint": "11919ed7a9c3332c1e2d21f4bfdfa63a1d585c71862c8c28b521309c77897659",
       "label": "cached_prices()",
       "last": "2026-09-01T02:55:23.020217+00:00",
       "provenance": [
@@ -92,13 +92,13 @@
           "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
         }
       ],
-      "score": 0.954310685,
+      "score": 0.953806389,
       "source_file": "src/parfum_finder/store.py",
       "status": "tentative",
       "uses": 1
     },
     "src_parfum_finder_store_price_history": {
-      "code_fingerprint": "158ff8a67b6f91c4494cdb048f723a003621d01ca8e0d1dd1156f4a0616e42c4",
+      "code_fingerprint": "11919ed7a9c3332c1e2d21f4bfdfa63a1d585c71862c8c28b521309c77897659",
       "label": "price_history()",
       "last": "2026-09-01T02:55:23.020217+00:00",
       "provenance": [
@@ -113,13 +113,13 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 1.908408278,
+      "score": 1.907399797,
       "source_file": "src/parfum_finder/store.py",
       "status": "preferred",
       "uses": 2
     },
     "src_parfum_finder_store_recent_searches": {
-      "code_fingerprint": "158ff8a67b6f91c4494cdb048f723a003621d01ca8e0d1dd1156f4a0616e42c4",
+      "code_fingerprint": "11919ed7a9c3332c1e2d21f4bfdfa63a1d585c71862c8c28b521309c77897659",
       "label": "recent_searches()",
       "last": "2026-09-01T02:41:27.923776+00:00",
       "provenance": [
@@ -129,7 +129,7 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 0.954097593,
+      "score": 0.953593409,
       "source_file": "src/parfum_finder/store.py",
       "status": "tentative",
       "uses": 1
@@ -145,7 +145,7 @@
           "q": "In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?"
         }
       ],
-      "score": 0.99094654,
+      "score": 0.990422884,
       "source_file": "src/parfum_finder/updater.py",
       "status": "tentative",
       "uses": 1
@@ -161,7 +161,7 @@
           "q": "In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?"
         }
       ],
-      "score": 0.99094654,
+      "score": 0.990422884,
       "source_file": "src/parfum_finder/updater.py",
       "status": "tentative",
       "uses": 1
@@ -177,13 +177,13 @@
           "q": "In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?"
         }
       ],
-      "score": 0.99094654,
+      "score": 0.990422884,
       "source_file": "src/parfum_finder/updater.py",
       "status": "tentative",
       "uses": 1
     },
     "ui_src_screens_basketscreen_basketscreen": {
-      "code_fingerprint": "3c910b2d8e63468d303a03664e52c19c6f7d34d4c95cf9ad164206d7e96463b3",
+      "code_fingerprint": "558d895dc013d3bcfc5697c0110f697f2fa1723c6b36cfd449ea9c07a0cbd72d",
       "label": "BasketScreen()",
       "last": "2026-09-01T02:55:23.020217+00:00",
       "provenance": [
@@ -198,7 +198,7 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 1.908408278,
+      "score": 1.907399797,
       "source_file": "ui/src/screens/BasketScreen.tsx",
       "status": "preferred",
       "uses": 2
@@ -214,7 +214,7 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 0.954097593,
+      "score": 0.953593409,
       "source_file": "ui/src/screens/ResultsScreen.tsx",
       "status": "tentative",
       "uses": 1
@@ -230,13 +230,13 @@
           "q": "I’d like to have a brainstorming session with you now. I’m looking to come up with ideas for new features to add to the project’s Windows application. To this end, I’m looking forward to your suggestions. When adding features, I want them to be genuinely useful. I want to add features that will elicit feedback from users along the lines of, ‘It’s brilliant that you thought of that.’"
         }
       ],
-      "score": 0.954097593,
+      "score": 0.953593409,
       "source_file": "ui/src/screens/WishlistScreen.tsx",
       "status": "tentative",
       "uses": 1
     },
     "ui_tests_helpers_fixtures_basket": {
-      "code_fingerprint": "ddab4e64350945da800986dfa77bf0d47989d2b8580e57c603e86802213f1f94",
+      "code_fingerprint": "ee2f12276e530d7f94178ad4e577f5c28face60178466049bfaeb1fd5eaae3d5",
       "label": "basket()",
       "last": "2026-09-01T02:55:23.020217+00:00",
       "provenance": [
@@ -246,7 +246,7 @@
           "q": "After correcting the free-delivery wishlist idea, what other genuinely useful, high-priority Windows app features could produce a 'brilliant that you thought of that' reaction?"
         }
       ],
-      "score": 0.954310685,
+      "score": 0.953806389,
       "source_file": "ui/tests/helpers/fixtures.ts",
       "status": "tentative",
       "uses": 1

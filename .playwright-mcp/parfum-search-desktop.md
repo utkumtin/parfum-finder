@@ -1,0 +1,32 @@
+- generic [ref=e3] [box=0,0,800,513]:
+  - banner [ref=e4] [box=0,0,800,62]:
+    - generic [ref=e5] [box=16,20,129,21]: PARFUM FINDER
+    - navigation [ref=e6] [box=513,9,271,44]:
+      - button "Arama" [ref=e7] [cursor=pointer] [box=518,14,69,34]
+      - button "Sonuçlar" [disabled] [ref=e8] [box=589,14,82,34]
+      - button "İstek listesi" [ref=e9] [cursor=pointer] [box=672,14,40,34]
+      - button "Sepet" [ref=e12] [cursor=pointer] [box=714,14,65,34]
+  - main [ref=e13] [box=0,62,800,376]:
+    - generic [ref=e14] [box=32,84,736,306]:
+      - generic [ref=e15] [box=32,128,736,78]:
+        - generic [ref=e16] [box=48,102,431,24]: Birden fazla parfümü - ile ayırın. En fazla 10 parfüm.
+        - generic [ref=e17] [box=40,136,720,62]:
+          - textbox "Aranacak parfümler" [active] [ref=e18] [box=60,144,537,46]
+          - generic [ref=e19] [box=611,158,43,18]: 0 / 10
+          - button "Ara" [disabled] [ref=e20] [box=669,146,83,42]
+      - generic [ref=e25] [box=39,233,722,99]:
+        - generic [ref=e26] [box=57,249,686,17]:
+          - generic [ref=e27] [box=57,249,152,17]: Aranacak mağazalar
+          - generic [ref=e28] [box=664,249,79,17]: 2 / 2 seçili
+        - group "Aranacak mağazalar" [ref=e29] [box=57,280,686,34]:
+          - generic [ref=e30] [cursor=pointer] [box=57,280,115,34]:
+            - checkbox "Alfa Dekant" [checked] [box=69,290,13,13]
+            - generic [ref=e34] [box=93,287,67,20]: Alfa Dekant
+          - generic [ref=e35] [cursor=pointer] [box=180,280,118,34]:
+            - checkbox "Beta Dekant" [checked] [box=192,290,13,13]
+            - generic [ref=e39] [box=216,287,70,20]: Beta Dekant
+      - generic [ref=e40] [box=32,359,736,32]:
+        - generic [ref=e41] [cursor=pointer] [box=32,359,187,32]:
+          - checkbox "Kayıttakileri de yeniden tara" [box=36,368,13,13]
+          - text: Kayıttakileri de yeniden tara
+        - generic [ref=e45] [box=239,365,254,18]: Kapalıyken 14 günden yeni fiyatlar kayıttan gelir.

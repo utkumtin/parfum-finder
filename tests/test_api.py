@@ -270,6 +270,69 @@ def test_search_rejects_more_than_max_queries(client: tuple[TestClient, str]) ->
     assert response.status_code == 422
 
 
+def test_search_rejects_an_empty_site_selection(client: tuple[TestClient, str]) -> None:
+    c, token = client
+    response = c.post(
+        "/api/search",
+        json={"query": "Dior Sauvage EDP", "site_ids": []},
+        headers=_auth(token),
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "en az bir mağaza seçin"
+
+
+def test_search_rejects_an_unknown_site(client: tuple[TestClient, str]) -> None:
+    c, token = client
+    response = c.post(
+        "/api/search",
+        json={"query": "Dior Sauvage EDP", "site_ids": ["does-not-exist"]},
+        headers=_auth(token),
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "aranamayan mağazalar: does-not-exist"
+
+
+def test_search_rejects_a_disabled_site(sites_dir: Path, db_path: Path) -> None:
+    _write_profile(sites_dir, id="site-a", enabled=False)
+    for c, token in _client(sites_dir, db_path, _static_runner({})):
+        response = c.post(
+            "/api/search",
+            json={"query": "Dior Sauvage EDP", "site_ids": ["site-a"]},
+            headers=_auth(token),
+        )
+        assert response.status_code == 422
+        assert response.json()["detail"] == "aranamayan mağazalar: site-a"
+
+
+def test_search_scans_only_the_selected_sites(sites_dir: Path, db_path: Path) -> None:
+    _write_profile(sites_dir, id="site-a")
+    _write_profile(sites_dir, id="site-b")
+    runner = _static_runner(
+        {
+            "site-a": _ok_result("site-a"),
+            "site-b": _ok_result("site-b"),
+        }
+    )
+    for c, token in _client(sites_dir, db_path, runner):
+        search_id = c.post(
+            "/api/search",
+            json={"query": "Dior Sauvage EDP", "site_ids": ["site-b"]},
+            headers=_auth(token),
+        ).json()["search_id"]
+        with c.websocket_connect(f"/api/search/{search_id}?token={token}") as ws:
+            events = []
+            while True:
+                event = ws.receive_json()
+                events.append(event)
+                if event["type"] == "scan_finished":
+                    break
+
+        started = next(event for event in events if event["type"] == "scan_started")
+        assert started["total_sites"] == 1
+        rows = c.get(f"/api/results/{search_id}", headers=_auth(token)).json()["rows"]
+        assert {row["site_id"] for row in rows} == {"site-b"}
+
+
 def test_search_names_the_perfume_behind_each_query_index(
     client: tuple[TestClient, str],
 ) -> None:
