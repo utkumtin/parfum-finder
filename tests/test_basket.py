@@ -498,6 +498,7 @@ def _basket_price(
     *,
     in_stock: bool = True,
     fetched_at: str = "2026-08-01T00:00:00Z",
+    product_url: str | None = "https://example.com/product",
 ) -> BasketPrice:
     return BasketPrice(
         basket_item_id=basket_item_id,
@@ -505,6 +506,7 @@ def _basket_price(
         price_kurus=price_kurus,
         in_stock=in_stock,
         fetched_at=fetched_at,
+        product_url=product_url,
     )
 
 
@@ -519,6 +521,7 @@ def test_build_basket_rows_drops_out_of_stock_and_excluded_prices() -> None:
     rows = build_basket_rows([line], prices, excluded={("site-c", 1)})
 
     assert rows[0].prices == {"site-b": 26000}
+    assert rows[0].product_urls == {"site-b": "https://example.com/product"}
 
 
 def test_a_rows_age_is_its_stalest_cell() -> None:

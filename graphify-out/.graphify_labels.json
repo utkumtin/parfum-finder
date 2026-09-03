@@ -21,6 +21,7 @@
   "19": "Search TUI Screen",
   "20": "Snapshot Writing",
   "21": "Candidate Filtering",
+  "22": "_submit_query",
   "23": "Price/Size Normalization",
   "24": "JSON Schema Primitives",
   "25": "SQLite Store",
@@ -106,5 +107,10 @@
   "105": "search_spellings",
   "106": "Q: In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?",
   "107": "_NoRootParser",
-  "109": "Static"
+  "108": "apply_variant_rules",
+  "109": "Static",
+  "110": "_fake_runner",
+  "111": "ParfumFinderApp",
+  "112": "recent_searches",
+  "113": "WishlistScreen.test.tsx"
 }

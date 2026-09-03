@@ -99,6 +99,20 @@ function CartPreviewCloseIcon() {
   );
 }
 
+function OpenAllIcon() {
+  return (
+    <svg viewBox="0 0 12 12" fill="none" aria-hidden="true" focusable="false">
+      <path
+        d="M3 9 9 3M4.5 3H9v4.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function Scenario({
   scenario,
   siteName,
@@ -406,6 +420,26 @@ export function BasketScreen({
     cartPreview === null
       ? []
       : data.rows.filter((row) => cartPreview.item_ids.includes(row.basket_item_id));
+  const cartPreviewProductUrls =
+    cartPreview === null
+      ? []
+      : cartPreviewRows.map((row) => row.product_urls[cartPreview.scenario.site_id]);
+  const cartPreviewUrls = [
+    ...new Set(
+      cartPreviewProductUrls.filter((url): url is string => url !== undefined),
+    ),
+  ];
+
+  const openCartPreviewItems = () => {
+    for (const url of cartPreviewUrls) window.open(url, "_blank", "noopener,noreferrer");
+    const missing = cartPreviewProductUrls.filter((url) => url === undefined).length;
+    if (missing > 0) {
+      notify(
+        `${missing} ürünün sayfa bağlantısı bulunamadı.`,
+        "error",
+      );
+    }
+  };
 
   return (
     <>
@@ -493,7 +527,18 @@ export function BasketScreen({
               <div className="core">
               <div className="plan-card-head">
                 <h3>Tek siteden</h3>
-                <span className="dim">{siteName(bestFull.site_id)}</span>
+                <button
+                  type="button"
+                  className="plan-leg-store"
+                  onClick={() =>
+                    openCartPreview({
+                      scenario: bestFull,
+                      item_ids: data.rows.map((row) => row.basket_item_id),
+                    })
+                  }
+                >
+                  {siteName(bestFull.site_id)}
+                </button>
                 <span className="plan-total">{formatPrice(bestFull.total_kurus)}</span>
               </div>
               <div className="plan-leg">
@@ -772,6 +817,19 @@ export function BasketScreen({
                   <dd>{formatPrice(cartPreview.scenario.total_kurus)}</dd>
                 </div>
               </dl>
+              <div className="cart-preview-actions">
+                <button
+                  type="button"
+                  className="button primary cart-preview-open-all"
+                  disabled={cartPreviewUrls.length === 0}
+                  onClick={openCartPreviewItems}
+                >
+                  Tüm ürün sayfalarını aç
+                  <span className="button-pip">
+                    <OpenAllIcon />
+                  </span>
+                </button>
+              </div>
             </div>
           </section>
         </div>

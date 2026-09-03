@@ -2058,6 +2058,20 @@ details.more summary:hover {
 .cart-preview-total dd {
   color: inherit;
 }
+.cart-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}
+.cart-preview-open-all {
+  min-height: 2.5rem;
+}
+.cart-preview-open-all .button-pip svg {
+  transition: transform 0.5s var(--ease);
+}
+.cart-preview-open-all:hover:not(:disabled) .button-pip svg {
+  transform: translate(0.0625rem, -0.0625rem);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .t-modal { transition: none !important; }

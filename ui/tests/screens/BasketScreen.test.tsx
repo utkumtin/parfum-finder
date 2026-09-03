@@ -424,6 +424,64 @@ describe("BasketScreen plans", () => {
     expect(dialog).toHaveClass("is-closing");
   });
 
+  it("opens every product page assigned to the selected store", async () => {
+    // A split plan is only actionable when the shopper can move from one leg
+    // to every real product page in that shop without reconstructing the list.
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    renderScreen(
+      basket(
+        [
+          basketRow({
+            product_urls: { "site-a": "https://site-a.example/sauvage" },
+          }),
+          basketRow({
+            basket_item_id: 2,
+            label: "Creed Aventus EDP 5 ml",
+            prices: { "site-a": 21000 },
+            product_urls: { "site-a": "https://site-a.example/aventus" },
+          }),
+          basketRow({
+            basket_item_id: 3,
+            label: "Le Labo Santal 33 EDP 5 ml",
+            prices: { "site-b": 24000 },
+            product_urls: { "site-b": "https://site-b.example/santal" },
+          }),
+        ],
+        {
+          best_combination: splitCombination([
+            {
+              scenario: scenario({ site_id: "site-a", covered: 2, total_items: 3 }),
+              item_ids: [1, 2],
+            },
+            {
+              scenario: scenario({ site_id: "site-b", total_items: 3 }),
+              item_ids: [3],
+            },
+          ]),
+        },
+      ),
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Site A" }));
+    await user.click(screen.getByRole("button", { name: "Tüm ürün sayfalarını aç" }));
+
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(open).toHaveBeenNthCalledWith(
+      1,
+      "https://site-a.example/sauvage",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    expect(open).toHaveBeenNthCalledWith(
+      2,
+      "https://site-a.example/aventus",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    open.mockRestore();
+  });
+
   it("does not offer a one-shop combination as a second plan", async () => {
     // A one-leg combination is the single-site plan under another name, and two
     // cards saying the same thing is not a comparison.

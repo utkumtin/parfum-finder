@@ -728,6 +728,7 @@ def test_basket_crud_and_report(sites_dir: Path, db_path: Path) -> None:
         basket = c.get("/api/basket", headers=_auth(token)).json()
         assert len(basket["rows"]) == 1
         assert basket["rows"][0]["basket_item_id"] == item_id
+        assert basket["rows"][0]["product_urls"] == {"site-a": "https://example.com/p"}
         assert basket["report"]["full"] or basket["report"]["partial"]
 
         patched = c.patch(

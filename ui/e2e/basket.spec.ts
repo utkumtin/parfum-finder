@@ -52,6 +52,41 @@ test("the single-shop plan quotes the shipping the profile charges", async ({
   await expect(plan).toContainText("150.00 ₺");
 });
 
+test("the selected shop cart opens all of its product pages", async ({ page }) => {
+  await addFirstRow(page, "Dior Sauvage EDP");
+  await page.evaluate(() => {
+    const opened: string[] = [];
+    Object.defineProperty(window, "__openedProductPages", { value: opened });
+    window.open = ((url?: string | URL) => {
+      if (url !== undefined) opened.push(String(url));
+      return null;
+    }) as typeof window.open;
+  });
+
+  const plan = page.locator(".plan-card").filter({ hasText: "Tek siteden" });
+  await plan.getByRole("button", { name: "Beta Dekant" }).click();
+  const dialog = page.getByRole("dialog", { name: "Beta Dekant için sepet" });
+  const openAll = dialog.getByRole("button", { name: "Tüm ürün sayfalarını aç" });
+  await expect(dialog).toBeVisible();
+  await expect(openAll).toBeVisible();
+  const layout = await Promise.all([dialog.boundingBox(), openAll.boundingBox()]);
+  expect(layout[0]).not.toBeNull();
+  expect(layout[1]).not.toBeNull();
+  expect(layout[1]!.x).toBeGreaterThanOrEqual(layout[0]!.x);
+  expect(layout[1]!.x + layout[1]!.width).toBeLessThanOrEqual(
+    layout[0]!.x + layout[0]!.width,
+  );
+  expect(layout[1]!.y + layout[1]!.height).toBeLessThanOrEqual(
+    layout[0]!.y + layout[0]!.height,
+  );
+  await openAll.click();
+
+  const opened = await page.evaluate(
+    () => (window as Window & { __openedProductPages?: string[] }).__openedProductPages,
+  );
+  expect(opened).toEqual(["https://beta.example/urun/dior-sauvage-edp"]);
+});
+
 test("the gap to free shipping is offered as a number, not as a hint", async ({
   page,
 }) => {

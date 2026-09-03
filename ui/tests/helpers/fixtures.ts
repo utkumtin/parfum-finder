@@ -52,6 +52,7 @@ export function basketRow(overrides: Partial<BasketRow> = {}): BasketRow {
     qty: 1,
     label: "Dior Sauvage EDP 5 ml",
     prices: { "site-a": 25000 },
+    product_urls: { "site-a": "https://example.com/p" },
     age_days: 0,
     ...overrides,
   };

@@ -143,6 +143,7 @@ def encode_basket_row(row: BasketRow) -> dict[str, Any]:
         "qty": row.line.qty,
         "label": row.label,
         "prices": dict(row.prices),
+        "product_urls": dict(row.product_urls),
         "age_days": row.age_days,
     }
 

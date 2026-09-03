@@ -97,6 +97,7 @@ export interface BasketRow {
   label: string;
   // Unit price per site, only for the sites that can supply this line at all.
   prices: Record<string, number>;
+  product_urls: Record<string, string>;
   age_days: number | null;
 }
 

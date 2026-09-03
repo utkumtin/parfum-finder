@@ -105,8 +105,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/basket.py": {
-    "mtime": 1786714631.879952,
-    "ast_hash": "ae9c89dce453d2deba56e73ade04d15b",
+    "mtime": 1788407710.2319834,
+    "ast_hash": "1dad4ad237316d1e7f58911752ea1964",
     "semantic_hash": ""
   },
   "src/parfum_finder/cli.py": {
@@ -155,8 +155,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/store.py": {
-    "mtime": 1788229638.5177264,
-    "ast_hash": "fbdcc2f98a24cd98ef2b6c5937b0c1a5",
+    "mtime": 1788407350.1306207,
+    "ast_hash": "da43fe6d7522d2f7109cfa2ee1b9e75f",
     "semantic_hash": ""
   },
   "src/parfum_finder/tui/__init__.py": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "tests/test_basket.py": {
-    "mtime": 1786714763.3933318,
-    "ast_hash": "88b55c1a212f320b5e53155ff03dbd8c",
+    "mtime": 1788407350.6346128,
+    "ast_hash": "75e47da56e48db8f4604d6bad007bb32",
     "semantic_hash": ""
   },
   "tests/test_basket_screen.py": {
@@ -260,8 +260,8 @@
     "semantic_hash": ""
   },
   "tests/test_store.py": {
-    "mtime": 1788229366.7504823,
-    "ast_hash": "cf00ee7230420ce69904f000aa35dae2",
+    "mtime": 1788407350.563614,
+    "ast_hash": "3085745dc35058b875d36b35e136a3d4",
     "semantic_hash": ""
   },
   "tests/test_tui.py": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/viewmodels.py": {
-    "mtime": 1787588591.1148832,
-    "ast_hash": "ed4fee7467af289beea53b1c6a3f9d63",
+    "mtime": 1788407350.2026196,
+    "ast_hash": "c6ddca0e2726c440fbfbd21ba9785289",
     "semantic_hash": ""
   },
   "tests/test_paths.py": {
@@ -475,8 +475,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/api/serialize.py": {
-    "mtime": 1787588144.711242,
-    "ast_hash": "8b7e84f9745e2bdc82ca0dc6723727c2",
+    "mtime": 1788407350.3476174,
+    "ast_hash": "8fece6601c3cc81deffc15cf36f418b9",
     "semantic_hash": ""
   },
   "src/parfum_finder/api/sessions.py": {
@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "tests/test_api.py": {
-    "mtime": 1788406015.8865955,
-    "ast_hash": "80a600009b8efb5b822c140f047d155e",
+    "mtime": 1788407680.9754403,
+    "ast_hash": "d912386db916e6529745879c7f1e95e8",
     "semantic_hash": ""
   },
   "ui/package.json": {
@@ -535,8 +535,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/BasketScreen.tsx": {
-    "mtime": 1787260763.3738172,
-    "ast_hash": "0d64dedf9a3958d7efcc9beaacd77b35",
+    "mtime": 1788407710.1589847,
+    "ast_hash": "277e93287fad4482f808db872d7e2c68",
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
@@ -550,8 +550,8 @@
     "semantic_hash": ""
   },
   "ui/src/types.ts": {
-    "mtime": 1788387846.5178912,
-    "ast_hash": "14a228aca77676d1cbb2a03e5225a957",
+    "mtime": 1788407350.4166162,
+    "ast_hash": "d431714bdc661a891f1e176759dbcd60",
     "semantic_hash": ""
   },
   "ui/tsconfig.json": {
@@ -620,8 +620,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/basket.spec.ts": {
-    "mtime": 1786972806.666659,
-    "ast_hash": "f3231cf9cc95876364a4ccde070a6eae",
+    "mtime": 1788407524.7668834,
+    "ast_hash": "ba40318ff92ef1cc52c7d5711a86a420",
     "semantic_hash": ""
   },
   "ui/e2e/helpers.ts": {
@@ -660,8 +660,8 @@
     "semantic_hash": ""
   },
   "ui/tests/helpers/fixtures.ts": {
-    "mtime": 1787588145.0032377,
-    "ast_hash": "126338ea45569a03253185a1608b95cd",
+    "mtime": 1788407350.491615,
+    "ast_hash": "93ad1dbb48854854ce92e922d78d462a",
     "semantic_hash": ""
   },
   "ui/tests/helpers/server.ts": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/BasketScreen.test.tsx": {
-    "mtime": 1787260129.0132558,
-    "ast_hash": "46228189fc7f6ded58c1efad84535dc2",
+    "mtime": 1788407451.1240377,
+    "ast_hash": "3d9ec4276db4627d071ec7b3bd2671a1",
     "semantic_hash": ""
   },
   "ui/tests/screens/ResultsScreen.test.tsx": {
@@ -792,6 +792,56 @@
   "graphify-out/memory/query_20260902_180313_in_the_windows_application__when_i_release_a_new_v.md": {
     "mtime": 1788372193.56113,
     "ast_hash": "b7aab637df81ce8c0ac88e61094b2aee",
+    "semantic_hash": ""
+  },
+  "test-results/.last-run.json": {
+    "mtime": 1788407750.536696,
+    "ast_hash": "7bd20ed5e221dcbdc39803b60e9f2fcb",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-a-line-read--84d46--not-offered-for-refreshing/error-context.md": {
+    "mtime": 1788407750.5012484,
+    "ast_hash": "6dd32e8a01e40a7a07f4fdbe69595f3c",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-a-row-added--c0578-matrix-priced-by-both-shops/error-context.md": {
+    "mtime": 1788407746.3174646,
+    "ast_hash": "2299ddb8bf9f9dc35a6538b8ff527d23",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-dropping-the-12e65-the-line-and-offers-it-back/error-context.md": {
+    "mtime": 1788407748.9282143,
+    "ast_hash": "c257a44a7562839a74196f5793d90fe2",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-the-basket-t-95f2b-lines-from-the-first-screen/error-context.md": {
+    "mtime": 1788407749.9776495,
+    "ast_hash": "0447093c053c0f45a8a2f9ef63ac65bf",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-the-gap-to-f-2bea7-d-as-a-number-not-as-a-hint/error-context.md": {
+    "mtime": 1788407747.8872004,
+    "ast_hash": "17d35893986402cc98a6f8ee31a96b51",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-the-quantity-305d2-hanges-the-column-subtotals/error-context.md": {
+    "mtime": 1788407748.4096205,
+    "ast_hash": "28e5b852cfc799d10f1dbffe30ec9cd8",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-the-selected-3923b-ns-all-of-its-product-pages/error-context.md": {
+    "mtime": 1788407747.3611965,
+    "ast_hash": "a30e2457dd5821179c753465aafb17fe",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-the-single-s-b7feb-hipping-the-profile-charges/error-context.md": {
+    "mtime": 1788407746.8357346,
+    "ast_hash": "d705735aece8b97c9326b07c56cada3a",
+    "semantic_hash": ""
+  },
+  "test-results/ui-e2e-basket-two-perfumes-c150b-plit-plan-a-real-comparison/error-context.md": {
+    "mtime": 1788407749.4564145,
+    "ast_hash": "4d97f220cbe6e243ee9a84073bce35da",
     "semantic_hash": ""
   }
 }

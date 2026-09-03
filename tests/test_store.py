@@ -1432,6 +1432,7 @@ def test_basket_prices_has_no_row_for_a_line_no_site_prices(
     assert unpriced_id not in {p.basket_item_id for p in prices}
     assert len(prices) == 1
     assert prices[0].price_kurus == 12500
+    assert prices[0].product_url == "https://ornek-site.com/sauvage-5ml"
 
 
 def test_basket_prices_reports_only_the_latest_snapshot(

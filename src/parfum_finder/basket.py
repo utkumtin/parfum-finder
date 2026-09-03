@@ -576,6 +576,11 @@ def build_basket_rows(
                 line=line,
                 label=_label(line),
                 prices={site_id: p.price_kurus for site_id, p in found.items()},
+                product_urls={
+                    site_id: p.product_url
+                    for site_id, p in found.items()
+                    if p.product_url
+                },
                 age_days=max(ages) if ages else None,
             )
         )

@@ -66,4 +66,6 @@ class BasketRow:
     label: str
     # Unit price per site, only for the sites that can actually supply this line.
     prices: dict[str, int]
+    # Product page per site, when the priced variant has a usable URL.
+    product_urls: dict[str, str]
     age_days: int | None

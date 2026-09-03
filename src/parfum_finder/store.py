@@ -729,6 +729,7 @@ class BasketPrice:
     price_kurus: int
     in_stock: bool
     fetched_at: str
+    product_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -798,7 +799,7 @@ def basket_prices(conn: sqlite3.Connection) -> list[BasketPrice]:
     """
     rows = conn.execute(
         "SELECT b.basket_item_id, lp.site_id, lp.price_kurus, lp.in_stock,"
-        " lp.fetched_at"
+        " lp.fetched_at, lp.product_url"
         " FROM basket_items b"
         " LEFT JOIN latest_prices lp"
         "        ON lp.perfume_id  = b.perfume_id"
@@ -812,6 +813,7 @@ def basket_prices(conn: sqlite3.Connection) -> list[BasketPrice]:
             price_kurus=row["price_kurus"],
             in_stock=bool(row["in_stock"]),
             fetched_at=row["fetched_at"],
+            product_url=row["product_url"],
         )
         for row in rows
         if row["site_id"] is not None
