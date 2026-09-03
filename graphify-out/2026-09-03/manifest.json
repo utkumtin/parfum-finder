@@ -495,8 +495,8 @@
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
-    "mtime": 1788410582.4712603,
-    "ast_hash": "992a3757cb926b04dad6fe4160e73f17",
+    "mtime": 1788411403.801448,
+    "ast_hash": "5403db99421c1c0d5dae675671a0db42",
     "semantic_hash": ""
   },
   "ui/src/api/client.ts": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1787588144.9282389,
-    "ast_hash": "42da0c87dd78de2c39e9e7ab06c0f55e",
+    "mtime": 1788411413.1483016,
+    "ast_hash": "c40ed33a42b78f082e730391d905f4c3",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -630,8 +630,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/search.spec.ts": {
-    "mtime": 1788410311.6364806,
-    "ast_hash": "9924d7da448e669acd6aeaa2fcbc4b5a",
+    "mtime": 1788411501.3159206,
+    "ast_hash": "49af63b6055f5d4fe30fca43548f1f3a",
     "semantic_hash": ""
   },
   "ui/playwright.config.ts": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1788410311.5644817,
-    "ast_hash": "1042e987b48c8c02df7085c7581f4ad6",
+    "mtime": 1788411312.7968738,
+    "ast_hash": "51a1f22d01da3e1a0e7344395273822e",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/WishlistScreen.tsx": {
-    "mtime": 1788392218.4106815,
-    "ast_hash": "85554d09fcddd8beba9811e13f35c545",
+    "mtime": 1788411451.3427033,
+    "ast_hash": "b061366805bcdfd02b801832f601abda",
     "semantic_hash": ""
   },
   "ui/tests/components/BookmarkIcon.test.tsx": {

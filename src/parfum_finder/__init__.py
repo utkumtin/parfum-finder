@@ -5,5 +5,5 @@ Includes a shopping-cart optimizer that accounts for per-site shipping threshold
 
 from parfum_finder.cli import main
 
-__version__ = "0.2.5"
+__version__ = "0.3.0"
 __all__ = ["main"]
