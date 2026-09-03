@@ -38,6 +38,10 @@ export function WishlistScreen({
   pendingWishlistKeys,
   config,
   siteNames,
+  query: controlledQuery,
+  onQueryChange,
+  sort: controlledSort,
+  onSortChange,
   notify,
   onBasketChanged,
   onWishlistChanged,
@@ -48,6 +52,10 @@ export function WishlistScreen({
   pendingWishlistKeys: Set<string>;
   config: AppConfig;
   siteNames: Record<string, string>;
+  query?: string;
+  onQueryChange?: (query: string) => void;
+  sort?: "price" | "per_ml" | null;
+  onSortChange?: (sort: "price" | "per_ml" | null) => void;
   notify: (message: string, kind: "info" | "error") => void;
   onBasketChanged: () => void;
   onWishlistChanged: () => void | Promise<void>;
@@ -55,13 +63,17 @@ export function WishlistScreen({
 }) {
   const [basketKeys, setBasketKeys] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState<ResultRow | null>(null);
-  const [sort, setSort] = useState<"price" | "per_ml" | null>(null);
-  const [query, setQuery] = useState("");
+  const [localSort, setLocalSort] = useState<"price" | "per_ml" | null>(null);
+  const [localQuery, setLocalQuery] = useState("");
   const [openRows, setOpenRows] = useState<Set<string>>(new Set());
   const [refreshId, setRefreshId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState<string | null>(null);
   const [justRefreshed, setJustRefreshed] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const sort = controlledSort === undefined ? localSort : controlledSort;
+  const updateSort = onSortChange ?? setLocalSort;
+  const query = controlledQuery === undefined ? localQuery : controlledQuery;
+  const updateQuery = onQueryChange ?? setLocalQuery;
 
   const toggleRow = (row: WishlistRow) => {
     const key = wishlistKey(row);
@@ -258,7 +270,7 @@ export function WishlistScreen({
                   value={query}
                   aria-label="İstek listesinde ara"
                   placeholder="Ürün veya mağaza ara"
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => updateQuery(event.target.value)}
                 />
                 {query.length > 0 && (
                   <button
@@ -266,7 +278,7 @@ export function WishlistScreen({
                     className="wishlist-filter-clear"
                     aria-label="Aramayı temizle"
                     onClick={() => {
-                      setQuery("");
+                      updateQuery("");
                       searchInputRef.current?.focus();
                     }}
                   >
@@ -310,14 +322,14 @@ export function WishlistScreen({
                     <th
                       className="num sortable"
                       aria-sort={sort === "price" ? "ascending" : "none"}
-                      onClick={() => setSort((current) => (current === "price" ? null : "price"))}
+                      onClick={() => updateSort(sort === "price" ? null : "price")}
                     >
                       Fiyat<span className="sort-arrow" aria-hidden="true">▲</span>
                     </th>
                     <th
                       className="num sortable"
                       aria-sort={sort === "per_ml" ? "ascending" : "none"}
-                      onClick={() => setSort((current) => (current === "per_ml" ? null : "per_ml"))}
+                      onClick={() => updateSort(sort === "per_ml" ? null : "per_ml")}
                     >
                       ₺/ml<span className="sort-arrow" aria-hidden="true">▲</span>
                     </th>

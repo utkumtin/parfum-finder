@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
-    "mtime": 1788410582.551259,
-    "ast_hash": "e1964ec8c561609e8be7908d476cc6bb",
+    "mtime": 1788410727.1940053,
+    "ast_hash": "c65c2a6da8e09d902ad69a2dfda9c58e",
     "semantic_hash": ""
   },
   "ui/src/types.ts": {
@@ -685,8 +685,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/SearchScreen.test.tsx": {
-    "mtime": 1788410582.629258,
-    "ast_hash": "3f33372ce31601663b4532ade3e99fbd",
+    "mtime": 1788410727.2640042,
+    "ast_hash": "16d6c1510cd6b26a3c182a4e70a43eeb",
     "semantic_hash": ""
   },
   "ui/tests/setup.ts": {

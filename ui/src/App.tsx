@@ -7,7 +7,15 @@ import { ResultsScreen } from "./screens/ResultsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
 import { WishlistScreen } from "./screens/WishlistScreen";
 import { wishlistKey } from "./lib/wishlist";
-import type { AppConfig, ResultRow, SearchStart, SiteSummary, UpdateInfo, WishlistRow } from "./types";
+import type {
+  AppConfig,
+  ResultRow,
+  SearchStart,
+  SiteSummary,
+  SortKey,
+  UpdateInfo,
+  WishlistRow,
+} from "./types";
 
 type View = "search" | "results" | "wishlist" | "basket";
 
@@ -24,6 +32,9 @@ export function App() {
   const [view, setView] = useState<View>("search");
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState<SearchStart | null>(null);
+  const [resultsSort, setResultsSort] = useState<SortKey | null>(null);
+  const [wishlistQuery, setWishlistQuery] = useState("");
+  const [wishlistSort, setWishlistSort] = useState<"price" | "per_ml" | null>(null);
   const [wishlist, setWishlist] = useState<WishlistRow[]>([]);
   const [wishlistReady, setWishlistReady] = useState(false);
   const [pendingWishlistKeys, setPendingWishlistKeys] = useState<Set<string>>(
@@ -247,6 +258,8 @@ export function App() {
             text={searchText}
             onTextChange={setSearchText}
             onStarted={(start) => {
+              setSearchText("");
+              setResultsSort(null);
               setSearch(start);
               setView("results");
             }}
@@ -266,6 +279,8 @@ export function App() {
               searches={search.searches}
               rejected={search.rejected}
               config={config}
+              sort={resultsSort}
+              onSortChange={setResultsSort}
               onBasketChanged={onBasketChanged}
               notify={notify}
               wishlist={wishlist}
@@ -281,6 +296,10 @@ export function App() {
             pendingWishlistKeys={pendingWishlistKeys}
             config={config}
             siteNames={siteNames}
+            query={wishlistQuery}
+            onQueryChange={setWishlistQuery}
+            sort={wishlistSort}
+            onSortChange={setWishlistSort}
             notify={notify}
             onBasketChanged={onBasketChanged}
             onWishlistChanged={reloadWishlist}

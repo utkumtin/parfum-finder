@@ -221,6 +221,62 @@ describe("App tabs", () => {
     );
   });
 
+  it("clears the search line after starting a search", async () => {
+    server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
+    render(<App />);
+    const field = await screen.findByLabelText("Aranacak parfümler");
+
+    await userEvent.type(field, "Dior Sauvage EDP{Enter}");
+    await screen.findByRole("heading", { name: "Dior Sauvage EDP" });
+    await userEvent.click(screen.getByRole("button", { name: "Arama" }));
+
+    expect(screen.getByLabelText("Aranacak parfümler")).toHaveValue("");
+  });
+
+  it("keeps the wishlist sort when switching screens", async () => {
+    const row = { ...resultRow(), prices: { "site-a": 25000 } };
+    server.reply("GET /api/wishlist", { rows: [row] });
+    render(<App />);
+    await screen.findByRole("button", { name: /^Ara$/ });
+
+    await userEvent.click(screen.getByRole("button", { name: "İstek listesi" }));
+    const price = await screen.findByRole("columnheader", { name: /Fiyat/ });
+    await userEvent.click(price);
+    expect(price).toHaveAttribute("aria-sort", "ascending");
+
+    await userEvent.click(screen.getByRole("button", { name: "Arama" }));
+    await userEvent.click(screen.getByRole("button", { name: "İstek listesi" }));
+
+    expect(await screen.findByRole("columnheader", { name: /Fiyat/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+  });
+
+  it("keeps the results sort when switching screens", async () => {
+    server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
+    server.on("GET /api/results/:searchId", () => ({
+      body: { rows: [resultRow()], hidden_out_of_stock: 0, finished: true },
+    }));
+    render(<App />);
+    await userEvent.type(
+      await screen.findByLabelText("Aranacak parfümler"),
+      "Dior Sauvage EDP{Enter}",
+    );
+
+    const price = await screen.findByRole("columnheader", { name: /₺\/ml/ });
+    await userEvent.click(price);
+    await waitFor(() => expect(price).toHaveAttribute("aria-sort", "ascending"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Arama" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sonuçlar" }));
+
+    expect(await screen.findByRole("columnheader", { name: /₺\/ml/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+  });
+
   it("opens the results the moment a search starts", async () => {
     server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
     render(<App />);

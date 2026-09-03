@@ -144,7 +144,7 @@ test("a second search of the same perfume is answered from storage", async ({
   await openApp(page);
   await search(page, "Dior Sauvage EDP");
   await tab(page, "Arama").click();
-  await expect(page.getByLabel("Aranacak parfümler")).toHaveValue("Dior Sauvage EDP");
+  await expect(page.getByLabel("Aranacak parfümler")).toHaveValue("");
   await search(page, "Dior Sauvage EDP");
 
   await expect(page.getByText(/Kayıttan geldi/)).toBeVisible();

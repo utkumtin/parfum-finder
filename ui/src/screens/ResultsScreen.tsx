@@ -115,6 +115,8 @@ export function ResultsScreen({
   searches,
   rejected,
   config,
+  sort: controlledSort,
+  onSortChange,
   onBasketChanged,
   notify,
   wishlist = [],
@@ -126,6 +128,8 @@ export function ResultsScreen({
   searches: AcceptedSearch[];
   rejected: string[];
   config: AppConfig;
+  sort?: SortKey | null;
+  onSortChange?: (sort: SortKey | null) => void;
   onBasketChanged: () => void;
   notify: (message: string, kind: "info" | "error") => void;
   wishlist?: ResultRow[];
@@ -135,7 +139,7 @@ export function ResultsScreen({
 }) {
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [finished, setFinished] = useState(false);
-  const [sort, setSort] = useState<SortKey | null>(null);
+  const [localSort, setLocalSort] = useState<SortKey | null>(null);
   const [revision, setRevision] = useState(0);
   const [totals, setTotals] = useState({ sites: 0, perfumes: 0 });
   const [done, setDone] = useState(0);
@@ -147,6 +151,8 @@ export function ResultsScreen({
   // Which rows already sit in the basket, so the add button can show a
   // checkmark that reflects the basket's real state instead of a timer.
   const [basketKeys, setBasketKeys] = useState<Set<string>>(new Set());
+  const sort = controlledSort === undefined ? localSort : controlledSort;
+  const updateSort = onSortChange ?? setLocalSort;
 
   useEffect(() => {
     let cancelled = false;
@@ -319,7 +325,7 @@ export function ResultsScreen({
   // because the events that would move it are going to another socket.
   const scanOver = finished || streamRefusal !== null;
 
-  const toggleSort = (key: SortKey) => setSort((current) => (current === key ? null : key));
+  const toggleSort = (key: SortKey) => updateSort(sort === key ? null : key);
 
   return (
     <>
