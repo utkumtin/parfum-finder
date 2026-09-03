@@ -1,9 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WishlistScreen } from "../../src/screens/WishlistScreen";
 import { resultRow } from "../helpers/fixtures";
-import { DEFAULT_CONFIG, installFakeServer } from "../helpers/server";
+import { DEFAULT_CONFIG, installFakeServer, searchStart } from "../helpers/server";
 import type { ResultRow, WishlistRow } from "../../src/types";
 
 const SITE_NAMES = {
@@ -60,6 +60,7 @@ function renderScreen() {
       siteNames={SITE_NAMES}
       notify={vi.fn()}
       onBasketChanged={vi.fn()}
+      onWishlistChanged={vi.fn()}
       onWishlistToggle={vi.fn()}
     />,
   );
@@ -91,6 +92,7 @@ function renderSearchRows() {
       siteNames={SITE_NAMES}
       notify={vi.fn()}
       onBasketChanged={vi.fn()}
+      onWishlistChanged={vi.fn()}
       onWishlistToggle={vi.fn()}
     />,
   );
@@ -202,6 +204,7 @@ describe("WishlistScreen shop prices accordion", () => {
         siteNames={SITE_NAMES}
         notify={vi.fn()}
         onBasketChanged={vi.fn()}
+        onWishlistChanged={vi.fn()}
         onWishlistToggle={vi.fn()}
       />,
     );
@@ -246,6 +249,7 @@ describe("WishlistScreen shop prices accordion", () => {
         siteNames={SITE_NAMES}
         notify={vi.fn()}
         onBasketChanged={vi.fn()}
+        onWishlistChanged={vi.fn()}
         onWishlistToggle={onWishlistToggle}
       />,
     );
@@ -257,5 +261,63 @@ describe("WishlistScreen shop prices accordion", () => {
 
     expect(onWishlistToggle).toHaveBeenCalledOnce();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("refreshes only the stale wishlist row selected by its arrow button", async () => {
+    const server = installFakeServer();
+    server.reply(
+      "POST /api/wishlist/refresh",
+      searchStart(["Dior Sauvage EDP"], { search_id: "wishlist-refresh-1" }),
+    );
+    const onWishlistChanged = vi.fn().mockResolvedValue(undefined);
+    const row = wishlistRow({
+      site_id: "site-a",
+      raw_title: "Dior Sauvage EDP 5 ml",
+      brand: "Dior",
+      name: "Sauvage",
+      concentration: "EDP",
+      size_ml_x10: 50,
+      age_days: DEFAULT_CONFIG.stale_price_days,
+    });
+    render(
+      <WishlistScreen
+        rows={[row]}
+        wishlistReady
+        pendingWishlistKeys={new Set()}
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+        onBasketChanged={vi.fn()}
+        onWishlistChanged={onWishlistChanged}
+        onWishlistToggle={vi.fn()}
+      />,
+    );
+
+    const refresh = screen.getByRole("button", {
+      name: "Dior Sauvage EDP 5 ml fiyatları yenilensin",
+    });
+    expect(refresh).toBeEnabled();
+
+    await userEvent.click(refresh);
+
+    await waitFor(() =>
+      expect(server.requestsTo("POST", "/api/wishlist/refresh")).toHaveLength(1),
+    );
+    expect(server.requestsTo("POST", "/api/wishlist/refresh")[0]?.body).toEqual({
+      site_id: "site-a",
+      brand: "Dior",
+      name: "Sauvage",
+      concentration: "EDP",
+      size_ml_x10: 50,
+    });
+    expect(refresh).toBeDisabled();
+    expect(refresh).toHaveClass("spinning");
+
+    const socket = await server.socket("/api/search/wishlist-refresh-1");
+    socket.emit({ type: "scan_finished", error_count: 0 });
+
+    await waitFor(() => expect(onWishlistChanged).toHaveBeenCalledOnce());
+    await waitFor(() => expect(refresh).not.toHaveClass("spinning"));
+    expect(refresh).toBeDisabled();
   });
 });

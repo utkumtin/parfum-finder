@@ -470,8 +470,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/api/app.py": {
-    "mtime": 1788388068.330723,
-    "ast_hash": "0d4939ec41af61b2bc9f57d106f8d5ee",
+    "mtime": 1788405613.85296,
+    "ast_hash": "74953fe78e322c3b364a198513882286",
     "semantic_hash": ""
   },
   "src/parfum_finder/api/serialize.py": {
@@ -485,8 +485,8 @@
     "semantic_hash": ""
   },
   "tests/test_api.py": {
-    "mtime": 1788388241.1112723,
-    "ast_hash": "4cb67793fe59aef25ef25deceb527f3c",
+    "mtime": 1788406015.8865955,
+    "ast_hash": "80a600009b8efb5b822c140f047d155e",
     "semantic_hash": ""
   },
   "ui/package.json": {
@@ -495,13 +495,13 @@
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
-    "mtime": 1788387846.58989,
-    "ast_hash": "62e18a041154baab809f0aaf3eb45407",
+    "mtime": 1788392169.9513354,
+    "ast_hash": "f7033b72f64b8da9c3556c07eada0d1a",
     "semantic_hash": ""
   },
   "ui/src/api/client.ts": {
-    "mtime": 1787427413.761563,
-    "ast_hash": "981f2ae40f1c163ceee525471b8b4d0c",
+    "mtime": 1788392161.8314452,
+    "ast_hash": "78ecd9b78a74b6f0116d29c17242b5db",
     "semantic_hash": ""
   },
   "ui/src/api/ws.ts": {
@@ -630,8 +630,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/search.spec.ts": {
-    "mtime": 1788390248.4845672,
-    "ast_hash": "3bb7092f256f484ccce6ac2893e2897d",
+    "mtime": 1788391294.4420469,
+    "ast_hash": "1f6a6de72474b81d7c9ca8c277938c29",
     "semantic_hash": ""
   },
   "ui/playwright.config.ts": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/WishlistScreen.tsx": {
-    "mtime": 1788389093.785601,
-    "ast_hash": "a61a6c038d46f36de1405005b018a7be",
+    "mtime": 1788392218.4106815,
+    "ast_hash": "85554d09fcddd8beba9811e13f35c545",
     "semantic_hash": ""
   },
   "ui/tests/components/BookmarkIcon.test.tsx": {
@@ -740,8 +740,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/WishlistScreen.test.tsx": {
-    "mtime": 1788389114.3483255,
-    "ast_hash": "adb2b8ebced6eb6fcb981827bb4a3c9d",
+    "mtime": 1788392303.4525335,
+    "ast_hash": "805eab6a680a57e763100cdb3372319c",
     "semantic_hash": ""
   },
   "ui/tests/lib/wishlist.test.ts": {

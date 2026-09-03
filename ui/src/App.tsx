@@ -134,6 +134,10 @@ export function App() {
   }, [notify]);
 
   const onBasketChanged = useCallback(() => setBasketVersion((v) => v + 1), []);
+  const reloadWishlist = useCallback(async () => {
+    const response = await api.wishlist();
+    setWishlist(response.rows);
+  }, []);
   const onWishlistToggle = useCallback(
     async (row: ResultRow) => {
       const key = wishlistKey(row);
@@ -273,6 +277,7 @@ export function App() {
             siteNames={siteNames}
             notify={notify}
             onBasketChanged={onBasketChanged}
+            onWishlistChanged={reloadWishlist}
             onWishlistToggle={onWishlistToggle}
           />
         )}

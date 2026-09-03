@@ -103,6 +103,12 @@ export const api = {
       json: wishlistIdentity(row),
     }),
 
+  refreshWishlistItem: (row: ResultRow) =>
+    request<SearchStart>("/api/wishlist/refresh", {
+      method: "POST",
+      json: wishlistIdentity(row),
+    }),
+
   basket: () => request<BasketResponse>("/api/basket"),
 
   addBasketItem: (item: {

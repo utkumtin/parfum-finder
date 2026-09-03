@@ -18,7 +18,7 @@ test("a search fills the table from the shops that stock the perfume", async ({
   await expect(table.getByText("Beta Dekant").first()).toBeVisible();
 });
 
-test("the results and wishlist action buttons stay inside their tables", async ({
+test("the results and wishlist row content stays inside its tables", async ({
   page,
 }) => {
   await openApp(page);
@@ -51,6 +51,22 @@ test("the results and wishlist action buttons stay inside their tables", async (
     throw new Error("the wishlist table actions are not measurable");
   expect(wishlistActionBounds.x + wishlistActionBounds.width).toBeLessThanOrEqual(
     wishlistBounds.x + wishlistBounds.width,
+  );
+
+  // A new scan only renders "bugün". Use the longest supported relative age
+  // here so the layout check does not need a database record to sit for weeks.
+  const wishlistAgeCell = wishlistTable.locator(".age-cell").first();
+  const wishlistAgeText = wishlistAgeCell.locator(":scope > *");
+  await wishlistAgeText.evaluate((label) => {
+    label.textContent = "2 hafta önce";
+  });
+  const wishlistAgeBounds = await wishlistAgeCell.boundingBox();
+  const wishlistAgeTextBounds = await wishlistAgeText.boundingBox();
+  if (wishlistAgeBounds === null || wishlistAgeTextBounds === null)
+    throw new Error("the wishlist freshness label is not measurable");
+  expect(wishlistAgeTextBounds.x).toBeGreaterThanOrEqual(wishlistAgeBounds.x);
+  expect(wishlistAgeTextBounds.x + wishlistAgeTextBounds.width).toBeLessThanOrEqual(
+    wishlistAgeBounds.x + wishlistAgeBounds.width,
   );
 
   const wishlistSearch = page.getByRole("searchbox", { name: "İstek listesinde ara" });

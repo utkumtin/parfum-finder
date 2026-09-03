@@ -1337,7 +1337,7 @@ table.rows .wishlist-offers-row td {
 .wishlist-offer-list li {
   display: grid;
   align-items: center;
-  grid-template-columns: 33fr 16fr 9fr 14fr 12fr 7fr 9fr;
+  grid-template-columns: 27fr 16fr 9fr 14fr 12fr 10fr 12fr;
 }
 .wishlist-offers-head {
   padding: 0.4375rem 0;

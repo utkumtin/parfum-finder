@@ -29,6 +29,7 @@ import sqlite3
 from collections.abc import AsyncGenerator, AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, cast
 from uuid import uuid4
@@ -92,6 +93,7 @@ from parfum_finder.store import (
     remove_wishlist_item,
     save_wishlist_item,
     set_basket_qty,
+    snapshot_age_days,
     wishlist_rows,
 )
 from parfum_finder.updater import UpdateDownload, check_for_update
@@ -465,6 +467,38 @@ def create_app(
         await asyncio.to_thread(_remove_wishlist_item, app_state.db_path, body)
         return Response(status_code=204)
 
+    @app.post("/api/wishlist/refresh", dependencies=[auth])
+    async def start_wishlist_refresh(
+        request: Request, body: WishlistIdentityRequest
+    ) -> SearchStartResponse:
+        app_state = get_state(request)
+        rows = await asyncio.to_thread(_read_wishlist, app_state.db_path)
+        identity = body.model_dump()
+        if not any(
+            all(row[field] == value for field, value in identity.items())
+            for row in rows
+        ):
+            raise HTTPException(status_code=404, detail="no such wishlist item")
+
+        text = " ".join(
+            part for part in (body.brand, body.name, body.concentration) if part
+        )
+        try:
+            query = parse_query(text)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+        search_id = uuid4().hex
+        search = Search(index=0, text=text, query=query)
+        app_state.scan_sessions[search_id] = ScanSession(
+            id=search_id, searches=[search], rejected=[], force=True
+        )
+        return SearchStartResponse(
+            search_id=search_id,
+            rejected=[],
+            searches=[AcceptedSearch(index=0, text=text)],
+        )
+
     # -- basket ----------------------------------------------------------
 
     @app.post("/api/basket/items", dependencies=[auth])
@@ -738,6 +772,28 @@ def _read_wishlist(db_path: Path) -> list[dict[str, Any]]:
                 name=row["name"],
                 concentration=row["concentration"],
             )
+            selected = next(
+                (
+                    price
+                    for price in prices
+                    if price.site_id == row["site_id"]
+                    and price.size_ml_x10 == row["size_ml_x10"]
+                ),
+                None,
+            )
+            if selected is not None:
+                row.update(
+                    raw_title=selected.raw_title,
+                    product_url=selected.product_url,
+                    price_kurus=selected.price_kurus,
+                    price_per_ml_kurus=str(
+                        Decimal(selected.price_kurus * 10)
+                        / Decimal(selected.size_ml_x10)
+                    ),
+                    in_stock=selected.in_stock,
+                    match_score=selected.match_score,
+                    age_days=snapshot_age_days(selected.fetched_at),
+                )
             row["prices"] = {
                 price.site_id: price.price_kurus
                 for price in prices

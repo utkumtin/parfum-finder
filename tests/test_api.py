@@ -570,6 +570,61 @@ def test_wishlist_returns_other_shops_prices_for_the_exact_saved_variation(
         assert wishlist_row["prices"] == {"site-a": 25_000, "site-b": 21_000}
 
 
+def test_wishlist_refresh_scans_only_the_saved_perfume_and_updates_its_row(
+    sites_dir: Path, db_path: Path
+) -> None:
+    _write_profile(sites_dir, id="site-a", name="Site A")
+    runner = _static_runner({"site-a": _ok_result("site-a", price_kurus=31_000)})
+    saved = _wishlist_row(age_days=30)
+    identity = {
+        key: saved[key]
+        for key in ("site_id", "brand", "name", "concentration", "size_ml_x10")
+    }
+
+    for c, token in _client(sites_dir, db_path, runner):
+        assert (
+            c.put("/api/wishlist/items", headers=_auth(token), json=saved).status_code
+            == 204
+        )
+
+        started = c.post("/api/wishlist/refresh", headers=_auth(token), json=identity)
+        assert started.status_code == 200
+        assert started.json()["searches"] == [{"index": 0, "text": "dior sauvage EDP"}]
+        assert c.get("/api/searches/recent", headers=_auth(token)).json() == []
+
+        search_id = started.json()["search_id"]
+        with c.websocket_connect(f"/api/search/{search_id}?token={token}") as ws:
+            while ws.receive_json()["type"] != "scan_finished":
+                pass
+
+        refreshed = c.get("/api/wishlist", headers=_auth(token)).json()["rows"][0]
+        assert refreshed["price_kurus"] == 31_000
+        assert refreshed["price_per_ml_kurus"] == "6200"
+        assert refreshed["age_days"] == 0
+        assert refreshed["prices"] == {"site-a": 31_000}
+
+
+def test_wishlist_refresh_rejects_an_unknown_item(
+    sites_dir: Path, db_path: Path
+) -> None:
+    for c, token in _client(sites_dir, db_path, _static_runner({})):
+        response = c.post(
+            "/api/wishlist/refresh",
+            headers=_auth(token),
+            json={
+                key: _wishlist_row()[key]
+                for key in (
+                    "site_id",
+                    "brand",
+                    "name",
+                    "concentration",
+                    "size_ml_x10",
+                )
+            },
+        )
+        assert response.status_code == 404
+
+
 def test_wishlist_rejects_an_invalid_variant_size(
     sites_dir: Path, db_path: Path
 ) -> None:

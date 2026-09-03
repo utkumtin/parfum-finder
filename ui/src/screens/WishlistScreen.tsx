@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api/client";
+import { refusalReason, useEventStream } from "../api/ws";
 import { AddButton } from "../components/AddButton";
 import { Badge } from "../components/Badge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -7,7 +8,22 @@ import { WishlistButton } from "../components/WishlistButton";
 import { basketKey } from "../lib/basket";
 import { formatAge, formatMl, formatPerMl, formatPrice } from "../lib/format";
 import { wishlistKey } from "../lib/wishlist";
-import type { AppConfig, ResultRow, WishlistRow } from "../types";
+import type { AppConfig, ResultRow, ScanEvent, WishlistRow } from "../types";
+
+function RefreshIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path d="M13.5 1.8v3.2h-3.2z" fill="currentColor" />
+    </svg>
+  );
+}
 
 function normalizeSearchText(value: string): string {
   return value
@@ -24,6 +40,7 @@ export function WishlistScreen({
   siteNames,
   notify,
   onBasketChanged,
+  onWishlistChanged,
   onWishlistToggle,
 }: {
   rows: WishlistRow[];
@@ -33,6 +50,7 @@ export function WishlistScreen({
   siteNames: Record<string, string>;
   notify: (message: string, kind: "info" | "error") => void;
   onBasketChanged: () => void;
+  onWishlistChanged: () => void | Promise<void>;
   onWishlistToggle: (row: ResultRow) => void | Promise<void>;
 }) {
   const [basketKeys, setBasketKeys] = useState<Set<string>>(new Set());
@@ -40,6 +58,9 @@ export function WishlistScreen({
   const [sort, setSort] = useState<"price" | "per_ml" | null>(null);
   const [query, setQuery] = useState("");
   const [openRows, setOpenRows] = useState<Set<string>>(new Set());
+  const [refreshId, setRefreshId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState<string | null>(null);
+  const [justRefreshed, setJustRefreshed] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const toggleRow = (row: WishlistRow) => {
@@ -111,6 +132,59 @@ export function WishlistScreen({
       cancelled = true;
     };
   }, []);
+
+  const finishRefresh = useCallback(async () => {
+    if (refreshKey === null) return;
+    try {
+      await onWishlistChanged();
+      setJustRefreshed((current) => new Set(current).add(refreshKey));
+    } catch (error) {
+      notify(error instanceof ApiError ? error.message : String(error), "error");
+    } finally {
+      setRefreshId(null);
+      setRefreshKey(null);
+    }
+  }, [notify, onWishlistChanged, refreshKey]);
+
+  const onRefreshEvent = useCallback(
+    (event: ScanEvent) => {
+      if (event.type === "scan_finished") void finishRefresh();
+    },
+    [finishRefresh],
+  );
+
+  const onRefreshClosed = useCallback(
+    (code: number) => {
+      const reason = refusalReason(code);
+      if (reason === null) return;
+      notify(reason, "error");
+      setRefreshId(null);
+      setRefreshKey(null);
+    },
+    [notify],
+  );
+
+  useEventStream<ScanEvent>(
+    refreshId === null ? null : `/api/search/${refreshId}`,
+    onRefreshEvent,
+    onRefreshClosed,
+  );
+
+  const startRefresh = useCallback(
+    async (row: WishlistRow) => {
+      if (refreshKey !== null) return;
+      const key = wishlistKey(row);
+      setRefreshKey(key);
+      try {
+        const start = await api.refreshWishlistItem(row);
+        setRefreshId(start.search_id);
+      } catch (error) {
+        notify(error instanceof ApiError ? error.message : String(error), "error");
+        setRefreshKey(null);
+      }
+    },
+    [notify, refreshKey],
+  );
 
   const addToBasket = useCallback(
     async (row: ResultRow, confirmed: boolean): Promise<boolean> => {
@@ -220,13 +294,13 @@ export function WishlistScreen({
                 <div className="core">
                   <table className="rows wishlist-rows">
                 <colgroup>
-                  <col style={{ width: "33%" }} />
+                  <col style={{ width: "27%" }} />
                   <col style={{ width: "16%" }} />
                   <col style={{ width: "9%" }} />
                   <col style={{ width: "14%" }} />
                   <col style={{ width: "12%" }} />
-                  <col style={{ width: "7%" }} />
-                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "12%" }} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -255,6 +329,9 @@ export function WishlistScreen({
                   {sortedRows.map((row, index) => {
                     const key = wishlistKey(row);
                     const isOpen = openRows.has(key);
+                    const spinning = refreshKey === key;
+                    const fresh =
+                      row.age_days < config.stale_price_days || justRefreshed.has(key);
                     const panelId = `wishlist-offers-${index}`;
                     const otherPrices = Object.entries(row.prices)
                       .filter(([siteId]) => siteId !== row.site_id)
@@ -306,11 +383,25 @@ export function WishlistScreen({
                             pending={pendingWishlistKeys.has(wishlistKey(row))}
                             onToggle={() => void onWishlistToggle(row)}
                           />
-                          <AddButton
-                            onAdd={() => addToBasket(row, false)}
-                            inBasket={basketKeys.has(basketKey(row))}
-                          />
-                        </div>
+                           <AddButton
+                             onAdd={() => addToBasket(row, false)}
+                             inBasket={basketKeys.has(basketKey(row))}
+                           />
+                           <button
+                             type="button"
+                             className={`refresh-button${spinning ? " spinning" : ""}`}
+                             disabled={refreshKey !== null || fresh}
+                             aria-label={`${row.raw_title} fiyatları yenilensin`}
+                             title={
+                               fresh
+                                 ? "Fiyatlar güncel"
+                                 : "Bu satırın fiyatlarını yenile"
+                             }
+                             onClick={() => void startRefresh(row)}
+                           >
+                             <RefreshIcon />
+                           </button>
+                         </div>
                       </td>
                     </tr>
                     <tr className="t-acc wishlist-offers-row" data-open={String(isOpen)}>
