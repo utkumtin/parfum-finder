@@ -208,6 +208,19 @@ describe("App tabs", () => {
     expect(screen.getByRole("button", { name: "Sonuçlar" })).toBeDisabled();
   });
 
+  it("keeps the typed search line when navigating away and back", async () => {
+    render(<App />);
+    const field = await screen.findByLabelText("Aranacak parfümler");
+
+    await userEvent.type(field, "Dior Sauvage EDP - Creed Aventus");
+    await userEvent.click(screen.getByRole("button", { name: "Sepet" }));
+    await userEvent.click(screen.getByRole("button", { name: "Arama" }));
+
+    expect(screen.getByLabelText("Aranacak parfümler")).toHaveValue(
+      "Dior Sauvage EDP - Creed Aventus",
+    );
+  });
+
   it("opens the results the moment a search starts", async () => {
     server.reply("POST /api/search", searchStart(["Dior Sauvage EDP"]));
     render(<App />);

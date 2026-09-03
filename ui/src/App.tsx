@@ -22,6 +22,7 @@ export function App() {
   const [siteNames, setSiteNames] = useState<Record<string, string>>({});
   const [startupError, setStartupError] = useState<string | null>(null);
   const [view, setView] = useState<View>("search");
+  const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState<SearchStart | null>(null);
   const [wishlist, setWishlist] = useState<WishlistRow[]>([]);
   const [wishlistReady, setWishlistReady] = useState(false);
@@ -243,6 +244,8 @@ export function App() {
           <SearchScreen
             config={config}
             sites={sites}
+            text={searchText}
+            onTextChange={setSearchText}
             onStarted={(start) => {
               setSearch(start);
               setView("results");

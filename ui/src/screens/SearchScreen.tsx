@@ -42,13 +42,17 @@ function daysSince(iso: string): number {
 export function SearchScreen({
   config,
   sites,
+  text: controlledText,
+  onTextChange,
   onStarted,
 }: {
   config: AppConfig;
   sites: SiteSummary[];
+  text?: string;
+  onTextChange?: (text: string) => void;
   onStarted: (start: SearchStart, force: boolean) => void;
 }) {
-  const [text, setText] = useState("");
+  const [localText, setLocalText] = useState("");
   const [force, setForce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -59,6 +63,8 @@ export function SearchScreen({
     () => new Set(enabledSites.map((site) => site.id)),
   );
   const reducedMotion = useReducedMotion();
+  const text = controlledText ?? localText;
+  const updateText = onTextChange ?? setLocalText;
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +133,7 @@ export function SearchScreen({
             aria-label="Aranacak parfümler"
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => updateText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") void submit();
             }}
@@ -170,9 +176,7 @@ export function SearchScreen({
                 type="button"
                 className="chip-remove"
                 aria-label={`${part} aramadan çıkarılsın`}
-                onClick={() =>
-                  setText(parts.filter((_, j) => j !== i).join(" - "))
-                }
+                onClick={() => updateText(parts.filter((_, j) => j !== i).join(" - "))}
               >
                 ×
               </button>
@@ -268,7 +272,7 @@ export function SearchScreen({
               key={recent.text}
               type="button"
               className="recent"
-              onClick={() => setText(recent.text)}
+              onClick={() => updateText(recent.text)}
             >
               <span className="recent-text">{recent.text}</span>
               <span className="recent-when">
