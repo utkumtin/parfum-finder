@@ -8,6 +8,7 @@ import { ScanStatus } from "../components/ScanStatus";
 import { VerdictAddButton } from "../components/VerdictAddButton";
 import { WishlistButton } from "../components/WishlistButton";
 import { basketKey } from "../lib/basket";
+import { ensureBasket, useBasketSnapshot } from "../lib/basketStore";
 import { formatAge, formatMl, formatPerMl, formatPrice } from "../lib/format";
 import { wishlistKey } from "../lib/wishlist";
 import type {
@@ -148,27 +149,20 @@ export function ResultsScreen({
   const [missing, setMissing] = useState<Record<number, string[]>>({});
   const [confirming, setConfirming] = useState<ResultRow | null>(null);
   const [streamRefusal, setStreamRefusal] = useState<string | null>(null);
-  // Which rows already sit in the basket, so the add button can show a
-  // checkmark that reflects the basket's real state instead of a timer.
-  const [basketKeys, setBasketKeys] = useState<Set<string>>(new Set());
+  const [optimisticBasketKeys, setOptimisticBasketKeys] = useState<Set<string>>(
+    new Set(),
+  );
+  const basketSnapshot = useBasketSnapshot();
   const sort = controlledSort === undefined ? localSort : controlledSort;
   const updateSort = onSortChange ?? setLocalSort;
 
   useEffect(() => {
-    let cancelled = false;
-    api
-      .basket()
-      .then((response) => {
-        if (cancelled) return;
-        setBasketKeys(new Set(response.rows.map(basketKey)));
-      })
-      .catch(() => {
-        // Not fatal: rows just show "+" until the next mount re-checks.
-      });
-    return () => {
-      cancelled = true;
-    };
+    void ensureBasket().catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setOptimisticBasketKeys((current) => (current.size === 0 ? current : new Set()));
+  }, [basketSnapshot.data]);
 
   // Rows land once, all together, when the scan is done -- the same table
   // the TUI paints in one go rather than one site at a time. A block's
@@ -281,6 +275,14 @@ export function ResultsScreen({
     () => new Set(wishlist.map(wishlistKey)),
     [wishlist],
   );
+  const basketKeys = useMemo(
+    () =>
+      new Set([
+        ...(basketSnapshot.data?.rows ?? []).map(basketKey),
+        ...optimisticBasketKeys,
+      ]),
+    [basketSnapshot.data, optimisticBasketKeys],
+  );
 
   const addToBasket = useCallback(
     async (row: ResultRow, confirmed: boolean): Promise<boolean> => {
@@ -298,7 +300,7 @@ export function ResultsScreen({
         });
         setConfirming(null);
         notify(`${row.brand} ${row.name} sepete eklendi`, "info");
-        setBasketKeys((prev) => new Set(prev).add(basketKey(row)));
+        setOptimisticBasketKeys((current) => new Set(current).add(basketKey(row)));
         onBasketChanged();
         return true;
       } catch (e) {

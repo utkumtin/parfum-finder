@@ -1,4 +1,12 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ApiError, api } from "../api/client";
 import { refusalReason, useEventStream } from "../api/ws";
 import { AddButton } from "../components/AddButton";
@@ -6,6 +14,7 @@ import { Badge } from "../components/Badge";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { WishlistButton } from "../components/WishlistButton";
 import { basketKey } from "../lib/basket";
+import { useBasketSnapshot, type BasketSnapshot } from "../lib/basketStore";
 import { formatAge, formatMl, formatPerMl, formatPrice } from "../lib/format";
 import { wishlistKey } from "../lib/wishlist";
 import type { AppConfig, ResultRow, ScanEvent, WishlistRow } from "../types";
@@ -32,12 +41,72 @@ function normalizeSearchText(value: string): string {
     .replace(/\p{M}/gu, "");
 }
 
+const DEFAULT_ACC_COLLAPSE_MS = 250;
+const ACCORDION_FRAME_ALLOWANCE_MS = 32;
+
+function wishlistPanelId(key: string): string {
+  return `wishlist-offers-${encodeURIComponent(key)}`;
+}
+
+function parseCssTimeList(value: string | undefined): number[] {
+  if (typeof value !== "string") return [];
+  return value.split(",").flatMap((part) => {
+    const match = part.trim().match(/^(-?(?:\d+\.?\d*|\.\d+))(ms|s)$/i);
+    if (!match) return [];
+    const amount = Number(match[1]);
+    return [match[2]?.toLowerCase() === "s" ? amount * 1000 : amount];
+  });
+}
+
+function transitionTimeMs(styles: CSSStyleDeclaration | null): number | null {
+  if (styles === null) return null;
+  const durations = parseCssTimeList(styles.transitionDuration);
+  if (durations.length === 0) return null;
+  const delays = parseCssTimeList(styles.transitionDelay);
+  return Math.max(
+    0,
+    ...durations.map((duration, index) =>
+      Math.max(0, duration + (delays[index % Math.max(1, delays.length)] ?? 0)),
+    ),
+  );
+}
+
+function prefersReducedMotion(): boolean {
+  try {
+    const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    return media?.matches ?? false;
+  } catch {
+    return false;
+  }
+}
+
+function accordionCloseDelay(panel: HTMLElement | null): number {
+  if (prefersReducedMotion()) return 0;
+
+  const rootStyles = getComputedStyle(document.documentElement);
+  const fallback = parseCssTimeList(rootStyles.getPropertyValue("--acc-collapse"))[0];
+  const panelStyles = panel === null ? null : getComputedStyle(panel);
+  const panelTime = transitionTimeMs(panelStyles);
+  const panelTransition =
+    panelStyles === null || typeof panelStyles.transition !== "string"
+      ? null
+      : panelStyles.transition.trim();
+  if (
+    panelTime !== null &&
+    (panelTime > 0 || panelTransition === null || panelTransition.length > 0 || fallback === 0)
+  ) {
+    return panelTime;
+  }
+  return fallback ?? DEFAULT_ACC_COLLAPSE_MS;
+}
+
 export function WishlistScreen({
   rows,
   wishlistReady,
   pendingWishlistKeys,
   config,
   siteNames,
+  basketSnapshot: suppliedBasketSnapshot,
   query: controlledQuery,
   onQueryChange,
   sort: controlledSort,
@@ -52,6 +121,7 @@ export function WishlistScreen({
   pendingWishlistKeys: Set<string>;
   config: AppConfig;
   siteNames: Record<string, string>;
+  basketSnapshot?: BasketSnapshot;
   query?: string;
   onQueryChange?: (query: string) => void;
   sort?: "price" | "per_ml" | null;
@@ -61,29 +131,143 @@ export function WishlistScreen({
   onWishlistChanged: () => void | Promise<void>;
   onWishlistToggle: (row: ResultRow) => void | Promise<void>;
 }) {
-  const [basketKeys, setBasketKeys] = useState<Set<string>>(new Set());
+  const storeBasketSnapshot = useBasketSnapshot();
+  const basketSnapshot = suppliedBasketSnapshot ?? storeBasketSnapshot;
+  const basketKeys = useMemo(
+    () => new Set(basketSnapshot.data?.rows.map(basketKey) ?? []),
+    [basketSnapshot.data],
+  );
   const [confirming, setConfirming] = useState<ResultRow | null>(null);
   const [localSort, setLocalSort] = useState<"price" | "per_ml" | null>(null);
   const [localQuery, setLocalQuery] = useState("");
   const [openRows, setOpenRows] = useState<Set<string>>(new Set());
+  const [mountedRows, setMountedRows] = useState<Set<string>>(new Set());
   const [refreshId, setRefreshId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState<string | null>(null);
   const [justRefreshed, setJustRefreshed] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const closeTimersRef = useRef<Map<string, number>>(new Map());
+  const accordionGenerationsRef = useRef<Map<string, number>>(new Map());
+  const openRowsRef = useRef<Set<string>>(new Set());
+  const liveWishlistKeysRef = useRef<Set<string>>(new Set());
   const sort = controlledSort === undefined ? localSort : controlledSort;
   const updateSort = onSortChange ?? setLocalSort;
   const query = controlledQuery === undefined ? localQuery : controlledQuery;
   const updateQuery = onQueryChange ?? setLocalQuery;
 
+  const bumpAccordionGeneration = useCallback((key: string): number => {
+    const next = (accordionGenerationsRef.current.get(key) ?? 0) + 1;
+    accordionGenerationsRef.current.set(key, next);
+    return next;
+  }, []);
+
+  const cancelCloseTimer = useCallback((key: string) => {
+    const timer = closeTimersRef.current.get(key);
+    if (timer === undefined) return;
+    window.clearTimeout(timer);
+    closeTimersRef.current.delete(key);
+  }, []);
+
   const toggleRow = (row: WishlistRow) => {
     const key = wishlistKey(row);
-    setOpenRows((current) => {
+    if (openRowsRef.current.has(key)) {
+      const nextOpenRows = new Set(openRowsRef.current);
+      nextOpenRows.delete(key);
+      openRowsRef.current = nextOpenRows;
+      bumpAccordionGeneration(key);
+      setOpenRows((current) => {
+        if (!current.has(key)) return current;
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+      return;
+    }
+
+    cancelCloseTimer(key);
+    bumpAccordionGeneration(key);
+    const nextOpenRows = new Set(openRowsRef.current);
+    nextOpenRows.add(key);
+    openRowsRef.current = nextOpenRows;
+    setMountedRows((current) => {
+      if (current.has(key)) return current;
       const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      next.add(key);
+      return next;
+    });
+    setOpenRows((current) => {
+      if (current.has(key)) return current;
+      const next = new Set(current);
+      next.add(key);
       return next;
     });
   };
+
+  useLayoutEffect(() => {
+    liveWishlistKeysRef.current = new Set(rows.map(wishlistKey));
+  }, [rows]);
+
+  useEffect(() => {
+    const liveKeys = new Set(rows.map(wishlistKey));
+    for (const [key, timer] of closeTimersRef.current) {
+      if (!liveKeys.has(key)) {
+        window.clearTimeout(timer);
+        closeTimersRef.current.delete(key);
+      }
+    }
+    for (const key of accordionGenerationsRef.current.keys()) {
+      if (!liveKeys.has(key)) accordionGenerationsRef.current.delete(key);
+    }
+    openRowsRef.current = new Set(
+      [...openRowsRef.current].filter((key) => liveKeys.has(key)),
+    );
+    setOpenRows((current) => {
+      const next = new Set([...current].filter((key) => liveKeys.has(key)));
+      return next.size === current.size ? current : next;
+    });
+    setMountedRows((current) => {
+      const next = new Set([...current].filter((key) => liveKeys.has(key)));
+      return next.size === current.size ? current : next;
+    });
+  }, [rows]);
+
+  useEffect(() => {
+    const liveKeys = new Set(rows.map(wishlistKey));
+    for (const key of mountedRows) {
+      if (openRows.has(key) || !liveKeys.has(key) || closeTimersRef.current.has(key)) continue;
+      const generation = accordionGenerationsRef.current.get(key);
+      if (generation === undefined) continue;
+
+      const panel = document.getElementById(wishlistPanelId(key));
+      const closeDelay = accordionCloseDelay(panel?.parentElement ?? panel);
+      const timeout = closeDelay === 0 ? 0 : closeDelay + ACCORDION_FRAME_ALLOWANCE_MS;
+      const timer = window.setTimeout(() => {
+        closeTimersRef.current.delete(key);
+        if (
+          accordionGenerationsRef.current.get(key) !== generation ||
+          openRowsRef.current.has(key) ||
+          !liveWishlistKeysRef.current.has(key)
+        ) {
+          return;
+        }
+        setMountedRows((current) => {
+          if (!current.has(key)) return current;
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }, timeout);
+      closeTimersRef.current.set(key, timer);
+    }
+  }, [mountedRows, openRows, rows]);
+
+  useEffect(
+    () => () => {
+      for (const timer of closeTimersRef.current.values()) window.clearTimeout(timer);
+      closeTimersRef.current.clear();
+    },
+    [],
+  );
 
   const queryTokens = useMemo(
     () =>
@@ -131,19 +315,6 @@ export function WishlistScreen({
       })
       .map(({ row }) => row);
   }, [filteredRows, sort]);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .basket()
-      .then((response) => {
-        if (!cancelled) setBasketKeys(new Set(response.rows.map(basketKey)));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const finishRefresh = useCallback(async () => {
     if (refreshKey === null) return;
@@ -214,7 +385,6 @@ export function WishlistScreen({
         });
         setConfirming(null);
         notify(`${row.brand} ${row.name} sepete eklendi`, "info");
-        setBasketKeys((current) => new Set(current).add(basketKey(row)));
         onBasketChanged();
         return true;
       } catch (error) {
@@ -338,13 +508,14 @@ export function WishlistScreen({
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedRows.map((row, index) => {
+                  {sortedRows.map((row) => {
                     const key = wishlistKey(row);
                     const isOpen = openRows.has(key);
+                    const isMounted = mountedRows.has(key);
                     const spinning = refreshKey === key;
                     const fresh =
                       row.age_days < config.stale_price_days || justRefreshed.has(key);
-                    const panelId = `wishlist-offers-${index}`;
+                    const panelId = wishlistPanelId(key);
                     const otherPrices = Object.entries(row.prices)
                       .filter(([siteId]) => siteId !== row.site_id)
                       .sort((left, right) => left[1] - right[1]);
@@ -361,7 +532,7 @@ export function WishlistScreen({
                           type="button"
                           className="wishlist-accordion-trigger t-acc-head"
                           aria-expanded={isOpen}
-                          aria-controls={panelId}
+                          aria-controls={isMounted ? panelId : undefined}
                           aria-label={`${row.raw_title} diğer mağaza fiyatları`}
                           onClick={(event) => {
                             event.stopPropagation();
@@ -416,7 +587,7 @@ export function WishlistScreen({
                          </div>
                       </td>
                     </tr>
-                    <tr className="t-acc wishlist-offers-row" data-open={String(isOpen)}>
+                    {isMounted && <tr className="t-acc wishlist-offers-row" data-open={String(isOpen)}>
                       <td colSpan={7}>
                         <div className="t-acc-panel">
                           <div
@@ -470,6 +641,7 @@ export function WishlistScreen({
                         </div>
                       </td>
                     </tr>
+                    }
                     </Fragment>
                     );
                   })}

@@ -5,6 +5,12 @@ import { refusalReason, useEventStream } from "../api/ws";
 import { Badge } from "../components/Badge";
 import { ProgressBar } from "../components/ProgressBar";
 import {
+  ensureBasket,
+  invalidateBasket,
+  refreshBasket,
+  useBasketSnapshot,
+} from "../lib/basketStore";
+import {
   formatAge,
   formatMl,
   formatPrice,
@@ -13,7 +19,6 @@ import {
 import type {
   AppConfig,
   BasketRefreshEvent,
-  BasketResponse,
   BasketRow,
   SiteScenario,
   SplitLeg,
@@ -149,26 +154,20 @@ function Scenario({
 }
 
 export function BasketScreen({
-  version,
   config,
   siteNames,
   notify,
-  onBasketChanged,
 }: {
-  version: number;
   config: AppConfig;
   siteNames: Record<string, string>;
   notify: (message: string, kind: "info" | "error") => void;
-  // Adding and removing here changes the count on the Sepet tab, which is
-  // owned a level up. Without this the tab keeps the number it had before.
-  onBasketChanged: () => void;
 }) {
-  const [data, setData] = useState<BasketResponse | null>(null);
+  const basketSnapshot = useBasketSnapshot();
+  const data = basketSnapshot.data;
   const [refreshId, setRefreshId] = useState<string | null>(null);
   const [refreshTotal, setRefreshTotal] = useState(0);
   const [refreshDone, setRefreshDone] = useState(0);
   const [refreshNotices, setRefreshNotices] = useState<string[]>([]);
-  const [reloads, setReloads] = useState(0);
   // Which line the running refresh is for, or null when it is the whole
   // basket. Both go through the same session, so this is what tells the row
   // button to spin instead of the bar across the top.
@@ -182,27 +181,18 @@ export function BasketScreen({
   const [cartPreviewClosing, setCartPreviewClosing] = useState(false);
   const cartPreviewCloseTimer = useRef<number | null>(null);
 
+  useEffect(() => {
+    if (basketSnapshot.status === "idle") {
+      void ensureBasket().catch(() => {});
+    } else if (basketSnapshot.status === "ready") {
+      void refreshBasket().catch(() => {});
+    }
+  }, []);
+
   const siteName = useCallback(
     (id: string) => siteNames[id] ?? id,
     [siteNames],
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .basket()
-      .then((response) => {
-        if (!cancelled) setData(response);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) notify(e instanceof ApiError ? e.message : String(e), "error");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloads, version, notify]);
-
-  const reload = useCallback(() => setReloads((r) => r + 1), []);
 
   const openCartPreview = useCallback((leg: SplitLeg) => {
     if (cartPreviewCloseTimer.current !== null) {
@@ -269,11 +259,14 @@ export function BasketScreen({
           }
           setRefreshId(null);
           setRefreshItem(null);
-          reload();
+          invalidateBasket();
+          void ensureBasket().catch((e: unknown) => {
+            notify(e instanceof ApiError ? e.message : String(e), "error");
+          });
           break;
       }
     },
-    [refreshItem, reload, siteName],
+    [notify, refreshItem, siteName],
   );
 
   useEventStream<BasketRefreshEvent>(
@@ -319,8 +312,7 @@ export function BasketScreen({
       } else {
         await api.setBasketQty(row.basket_item_id, qty);
       }
-      reload();
-      onBasketChanged();
+      invalidateBasket();
     } catch (e) {
       notify(e instanceof ApiError ? e.message : String(e), "error");
     }
@@ -345,8 +337,7 @@ export function BasketScreen({
         confirmed: true,
       });
       setUndo(null);
-      reload();
-      onBasketChanged();
+      invalidateBasket();
     } catch (e) {
       notify(e instanceof ApiError ? e.message : String(e), "error");
     }
@@ -395,7 +386,46 @@ export function BasketScreen({
     </div>
   );
 
+  const staleNotice = basketSnapshot.stale && (
+    <div className="notice warn" role="alert">
+      <span>
+        {basketSnapshot.error !== null
+          ? `Sepet güncellenemedi: ${basketSnapshot.error instanceof ApiError
+              ? basketSnapshot.error.message
+              : String(basketSnapshot.error)}`
+          : "Sepet güncelleniyor…"}
+      </span>
+      {basketSnapshot.error !== null && (
+        <button
+          type="button"
+          className="link"
+          onClick={() => void refreshBasket().catch(() => {})}
+        >
+          Tekrar dene
+        </button>
+      )}
+    </div>
+  );
+
   if (data === null) {
+    if (basketSnapshot.error !== null) {
+      const message =
+        basketSnapshot.error instanceof ApiError
+          ? basketSnapshot.error.message
+          : String(basketSnapshot.error);
+      return (
+        <div className="page empty">
+          <p>Sepet okunamadı: {message}</p>
+          <button
+            type="button"
+            className="button"
+            onClick={() => void ensureBasket().catch(() => {})}
+          >
+            Tekrar dene
+          </button>
+        </div>
+      );
+    }
     return <div className="page empty">Sepet okunuyor…</div>;
   }
 
@@ -403,6 +433,7 @@ export function BasketScreen({
     return (
       <div className="page">
         {undoBar}
+        {staleNotice}
         <div className="empty">Sepet boş.</div>
       </div>
     );
@@ -463,6 +494,7 @@ export function BasketScreen({
         </div>
 
         {undoBar}
+        {staleNotice}
 
         {refreshNotices.map((notice, i) => (
           <div key={i} className="notice warn">

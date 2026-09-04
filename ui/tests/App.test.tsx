@@ -1,10 +1,15 @@
 // The shell: what gates the window opening, what each tab is allowed to be,
 // and which failures are allowed to be fatal. Only one of them is.
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
+import {
+  ensureBasket,
+  invalidateBasket,
+  resetBasketStoreForTests,
+} from "../src/lib/basketStore";
 import { basket, basketRow, resultRow } from "./helpers/fixtures";
 import {
   NO_UPDATE,
@@ -17,6 +22,7 @@ let server: FakeServer;
 
 beforeEach(() => {
   server = installFakeServer();
+  resetBasketStoreForTests();
   window.__PARFUM_TOKEN__ = "test-token";
 });
 
@@ -55,6 +61,127 @@ describe("App startup", () => {
 });
 
 describe("App tabs", () => {
+  it("positions the pill, switches width immediately, and corrects observed resizes", async () => {
+    const observed: Element[] = [];
+    let observerCallback: ResizeObserverCallback | null = null;
+    let widthCorrection = 0;
+    class FakeResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        observerCallback = callback;
+      }
+      observe = vi.fn((target: Element) => observed.push(target));
+      disconnect = vi.fn();
+    }
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (!this.classList.contains("tab")) return 0;
+      const tabs = Array.from(this.parentElement?.querySelectorAll(".tab") ?? []);
+      return tabs.indexOf(this) * 100 + 8;
+    });
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.classList.contains("tab")) {
+        return 48 + (this.textContent?.length ?? 0) * 4 + widthCorrection;
+      }
+      return Number.parseFloat(this.style.width) || 0;
+    });
+
+    render(<App />);
+    await screen.findByRole("button", { name: /^Ara$/ });
+
+    await waitFor(() => expect(observed).toHaveLength(5));
+    const tabs = screen.getByRole("navigation");
+    const tabButtons = within(tabs).getAllByRole("button");
+    const firstTab = tabButtons[0];
+    const pill = tabs.querySelector<HTMLElement>(".tab-pill");
+    if (pill === null || firstTab === undefined) throw new Error("tab geometry is missing");
+    expect(observed).toEqual([tabs, ...tabButtons]);
+    expect(observed).not.toContain(pill);
+    expect(pill.style.transform).toBe("translateX(8px)");
+    expect(pill.style.width).toBe(`${firstTab.offsetWidth}px`);
+
+    await userEvent.click(screen.getByRole("button", { name: "İstek listesi" }));
+    expect(pill.style.transform).toBe("translateX(208px)");
+    expect(pill.style.width).toBe(
+      `${screen.getByRole("button", { name: "İstek listesi" }).offsetWidth}px`,
+    );
+    expect(pill.style.transition).toBe("");
+
+    widthCorrection = 12;
+    act(() => observerCallback?.([], {} as ResizeObserver));
+    expect(pill.style.width).toBe(
+      `${screen.getByRole("button", { name: "İstek listesi" }).offsetWidth}px`,
+    );
+    expect(pill.style.transition).toBe("");
+  });
+
+  it("corrects active pill geometry across basket and wishlist digit boundaries", async () => {
+    let currentBasket = basket(
+      Array.from({ length: 9 }, (_, index) =>
+        basketRow({ basket_item_id: index + 1, label: `Basket row ${index + 1}` }),
+      ),
+    );
+    const wishlistRows = Array.from({ length: 100 }, (_, index) => ({
+      ...resultRow({
+        name: `Wishlist ${index + 1}`,
+        raw_title: `Wishlist row ${index + 1}`,
+        size_ml_x10: index + 1,
+      }),
+      prices: {},
+    }));
+    server.on("GET /api/basket", () => ({ body: currentBasket }));
+    server.reply("GET /api/wishlist", { rows: wishlistRows });
+    vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (!this.classList.contains("tab")) return 0;
+      const tabs = Array.from(this.parentElement?.querySelectorAll(".tab") ?? []);
+      return tabs.indexOf(this) * 100;
+    });
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.classList.contains("tab")) return 40 + (this.textContent?.length ?? 0) * 5;
+      return Number.parseFloat(this.style.width) || 0;
+    });
+
+    render(<App />);
+    const basketTab = await screen.findByRole("button", { name: /^Sepet/ });
+    await waitFor(() => expect(basketTab).toHaveTextContent("9"));
+    await userEvent.click(basketTab);
+    const pill = screen.getByRole("navigation").querySelector<HTMLElement>(".tab-pill");
+    if (pill === null) throw new Error("tab pill is missing");
+    expect(pill.style.width).toBe(`${basketTab.offsetWidth}px`);
+    await waitFor(() => expect(server.requestsTo("GET", "/api/basket").length).toBeGreaterThan(1));
+
+    currentBasket = basket(
+      Array.from({ length: 10 }, (_, index) =>
+        basketRow({ basket_item_id: index + 1, label: `Basket row ${index + 1}` }),
+      ),
+    );
+    await act(async () => {
+      invalidateBasket();
+      await ensureBasket();
+    });
+    expect(basketTab).toHaveTextContent("10");
+    expect(pill.style.width).toBe(`${basketTab.offsetWidth}px`);
+
+    const wishlistTab = screen.getByRole("button", { name: /^İstek listesi/ });
+    await userEvent.click(wishlistTab);
+    expect(wishlistTab).toHaveTextContent("100");
+    expect(pill.style.width).toBe(`${wishlistTab.offsetWidth}px`);
+    const removeButton = screen.getAllByRole("button", {
+      name: "İstek listesinden çıkar",
+    })[0];
+    if (removeButton === undefined) throw new Error("wishlist remove button is missing");
+    await userEvent.click(removeButton);
+    await waitFor(() => expect(wishlistTab).toHaveTextContent("99"));
+    expect(pill.style.width).toBe(`${wishlistTab.offsetWidth}px`);
+  });
+
   it("loads saved items from the backend before enabling wishlist actions", async () => {
     const row = resultRow({ product_url: null });
     server.reply("GET /api/wishlist", { rows: [{ ...row, prices: {} }] });
@@ -339,7 +466,7 @@ describe("App tabs", () => {
     await waitFor(() => expect(tab).toHaveTextContent("2"));
   });
 
-  it("shows a screen's error as a toast over whatever is on screen", async () => {
+  it("shows a basket read error with a retry action", async () => {
     server.on("GET /api/basket", ({ headers }) =>
       headers["X-Auth-Token"] === "test-token"
         ? { status: 500, body: { detail: "sepet okunamadı" } }
@@ -349,7 +476,8 @@ describe("App tabs", () => {
     await screen.findByRole("button", { name: /^Ara$/ });
 
     await userEvent.click(screen.getByRole("button", { name: /Sepet/ }));
-    expect(await screen.findByText("sepet okunamadı")).toBeInTheDocument();
+    expect(await screen.findByText(/Sepet okunamadı: sepet okunamadı/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tekrar dene" })).toBeEnabled();
   });
 });
 

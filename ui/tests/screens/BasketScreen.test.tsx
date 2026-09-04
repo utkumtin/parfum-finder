@@ -6,6 +6,11 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BasketScreen } from "../../src/screens/BasketScreen";
+import {
+  ensureBasket,
+  refreshBasket,
+  resetBasketStoreForTests,
+} from "../../src/lib/basketStore";
 import type { BasketResponse } from "../../src/types";
 import { basket, basketRow, scenario, splitCombination } from "../helpers/fixtures";
 import {
@@ -20,23 +25,21 @@ const SITE_NAMES = { "site-a": "Site A", "site-b": "Site B", "site-c": "Site C" 
 
 beforeEach(() => {
   server = installFakeServer();
+  resetBasketStoreForTests();
   window.__PARFUM_TOKEN__ = "test-token";
 });
 
 function renderScreen(data: BasketResponse) {
   const notify = vi.fn();
-  const onBasketChanged = vi.fn();
   server.on("GET /api/basket", () => ({ body: data }));
   render(
     <BasketScreen
-      version={0}
       config={DEFAULT_CONFIG}
       siteNames={SITE_NAMES}
       notify={notify}
-      onBasketChanged={onBasketChanged}
     />,
   );
-  return { notify, onBasketChanged };
+  return { notify };
 }
 
 /** The cells of one matrix row, header cell first. */
@@ -51,6 +54,34 @@ describe("BasketScreen matrix", () => {
     renderScreen(basket([]));
     expect(await screen.findByText("Sepet boş.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("shows cached rows immediately and refreshes them after remounting", async () => {
+    let current = basket([basketRow({ brand: "Cached", name: "Perfume" })]);
+    server.on("GET /api/basket", () => ({ body: current }));
+    const first = render(
+      <BasketScreen
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText(/Cached Perfume/)).toBeInTheDocument();
+    first.unmount();
+
+    current = basket([basketRow({ brand: "Fresh", name: "Perfume" })]);
+    render(
+      <BasketScreen
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Cached Perfume/)).toBeInTheDocument();
+    expect(screen.queryByText("Sepet okunuyor…")).not.toBeInTheDocument();
+    expect(await screen.findByText(/Fresh Perfume/)).toBeInTheDocument();
+    expect(server.requestsTo("GET", "/api/basket")).toHaveLength(2);
   });
 
   it("gives a column only to shops that price at least one line", async () => {
@@ -152,7 +183,7 @@ describe("BasketScreen matrix", () => {
 describe("BasketScreen quantities", () => {
   it("steps a quantity up through the API", async () => {
     server.reply("PATCH /api/basket/items/1", { basket_item_id: 1, qty: 2 });
-    const { onBasketChanged } = renderScreen(basket([basketRow({ qty: 1 })]));
+    renderScreen(basket([basketRow({ qty: 1 })]));
 
     await userEvent.click(await screen.findByLabelText("artır"));
 
@@ -161,7 +192,6 @@ describe("BasketScreen quantities", () => {
         qty: 2,
       }),
     );
-    expect(onBasketChanged).toHaveBeenCalled();
   });
 
   it("removes the line when the quantity would drop below one", async () => {
@@ -172,11 +202,9 @@ describe("BasketScreen quantities", () => {
     server.on("GET /api/basket", () => ({ body: current }));
     render(
       <BasketScreen
-        version={0}
         config={DEFAULT_CONFIG}
         siteNames={SITE_NAMES}
         notify={vi.fn()}
-        onBasketChanged={vi.fn()}
       />,
     );
 
@@ -203,11 +231,9 @@ describe("BasketScreen quantities", () => {
     server.on("GET /api/basket", () => ({ body: current }));
     render(
       <BasketScreen
-        version={0}
         config={DEFAULT_CONFIG}
         siteNames={SITE_NAMES}
         notify={vi.fn()}
-        onBasketChanged={vi.fn()}
       />,
     );
 
@@ -240,6 +266,44 @@ describe("BasketScreen quantities", () => {
 });
 
 describe("BasketScreen refresh", () => {
+  it("invalidates an older basket read after the price refresh finishes", async () => {
+    const initial = basket([basketRow({ prices: { "site-a": 25000 } })]);
+    const latest = basket([basketRow({ prices: { "site-a": 19900 } })]);
+    let requestCount = 0;
+    let finishOlderRead!: () => void;
+    const olderReadHeld = new Promise<void>((resolve) => {
+      finishOlderRead = resolve;
+    });
+    server.on("GET /api/basket", async () => {
+      requestCount += 1;
+      if (requestCount === 2) await olderReadHeld;
+      return { body: requestCount === 3 ? latest : initial };
+    });
+    server.reply("POST /api/basket/refresh", { refresh_id: "r1", total_rows: 1 });
+
+    await ensureBasket();
+    const olderRead = refreshBasket();
+    await waitFor(() => expect(requestCount).toBe(2));
+    render(
+      <BasketScreen
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Fiyatları yenile" }));
+    const socket = await server.socket("/api/basket/refresh/r1");
+    act(() => socket.emit({ type: "refresh_finished" }));
+    finishOlderRead();
+
+    await expect(olderRead).rejects.toThrow("Obsolete basket response");
+    await waitFor(() => expect(requestCount).toBe(3));
+    await waitFor(() =>
+      expect(cellsOf(/Dior Sauvage EDP · 5 ml/)[2]).toHaveTextContent("199 ₺"),
+    );
+  });
+
   it("re-reads the basket once the whole-basket refresh finishes", async () => {
     let prices = { "site-a": 25000 };
     server.on("GET /api/basket", () => ({
@@ -248,11 +312,9 @@ describe("BasketScreen refresh", () => {
     server.reply("POST /api/basket/refresh", { refresh_id: "r1", total_rows: 1 });
     render(
       <BasketScreen
-        version={0}
         config={DEFAULT_CONFIG}
         siteNames={SITE_NAMES}
         notify={vi.fn()}
-        onBasketChanged={vi.fn()}
       />,
     );
 
@@ -359,6 +421,26 @@ describe("BasketScreen refresh", () => {
       "Dior Sauvage EDP 5 ml fiyatları yenilensin",
     );
     expect(button).toBeDisabled();
+  });
+
+  it("keeps a cached empty basket visible with a stale retry after refresh fails", async () => {
+    renderScreen(basket([]));
+    expect(await screen.findByText("Sepet boş.")).toBeInTheDocument();
+    server.on("GET /api/basket", () => ({
+      status: 503,
+      body: { detail: "sepet yenilenemedi" },
+    }));
+
+    await expect(refreshBasket()).rejects.toThrow("sepet yenilenemedi");
+    expect(await screen.findByText(/Sepet güncellenemedi: sepet yenilenemedi/)).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Tekrar dene" });
+
+    server.on("GET /api/basket", () => ({ body: basket([]) }));
+    await userEvent.click(retry);
+    await waitFor(() =>
+      expect(screen.queryByText(/Sepet güncellenemedi/)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Sepet boş.")).toBeInTheDocument();
   });
 
   it("clears the progress bar when the refresh socket is refused", async () => {
@@ -566,23 +648,17 @@ describe("BasketScreen plans", () => {
     ).toBeInTheDocument();
   });
 
-  it("reports a basket it could not read at all", async () => {
+  it("reports a basket it could not read at all and offers a retry", async () => {
     server.on("GET /api/basket", () => ({ status: 500 }));
-    const notify = vi.fn();
     render(
       <BasketScreen
-        version={0}
         config={DEFAULT_CONFIG}
         siteNames={SITE_NAMES}
-        notify={notify}
-        onBasketChanged={vi.fn()}
+        notify={vi.fn()}
       />,
     );
 
-    await waitFor(() => expect(notify).toHaveBeenCalled());
-    expect(notify.mock.calls[0]?.[1]).toBe("error");
-    // Still the loading line rather than a false "Sepet boş.": an unread basket
-    // is not an empty one.
-    expect(screen.getByText("Sepet okunuyor…")).toBeInTheDocument();
+    expect(await screen.findByText(/Sepet okunamadı: 500/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tekrar dene" })).toBeEnabled();
   });
 });

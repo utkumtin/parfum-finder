@@ -1,62 +1,62 @@
 {
   "fixtures/decantall/meta.json": {
     "mtime": 1786180320.6567822,
-    "ast_hash": "11577bae1dd469f427d6831a9b1d5fdf",
-    "semantic_hash": "11577bae1dd469f427d6831a9b1d5fdf"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "fixtures/dekantdoktoru/meta.json": {
     "mtime": 1786180318.6270537,
-    "ast_hash": "8449037e639877d79b35f8ed3850641a",
-    "semantic_hash": "8449037e639877d79b35f8ed3850641a"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "fixtures/dekantdoktoru/related-options.json": {
     "mtime": 1786180318.626856,
-    "ast_hash": "b87a9c027b13df2f93adbbeaea9ebfce",
-    "semantic_hash": "b87a9c027b13df2f93adbbeaea9ebfce"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "fixtures/dekantparfum/meta.json": {
     "mtime": 1786180316.3247113,
-    "ast_hash": "1b54f0177b1f104d607f1e705a50e338",
-    "semantic_hash": "1b54f0177b1f104d607f1e705a50e338"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "fixtures/dekantparfum/related-options.json": {
     "mtime": 1786180316.3245146,
-    "ast_hash": "4fdfde65b0fbc4d28f6b86294c2a2000",
-    "semantic_hash": "4fdfde65b0fbc4d28f6b86294c2a2000"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "fixtures/luxurydekant/meta.json": {
     "mtime": 1786180301.6326241,
-    "ast_hash": "b2f723f693fc67b920c031928fd567cf",
-    "semantic_hash": "b2f723f693fc67b920c031928fd567cf"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "fixtures/ruxangroup/meta.json": {
     "mtime": 1786180306.5538158,
-    "ast_hash": "9265dbe6aa367b66e050de3e1d903ee2",
-    "semantic_hash": "9265dbe6aa367b66e050de3e1d903ee2"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "fixtures/venco/meta.json": {
     "mtime": 1786180300.0659454,
-    "ast_hash": "266dbe9476227cad085c1d0a26ddd2d9",
-    "semantic_hash": "266dbe9476227cad085c1d0a26ddd2d9"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "platforms/ideasoft.json": {
     "mtime": 1786347086.705758,
-    "ast_hash": "54a406b4dbf1d0ef2bdf3b27ddeaeaa0",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "platforms/ikas.json": {
     "mtime": 1786150712.1418707,
-    "ast_hash": "3dde19f4c2502588a356d1e38ec92193",
-    "semantic_hash": "3dde19f4c2502588a356d1e38ec92193"
+    "ast_hash": "",
+    "semantic_hash": ""
   },
   "platforms/woocommerce.json": {
     "mtime": 1786347086.7058716,
-    "ast_hash": "8083a918ab01d79aab7dadcdccd9aa81",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "pyproject.toml": {
-    "mtime": 1788376088.7920792,
-    "ast_hash": "d7c2f7896285543f908bc4ea200e68e2",
+    "mtime": 1788411885.7322054,
+    "ast_hash": "264e041df2c29af253ff4e1f44117c0e",
     "semantic_hash": ""
   },
   "schema/platform.schema.json": {
@@ -71,37 +71,37 @@
   },
   "sites/decantall.json": {
     "mtime": 1786346625.6603181,
-    "ast_hash": "eea08532edf029ce05b70a4031556a0c",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "sites/dekantdoktoru.json": {
     "mtime": 1786346625.660887,
-    "ast_hash": "8d5e9968827947825fe6468b62713216",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "sites/dekantparfum.json": {
     "mtime": 1786346625.660643,
-    "ast_hash": "4b16d618738fa19c1ac0920f4e7c7cbc",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "sites/luxurydekant.json": {
     "mtime": 1786346625.6611044,
-    "ast_hash": "f162d1479434c7370d4eae52ba3eaa93",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "sites/ruxangroup.json": {
     "mtime": 1786346625.6612973,
-    "ast_hash": "b224444461568d76d1ce48127c689373",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "sites/venco.json": {
     "mtime": 1786346625.6614876,
-    "ast_hash": "390ef20f1c0becd760f880750fda1747",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "src/parfum_finder/__init__.py": {
-    "mtime": 1788376081.0311148,
-    "ast_hash": "dddbec9028126915ae317a1ea90f7e71",
+    "mtime": 1788411872.9930985,
+    "ast_hash": "ea46622fbae26609dbf13bf50a29b731",
     "semantic_hash": ""
   },
   "src/parfum_finder/basket.py": {
@@ -391,17 +391,17 @@
   },
   "fixtures/splitcim/meta.json": {
     "mtime": 1786346533.0924616,
-    "ast_hash": "ca9dd03662b85d509f53ea9422e009dd",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "fixtures/splitcim/related-options.json": {
     "mtime": 1786346517.6508498,
-    "ast_hash": "4fec038fddfec5046f39b4a92fc9c0f9",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "sites/splitcim.json": {
     "mtime": 1786346625.6615934,
-    "ast_hash": "5d2c8ed1acc7e60277de8bc1f3b42ea7",
+    "ast_hash": "",
     "semantic_hash": ""
   },
   "fixtures/splitcim/product.html": {
@@ -495,8 +495,8 @@
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
-    "mtime": 1788411403.801448,
-    "ast_hash": "5403db99421c1c0d5dae675671a0db42",
+    "mtime": 1788557375.3962379,
+    "ast_hash": "f4804d6053807d9cfd77924ee2b1f01e",
     "semantic_hash": ""
   },
   "ui/src/api/client.ts": {
@@ -535,13 +535,13 @@
     "semantic_hash": ""
   },
   "ui/src/screens/BasketScreen.tsx": {
-    "mtime": 1788407710.1589847,
-    "ast_hash": "277e93287fad4482f808db872d7e2c68",
+    "mtime": 1788557972.682275,
+    "ast_hash": "07b84981df43f6b7b165e10ed6c42e0d",
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
-    "mtime": 1788411413.1483016,
-    "ast_hash": "c40ed33a42b78f082e730391d905f4c3",
+    "mtime": 1788559782.7415545,
+    "ast_hash": "86183531c3f4b4ac416c068c1be2ffcb",
     "semantic_hash": ""
   },
   "ui/src/screens/SearchScreen.tsx": {
@@ -625,8 +625,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/helpers.ts": {
-    "mtime": 1787410926.6402082,
-    "ast_hash": "e201c5f9b1502dd52bf8acc837555e92",
+    "mtime": 1788558758.540166,
+    "ast_hash": "d25eb718a549897a06880d97f86c87d2",
     "semantic_hash": ""
   },
   "ui/e2e/search.spec.ts": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1788411312.7968738,
-    "ast_hash": "51a1f22d01da3e1a0e7344395273822e",
+    "mtime": 1788558241.086045,
+    "ast_hash": "6e1d52d369a8973e91593b82448213a9",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {
@@ -675,13 +675,13 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/BasketScreen.test.tsx": {
-    "mtime": 1788407451.1240377,
-    "ast_hash": "3d9ec4276db4627d071ec7b3bd2671a1",
+    "mtime": 1788558159.1567256,
+    "ast_hash": "427c06662e5c923a81c2e0a5b48b2a8b",
     "semantic_hash": ""
   },
   "ui/tests/screens/ResultsScreen.test.tsx": {
-    "mtime": 1787588251.6147192,
-    "ast_hash": "e9c0833e04c87491891cb81ccac70516",
+    "mtime": 1788559796.418444,
+    "ast_hash": "7c91725867554f38b0310b632508ed7a",
     "semantic_hash": ""
   },
   "ui/tests/screens/SearchScreen.test.tsx": {
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "ui/TESTING.md": {
-    "mtime": 1786973103.9639516,
-    "ast_hash": "f9c97b7c9bd900cd088502d5aee636d7",
+    "mtime": 1788557687.090648,
+    "ast_hash": "50f9ed74c10e3ee9026f98cd7825dabc",
     "semantic_hash": ""
   },
   "ui/src/components/VerdictAddButton.tsx": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/WishlistScreen.tsx": {
-    "mtime": 1788411451.3427033,
-    "ast_hash": "b061366805bcdfd02b801832f601abda",
+    "mtime": 1788559277.5976422,
+    "ast_hash": "a758dc0c500107ade66161d15b082785",
     "semantic_hash": ""
   },
   "ui/tests/components/BookmarkIcon.test.tsx": {
@@ -740,8 +740,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/WishlistScreen.test.tsx": {
-    "mtime": 1788392303.4525335,
-    "ast_hash": "805eab6a680a57e763100cdb3372319c",
+    "mtime": 1788559277.766641,
+    "ast_hash": "a6997cda714f2339a0a9299e40201639",
     "semantic_hash": ""
   },
   "ui/tests/lib/wishlist.test.ts": {
@@ -802,6 +802,31 @@
   ".playwright-mcp/parfum-search-desktop.md": {
     "mtime": 1788409503.2392633,
     "ast_hash": "3f7e146e6999751c63d7118c44aad55b",
+    "semantic_hash": ""
+  },
+  "ui/e2e/performance.spec.ts": {
+    "mtime": 1788558374.0019484,
+    "ast_hash": "f20b6655a6c45cc4ad4994d4f915be40",
+    "semantic_hash": ""
+  },
+  "ui/src/lib/basketStore.ts": {
+    "mtime": 1788557393.1080906,
+    "ast_hash": "eca9bc04e97e7cb9bf1f202355441db8",
+    "semantic_hash": ""
+  },
+  "app-optimisation.md": {
+    "mtime": 1788559869.2438545,
+    "ast_hash": "eb2091b5c20dce4e27b346f6387f4a5b",
+    "semantic_hash": ""
+  },
+  "ui/tests/lib/basketStore.test.ts": {
+    "mtime": 1788557375.6582355,
+    "ast_hash": "8d9ec27bd4c436b235b4fd346c56f071",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260904_220348_which_files_own_the_navigation_indicator__shared_b.md": {
+    "mtime": 1788559428.84255,
+    "ast_hash": "1ce517fd14f0ac51656ebb5a34f3573d",
     "semantic_hash": ""
   }
 }

@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WishlistScreen } from "../../src/screens/WishlistScreen";
 import { resultRow } from "../helpers/fixtures";
 import { DEFAULT_CONFIG, installFakeServer, searchStart } from "../helpers/server";
@@ -15,6 +15,11 @@ const SITE_NAMES = {
 beforeEach(() => {
   installFakeServer();
   window.__PARFUM_TOKEN__ = "test-token";
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  document.documentElement.style.removeProperty("--acc-collapse");
 });
 
 function titles(): string[] {
@@ -86,6 +91,22 @@ function renderSearchRows() {
           raw_title: "Amber Night",
         }),
       ]}
+      wishlistReady
+      pendingWishlistKeys={new Set()}
+      config={DEFAULT_CONFIG}
+      siteNames={SITE_NAMES}
+      notify={vi.fn()}
+      onBasketChanged={vi.fn()}
+      onWishlistChanged={vi.fn()}
+      onWishlistToggle={vi.fn()}
+    />,
+  );
+}
+
+function renderLazyRows(rows: WishlistRow[]) {
+  return render(
+    <WishlistScreen
+      rows={rows}
       wishlistReady
       pendingWishlistKeys={new Set()}
       config={DEFAULT_CONFIG}
@@ -179,6 +200,226 @@ describe("WishlistScreen search", () => {
       "aria-sort",
       "ascending",
     );
+  });
+});
+
+describe("WishlistScreen lazy shop prices accordion", () => {
+  it("does not mount offer details until a row is opened", () => {
+    renderLazyRows([
+      wishlistRow({
+        raw_title: "Amber Night 5 ml",
+        prices: { "site-a": 20_000, "site-b": 18_000 },
+      }),
+    ]);
+
+    const trigger = screen.getByRole("button", {
+      name: "Amber Night 5 ml diğer mağaza fiyatları",
+    });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).not.toHaveAttribute("aria-controls");
+    expect(document.querySelector('[role="region"][aria-label*="Amber Night"]')).not.toBeInTheDocument();
+  });
+
+  it("mounts and opens details together, then waits for the computed close transition", () => {
+    vi.useFakeTimers();
+    document.documentElement.style.setProperty("--acc-collapse", "100ms");
+    renderLazyRows([
+      wishlistRow({
+        raw_title: "Amber Night 5 ml",
+        prices: { "site-a": 20_000, "site-b": 18_000 },
+      }),
+    ]);
+
+    const trigger = screen.getByRole("button", {
+      name: "Amber Night 5 ml diğer mağaza fiyatları",
+    });
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    const region = screen.getByRole("region", { name: /Amber Night/ });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(region.id).toBe(trigger.getAttribute("aria-controls"));
+
+    fireEvent.click(trigger);
+    expect(document.querySelector('[role="region"][aria-label*="Amber Night"]')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(131));
+    expect(document.querySelector('[role="region"][aria-label*="Amber Night"]')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1));
+    expect(document.querySelector('[role="region"][aria-label*="Amber Night"]')).not.toBeInTheDocument();
+  });
+
+  it("uses the panel duration and delay when they are available", () => {
+    vi.useFakeTimers();
+    document.documentElement.style.setProperty("--acc-collapse", "900ms");
+    renderLazyRows([wishlistRow({ raw_title: "Panel timing", prices: { "site-b": 18_000 } })]);
+
+    const trigger = screen.getByRole("button", { name: /Panel timing diğer mağaza/ });
+    fireEvent.click(trigger);
+    const region = screen.getByRole("region", { name: /Panel timing/ });
+    const panel = region.parentElement as HTMLElement;
+    panel.style.transitionDuration = "100ms";
+    panel.style.transitionDelay = "20ms";
+
+    fireEvent.click(trigger);
+    act(() => vi.advanceTimersByTime(151));
+    expect(document.querySelector('[role="region"][aria-label*="Panel timing"]')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1));
+    expect(document.querySelector('[role="region"][aria-label*="Panel timing"]')).not.toBeInTheDocument();
+  });
+
+  it("ignores transition end and cancel events and invalidates a stale close timer on reopen", () => {
+    vi.useFakeTimers();
+    document.documentElement.style.setProperty("--acc-collapse", "100ms");
+    renderLazyRows([wishlistRow({ raw_title: "Race row", prices: { "site-b": 18_000 } })]);
+
+    const trigger = screen.getByRole("button", { name: /Race row diğer mağaza/ });
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    const region = document.querySelector('[role="region"][aria-label*="Race row"]') as HTMLElement;
+    region.dispatchEvent(new Event("transitionend", { bubbles: true }));
+    region.dispatchEvent(new Event("transitioncancel", { bubbles: true }));
+    expect(document.querySelector('[role="region"][aria-label*="Race row"]')).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(100));
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    act(() => vi.advanceTimersByTime(132));
+    expect(screen.getByRole("region", { name: /Race row/ })).toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    act(() => vi.advanceTimersByTime(132));
+    expect(document.querySelector('[role="region"][aria-label*="Race row"]')).not.toBeInTheDocument();
+  });
+
+  it("guards stale callbacks against reopening and rows removed before cleanup", () => {
+    vi.useFakeTimers();
+    document.documentElement.style.setProperty("--acc-collapse", "100ms");
+    const clearTimeoutSpy = vi
+      .spyOn(window, "clearTimeout")
+      .mockImplementation(() => {});
+    const row = wishlistRow({ raw_title: "Guarded row", prices: { "site-b": 18_000 } });
+    const view = renderLazyRows([row]);
+    const trigger = screen.getByRole("button", { name: /Guarded row diğer mağaza/ });
+
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    act(() => vi.advanceTimersByTime(132));
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(document.querySelector('[role="region"][aria-label*="Guarded row"]')).toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    view.rerender(
+      <WishlistScreen
+        rows={[]}
+        wishlistReady
+        pendingWishlistKeys={new Set()}
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+        onBasketChanged={vi.fn()}
+        onWishlistChanged={vi.fn()}
+        onWishlistToggle={vi.fn()}
+      />,
+    );
+    act(() => vi.advanceTimersByTime(132));
+    expect(document.querySelector('[role="region"][aria-label*="Guarded row"]')).not.toBeInTheDocument();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it("keeps open state and panel ids through sorting and filtering", async () => {
+    const first = wishlistRow({
+      raw_title: "First row",
+      price_kurus: 20_000,
+      prices: { "site-b": 18_000 },
+    });
+    const second = wishlistRow({
+      site_id: "site-b",
+      raw_title: "Second row",
+      price_kurus: 10_000,
+      prices: { "site-a": 8_000 },
+    });
+    renderLazyRows([first, second]);
+
+    fireEvent.click(screen.getByRole("button", { name: /First row diğer mağaza/ }));
+    const firstPanelId = screen
+      .getByRole("button", { name: /First row diğer mağaza/ })
+      .getAttribute("aria-controls");
+    await userEvent.click(screen.getByRole("columnheader", { name: /Fiyat/ }));
+    const sortedTrigger = screen.getByRole("button", { name: /First row diğer mağaza/ });
+    expect(sortedTrigger).toHaveAttribute("aria-expanded", "true");
+    expect(sortedTrigger).toHaveAttribute("aria-controls", firstPanelId);
+
+    const search = screen.getByRole("searchbox", { name: "İstek listesinde ara" });
+    await userEvent.type(search, "second");
+    expect(screen.queryByRole("button", { name: /First row diğer mağaza/ })).not.toBeInTheDocument();
+    await userEvent.clear(search);
+    expect(screen.getByRole("button", { name: /First row diğer mağaza/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  it("cleans close timers when rows disappear or the screen unmounts", () => {
+    vi.useFakeTimers();
+    document.documentElement.style.setProperty("--acc-collapse", "100ms");
+    const row = wishlistRow({ raw_title: "Temporary row", prices: { "site-b": 18_000 } });
+    const view = renderLazyRows([row]);
+    const trigger = screen.getByRole("button", { name: /Temporary row diğer mağaza/ });
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+    view.rerender(
+      <WishlistScreen
+        rows={[]}
+        wishlistReady
+        pendingWishlistKeys={new Set()}
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+        onBasketChanged={vi.fn()}
+        onWishlistChanged={vi.fn()}
+        onWishlistToggle={vi.fn()}
+      />,
+    );
+    expect(vi.getTimerCount()).toBe(0);
+
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("removes details on the next task when reduced motion is active", () => {
+    vi.useFakeTimers();
+    const previousMatchMedia = window.matchMedia;
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: (query: string) =>
+        ({
+          matches: query.includes("prefers-reduced-motion"),
+          media: query,
+          onchange: null,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    });
+    renderLazyRows([wishlistRow({ raw_title: "Reduced row", prices: { "site-b": 18_000 } })]);
+
+    const trigger = screen.getByRole("button", { name: /Reduced row diğer mağaza/ });
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    expect(document.querySelector('[role="region"][aria-label*="Reduced row"]')).toBeInTheDocument();
+    act(() => vi.runOnlyPendingTimers());
+    expect(document.querySelector('[role="region"][aria-label*="Reduced row"]')).not.toBeInTheDocument();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: previousMatchMedia,
+    });
   });
 });
 

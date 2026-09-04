@@ -6,6 +6,11 @@ import { BasketScreen } from "./screens/BasketScreen";
 import { ResultsScreen } from "./screens/ResultsScreen";
 import { SearchScreen } from "./screens/SearchScreen";
 import { WishlistScreen } from "./screens/WishlistScreen";
+import {
+  ensureBasket,
+  invalidateBasket,
+  useBasketSnapshot,
+} from "./lib/basketStore";
 import { wishlistKey } from "./lib/wishlist";
 import type {
   AppConfig,
@@ -41,13 +46,8 @@ export function App() {
     new Set(),
   );
   const [toast, setToast] = useState<Toast | null>(null);
-  // Bumped whenever the basket changed under the basket screen's feet, so
-  // switching to it shows the addition rather than a stale read.
-  const [basketVersion, setBasketVersion] = useState(0);
-  // How many lines the basket holds, for the count on its tab. Read here
-  // rather than lifted out of BasketScreen because the number has to be there
-  // before that screen has ever been opened.
-  const [basketCount, setBasketCount] = useState(0);
+  const basketSnapshot = useBasketSnapshot();
+  const basketCount = basketSnapshot.data?.rows.length ?? 0;
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const tabsRef = useRef<HTMLElement>(null);
   const pendingWishlistRef = useRef<Set<string>>(new Set());
@@ -59,7 +59,7 @@ export function App() {
     window.setTimeout(() => setToast(null), 3000);
   }, []);
 
-  useLayoutEffect(() => {
+  const measureTabPill = useCallback((animate: boolean) => {
     const tabs = tabsRef.current;
     const pill = tabs?.querySelector<HTMLElement>(".tab-pill");
     const activeTab = tabs?.querySelector<HTMLButtonElement>(
@@ -68,21 +68,53 @@ export function App() {
 
     if (!pill || !activeTab) return;
 
-    const animate = hasPositionedTabPill.current && lastPillView.current !== view;
+    const nextTransform = `translateX(${activeTab.offsetLeft}px)`;
+    const nextWidth = `${activeTab.offsetWidth}px`;
+    const transformChanged = pill.style.transform !== nextTransform;
+    const widthChanged = pill.style.width !== nextWidth;
+    if (!transformChanged && !widthChanged) return;
+
     const previousTransition = pill.style.transition;
-
-    if (!animate) pill.style.transition = "none";
-    pill.style.transform = `translateX(${activeTab.offsetLeft}px)`;
-    pill.style.width = `${activeTab.offsetWidth}px`;
-
-    if (!animate) {
+    if (widthChanged) {
+      // Width changes are geometry corrections, not motion. This also keeps
+      // count digit changes from animating the pill itself.
+      pill.style.transition = "none";
+      pill.style.width = nextWidth;
       void pill.offsetWidth;
       pill.style.transition = previousTransition;
     }
 
+    if (transformChanged) {
+      if (!animate) {
+        pill.style.transition = "none";
+        pill.style.transform = nextTransform;
+        void pill.offsetWidth;
+        pill.style.transition = previousTransition;
+      } else {
+        pill.style.transform = nextTransform;
+      }
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    const animate =
+      hasPositionedTabPill.current && lastPillView.current !== null && lastPillView.current !== view;
+    measureTabPill(animate);
     hasPositionedTabPill.current = true;
     lastPillView.current = view;
-  }, [basketCount, search, view]);
+  }, [basketCount, config, measureTabPill, view, wishlist.length]);
+
+  useEffect(() => {
+    const tabs = tabsRef.current;
+    if (!tabs || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => measureTabPill(false));
+    observer.observe(tabs);
+    for (const tab of tabs.querySelectorAll<HTMLElement>(".tab")) {
+      observer.observe(tab);
+    }
+    return () => observer.disconnect();
+  }, [config, measureTabPill]);
 
   useEffect(() => {
     Promise.all([api.config(), api.sites()])
@@ -113,21 +145,8 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    // A count nobody could read is a missing convenience, not a broken screen:
-    // the tab works either way, so this failure stays quiet.
-    api
-      .basket()
-      .then((response) => {
-        if (!cancelled) setBasketCount(response.rows.length);
-      })
-      .catch(() => {
-        if (!cancelled) setBasketCount(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [basketVersion]);
+    void ensureBasket().catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +166,7 @@ export function App() {
     };
   }, [notify]);
 
-  const onBasketChanged = useCallback(() => setBasketVersion((v) => v + 1), []);
+  const onBasketChanged = useCallback(() => invalidateBasket(), []);
   const reloadWishlist = useCallback(async () => {
     const response = await api.wishlist();
     setWishlist(response.rows);
@@ -301,6 +320,7 @@ export function App() {
             sort={wishlistSort}
             onSortChange={setWishlistSort}
             notify={notify}
+            basketSnapshot={basketSnapshot}
             onBasketChanged={onBasketChanged}
             onWishlistChanged={reloadWishlist}
             onWishlistToggle={onWishlistToggle}
@@ -308,14 +328,9 @@ export function App() {
         )}
         {view === "basket" && (
           <BasketScreen
-            // Not a key: remounting on every change would throw away the
-            // refresh warnings at the moment the refresh that produced them
-            // ends. It is a dependency of the screen's own read instead.
-            version={basketVersion}
             config={config}
             siteNames={siteNames}
             notify={notify}
-            onBasketChanged={onBasketChanged}
           />
         )}
       </main>

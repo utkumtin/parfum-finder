@@ -5,6 +5,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { invalidateBasket, resetBasketStoreForTests } from "../../src/lib/basketStore";
 import { ResultsScreen } from "../../src/screens/ResultsScreen";
 import type { ResultRow } from "../../src/types";
 import { basket, basketRow, resultRow } from "../helpers/fixtures";
@@ -19,6 +20,7 @@ const SEARCH_ID = "search-1";
 const STREAM = `/api/search/${SEARCH_ID}`;
 
 beforeEach(() => {
+  resetBasketStoreForTests();
   server = installFakeServer();
   window.__PARFUM_TOKEN__ = "test-token";
 });
@@ -33,7 +35,7 @@ function renderScreen(
   } = {},
 ) {
   const notify = vi.fn();
-  const onBasketChanged = vi.fn();
+  const onBasketChanged = vi.fn(() => invalidateBasket());
   const onWishlistToggle = vi.fn();
   server.on("GET /api/results/:searchId", () => ({
     body: {
@@ -356,15 +358,39 @@ describe("ResultsScreen basket", () => {
     // The task this button exists for: pressing it must show the same
     // confirmation the table's plus-to-check button shows, not just fire the
     // request silently.
-    server.reply("POST /api/basket/items", { basket_item_id: 1 });
+    let added = false;
+    let basketReads = 0;
+    let releaseRefresh!: () => void;
+    server.on("GET /api/basket", () => {
+      basketReads += 1;
+      if (basketReads === 1) return { body: basket([]) };
+      return new Promise((resolve) => {
+        releaseRefresh = () =>
+          resolve({
+            body: basket(
+              added
+                ? [basketRow({ brand: "Dior", name: "Sauvage", concentration: "EDP" })]
+                : [],
+            ),
+          });
+      });
+    });
+    server.on("POST /api/basket/items", () => {
+      added = true;
+      return { body: { basket_item_id: 1 } };
+    });
     renderScreen([resultRow()]);
 
     await screen.findByText(/^En iyi .* fiyatı$/);
+    await waitFor(() => expect(server.requestsTo("GET", "/api/basket")).toHaveLength(1));
     const button = verdictAddButton();
     expect(button).not.toHaveClass("done");
 
     await userEvent.click(button);
 
+    await waitFor(() => expect(server.requestsTo("GET", "/api/basket")).toHaveLength(2));
+    expect(verdictAddButton()).toHaveClass("done");
+    releaseRefresh();
     await waitFor(() => expect(verdictAddButton()).toHaveClass("done"));
   });
 });

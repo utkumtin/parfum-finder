@@ -111,5 +111,12 @@
   "109": "Static",
   "110": "_NoRootParser",
   "111": "ParfumFinderApp",
-  "115": "parfum-search-desktop.md"
+  "112": "_collect_products",
+  "113": "tui/app.py",
+  "114": "AddButton.tsx",
+  "115": "parfum-search-desktop.md",
+  "116": "ConfirmDialog.tsx",
+  "117": "ScanStatus.tsx",
+  "118": "VerdictAddButton.tsx",
+  "119": "search.spec.ts"
 }

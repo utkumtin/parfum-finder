@@ -76,3 +76,59 @@ boşaltır. Veritabanı her koşuda yeni bir geçici dosyadır.
   Windows'a özgü bir render sorunu buradan geçer.
 - **Gerçek site profilleri.** Adapter tarafının testi Python'da, `fixtures/`
   altındaki golden HTML dosyalarıyla; bkz. `uv run parfum-finder validate`.
+
+## Geçiş ve büyük istek listesi regresyonları
+
+`e2e/performance.spec.ts` aşağıdaki sabit kontrolleri yapar:
+
+- 900 ve 1280 CSS pikselinde, 62rem (992px) responsive kırılımının iki yanında
+  aktif sekme pilinin sekme çubuğunun içinde kalması;
+  normal modda yalnızca `transform` için 250 ms geçiş ve `will-change: transform`;
+  azaltılmış harekette geçişin `none` olması.
+- Ekranlar ısındıktan sonra en az 10 sekme geçişinde Chromium CDP
+  `LayoutCount` deltası toplanır ve ortalamanın 3 veya altında olduğu doğrulanır.
+  Chromium dışı bir çalışma ortamı CDP alanını vermiyorsa test açıkça atlanır.
+- API üzerinden 100 ve 500 deterministik istek listesi satırı oluşturulması.
+  Her senaryoda özet satırı sayısı, DOM düğüm sayısı, Chromium'un verdiği heap ve
+  layout sayaçları, ayrıntı açma süresi ve sepete geçiş süresi raporlanır.
+- Kapalı ayrıntı satırlarında `.t-acc-panel-inner` bulunmaması, açınca bir panelin
+  görünmesi ve tekrar kapatınca içeriğin DOM'dan çıkması.
+- 1280×800'de kapalı ve açık büyük liste, sepet, bayat önbellek yenileme uyarısı
+  ve reduced-motion durumları için ekran görüntüsü eklenmesi; tarayıcı
+  console/page error/failed request ve wishlist ağ isteği kontrolleri.
+
+Heap (`performance.memory`) ve layout (`Performance.getMetrics`) sayaçları her
+tarayıcıda bulunmayabilir; bu durumda değer `null` olarak raporlanır. Etkileşim
+süreleri tanı metriğidir ve sabit CI eşiği olarak kullanılmaz.
+
+### Timer ve observer regresyonları
+
+Vitest tarafında timer kullanan testlerde `vi.useFakeTimers()` ile zamanlayıcıyı
+test başına kurup `afterEach` içinde gerçek saate dönün. `window.setTimeout` ile
+kurulan bildirim ve kapanışlar için beklemeyi `vi.advanceTimersByTime` ile açıkça
+ilerletin; gerçek bekleme eklemeyin. `ResizeObserver` veya benzeri gözlemci
+eklenirse testte gerçek bir ölçüm döndüren küçük bir stub kullanın, callback'i
+kendiliğinden tekrar çağırmayın ve `afterEach` içinde gözlemciyi temizleyin.
+Bu kurallar geçiş sayaçlarının testler arasında sızmasını ve sonsuz observer
+döngülerini yakalamak içindir.
+
+### Windows WebView2 el ile kontrol listesi
+
+Linux Chromium testi WebView2'nin gerçek GPU, sürücü, pencere bileşimi veya
+125%/150% Windows ölçeklemesini kanıtlamaz. Release öncesi gerçek Windows
+makinesinde:
+
+1. Uygulamayı 1280×800 pencerede, kullanılan Windows ölçeklemesiyle açın.
+2. 100 ve 500 satırlı istek listesiyle istek listesi → sepet geçişini en az on
+   kez tekrarlayın; görünür loading flash, aktif pil geometrisi ve ayrıntı açma/
+   kapama davranışını kontrol edin.
+3. Edge DevTools Performance kaydında frame, Layout, Paint, Composite ve sepet
+   isteğinin süresini kaydedin. Reduced-motion sistem ayarıyla tekrar edin.
+4. WebView2 runtime sürümünü, GPU/sürücü bilgisini ve görüntü ölçeklemesini
+   not edin. Bu iz ve exact Windows doğrulaması bu Linux çalışma alanında
+   mevcut değildir.
+
+Base commit için son yeşil [CI](https://github.com/utkumtin/parfum-finder/actions/runs/33717433422)
+ve [Build Windows](https://github.com/utkumtin/parfum-finder/actions/runs/33717453957)
+çalışmaları `4639ba4a84f1967b979790a004a4e7c442122dd8` üzerinde doğrulandı;
+yerel diff'i kapsamaz.
