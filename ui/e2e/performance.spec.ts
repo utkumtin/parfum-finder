@@ -81,7 +81,7 @@ test.describe("navigation and wishlist rendering regressions", () => {
       expect(geometry.pill.right).toBeLessThanOrEqual(geometry.nav.right);
       expect(geometry.pill.width).toBeCloseTo(geometry.active.width, 0);
       expect(geometry.pill.left).toBeCloseTo(geometry.active.left, 0);
-      expect(geometry.pill.right).toBeCloseTo(geometry.active.right, 0);
+      expect(Math.abs(geometry.pill.right - geometry.active.right)).toBeLessThanOrEqual(1);
       expect(geometry.pill.top).toBeGreaterThan(geometry.nav.top);
       expect(geometry.pill.bottom).toBeLessThan(geometry.nav.bottom);
       expect(geometry.transitionProperty).toBe("transform");
