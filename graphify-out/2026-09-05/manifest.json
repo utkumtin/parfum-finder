@@ -805,8 +805,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/performance.spec.ts": {
-    "mtime": 1788558374.0019484,
-    "ast_hash": "f20b6655a6c45cc4ad4994d4f915be40",
+    "mtime": 1788560751.3246672,
+    "ast_hash": "62d7311d6f2f60503ef4d0fd5996ff10",
     "semantic_hash": ""
   },
   "ui/src/lib/basketStore.ts": {

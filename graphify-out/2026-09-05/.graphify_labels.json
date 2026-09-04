@@ -113,11 +113,5 @@
   "111": "ParfumFinderApp",
   "112": "_with_candidate_identity",
   "113": "tui/app.py",
-  "114": "test_every_shipped_site_has_a_colour_that_survives_256_colours",
-  "115": "parfum-search-desktop.md",
-  "116": "AddButton.tsx",
-  "117": "ConfirmDialog.tsx",
-  "118": "ProgressBar.tsx",
-  "119": "ScanStatus.tsx",
-  "120": "VerdictAddButton.tsx"
+  "115": "parfum-search-desktop.md"
 }

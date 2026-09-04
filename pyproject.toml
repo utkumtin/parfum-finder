@@ -1,6 +1,6 @@
 [project]
 name = "parfum-finder"
-version = "0.3.0"
+version = "0.3.1"
 description = "Multi-site price and stock comparison tool for perfume decants"
 readme = "README.md"
 authors = [
