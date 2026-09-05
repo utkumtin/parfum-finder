@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "pyproject.toml": {
-    "mtime": 1788411885.7322054,
-    "ast_hash": "264e041df2c29af253ff4e1f44117c0e",
+    "mtime": 1788563501.402878,
+    "ast_hash": "d1e13f717b75693b6c7aa06be83acd4f",
     "semantic_hash": ""
   },
   "schema/platform.schema.json": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "src/parfum_finder/__init__.py": {
-    "mtime": 1788411872.9930985,
-    "ast_hash": "ea46622fbae26609dbf13bf50a29b731",
+    "mtime": 1788563516.0762348,
+    "ast_hash": "620000712f96fb1efbacea374c0b8975",
     "semantic_hash": ""
   },
   "src/parfum_finder/basket.py": {
@@ -495,8 +495,8 @@
     "semantic_hash": ""
   },
   "ui/src/App.tsx": {
-    "mtime": 1788557375.3962379,
-    "ast_hash": "f4804d6053807d9cfd77924ee2b1f01e",
+    "mtime": 1788600888.2557368,
+    "ast_hash": "00fda47161cb6aa736e43a55f38fa513",
     "semantic_hash": ""
   },
   "ui/src/api/client.ts": {
@@ -535,8 +535,8 @@
     "semantic_hash": ""
   },
   "ui/src/screens/BasketScreen.tsx": {
-    "mtime": 1788557972.682275,
-    "ast_hash": "07b84981df43f6b7b165e10ed6c42e0d",
+    "mtime": 1788600750.9102888,
+    "ast_hash": "1809a7efa44ac0f406ac0fc6c5b579b5",
     "semantic_hash": ""
   },
   "ui/src/screens/ResultsScreen.tsx": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "ui/tests/App.test.tsx": {
-    "mtime": 1788558241.086045,
-    "ast_hash": "6e1d52d369a8973e91593b82448213a9",
+    "mtime": 1788601099.8153512,
+    "ast_hash": "26610cac9303b8c496a0b0701bc44143",
     "semantic_hash": ""
   },
   "ui/tests/api/client.test.ts": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "ui/tests/screens/BasketScreen.test.tsx": {
-    "mtime": 1788558159.1567256,
-    "ast_hash": "427c06662e5c923a81c2e0a5b48b2a8b",
+    "mtime": 1788600867.2509742,
+    "ast_hash": "6ad28510e5feb226c3c7f389def03012",
     "semantic_hash": ""
   },
   "ui/tests/screens/ResultsScreen.test.tsx": {
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "ui/TESTING.md": {
-    "mtime": 1788557687.090648,
-    "ast_hash": "50f9ed74c10e3ee9026f98cd7825dabc",
+    "mtime": 1788601025.1331913,
+    "ast_hash": "900324e3ba4e49271fe1264f46af7a4c",
     "semantic_hash": ""
   },
   "ui/src/components/VerdictAddButton.tsx": {
@@ -805,8 +805,8 @@
     "semantic_hash": ""
   },
   "ui/e2e/performance.spec.ts": {
-    "mtime": 1788560751.3246672,
-    "ast_hash": "62d7311d6f2f60503ef4d0fd5996ff10",
+    "mtime": 1788601123.7020824,
+    "ast_hash": "c61dfc12bc367c5122883224c7ca46f9",
     "semantic_hash": ""
   },
   "ui/src/lib/basketStore.ts": {

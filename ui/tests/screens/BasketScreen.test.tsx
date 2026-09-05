@@ -58,7 +58,16 @@ describe("BasketScreen matrix", () => {
 
   it("shows cached rows immediately and refreshes them after remounting", async () => {
     let current = basket([basketRow({ brand: "Cached", name: "Perfume" })]);
-    server.on("GET /api/basket", () => ({ body: current }));
+    let requestCount = 0;
+    let finishRefresh!: () => void;
+    const heldRefresh = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
+    server.on("GET /api/basket", async () => {
+      requestCount += 1;
+      if (requestCount === 2) await heldRefresh;
+      return { body: current };
+    });
     const first = render(
       <BasketScreen
         config={DEFAULT_CONFIG}
@@ -78,8 +87,14 @@ describe("BasketScreen matrix", () => {
       />,
     );
 
+    await waitFor(() => expect(requestCount).toBe(2));
     expect(screen.getByText(/Cached Perfume/)).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("Tek siteden")).toBeInTheDocument();
     expect(screen.queryByText("Sepet okunuyor…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sepet güncelleniyor…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    finishRefresh();
     expect(await screen.findByText(/Fresh Perfume/)).toBeInTheDocument();
     expect(server.requestsTo("GET", "/api/basket")).toHaveLength(2);
   });
@@ -194,6 +209,43 @@ describe("BasketScreen quantities", () => {
     );
   });
 
+  it("keeps a quantity change after an outstanding basket read", async () => {
+    const initial = basket([basketRow({ qty: 1 })]);
+    const latest = basket([basketRow({ qty: 2 })]);
+    let requestCount = 0;
+    let finishOlderRead!: () => void;
+    const olderReadHeld = new Promise<void>((resolve) => {
+      finishOlderRead = resolve;
+    });
+    server.on("GET /api/basket", async () => {
+      requestCount += 1;
+      if (requestCount === 2) await olderReadHeld;
+      return { body: requestCount === 3 ? latest : initial };
+    });
+    server.reply("PATCH /api/basket/items/1", { basket_item_id: 1, qty: 2 });
+
+    await ensureBasket();
+    const olderRead = refreshBasket();
+    await waitFor(() => expect(requestCount).toBe(2));
+    const olderReadRejected = expect(olderRead).rejects.toThrow("Obsolete basket response");
+    render(
+      <BasketScreen
+        config={DEFAULT_CONFIG}
+        siteNames={SITE_NAMES}
+        notify={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(await screen.findByLabelText("artır"));
+    finishOlderRead();
+
+    await olderReadRejected;
+    await waitFor(() => expect(requestCount).toBe(3));
+    await waitFor(() =>
+      expect(cellsOf(/Dior Sauvage EDP · 5 ml/)[1]).toHaveTextContent("2"),
+    );
+  });
+
   it("removes the line when the quantity would drop below one", async () => {
     // The row has no delete button of its own any more, so the step down from
     // 1 is the destructive press. Its label has to say so.
@@ -284,6 +336,7 @@ describe("BasketScreen refresh", () => {
     await ensureBasket();
     const olderRead = refreshBasket();
     await waitFor(() => expect(requestCount).toBe(2));
+    const olderReadRejected = expect(olderRead).rejects.toThrow("Obsolete basket response");
     render(
       <BasketScreen
         config={DEFAULT_CONFIG}
@@ -297,7 +350,7 @@ describe("BasketScreen refresh", () => {
     act(() => socket.emit({ type: "refresh_finished" }));
     finishOlderRead();
 
-    await expect(olderRead).rejects.toThrow("Obsolete basket response");
+    await olderReadRejected;
     await waitFor(() => expect(requestCount).toBe(3));
     await waitFor(() =>
       expect(cellsOf(/Dior Sauvage EDP · 5 ml/)[2]).toHaveTextContent("199 ₺"),

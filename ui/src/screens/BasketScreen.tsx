@@ -386,24 +386,20 @@ export function BasketScreen({
     </div>
   );
 
-  const staleNotice = basketSnapshot.stale && (
+  const staleNotice = basketSnapshot.stale && basketSnapshot.error !== null && (
     <div className="notice warn" role="alert">
       <span>
-        {basketSnapshot.error !== null
-          ? `Sepet güncellenemedi: ${basketSnapshot.error instanceof ApiError
-              ? basketSnapshot.error.message
-              : String(basketSnapshot.error)}`
-          : "Sepet güncelleniyor…"}
+        {`Sepet güncellenemedi: ${basketSnapshot.error instanceof ApiError
+          ? basketSnapshot.error.message
+          : String(basketSnapshot.error)}`}
       </span>
-      {basketSnapshot.error !== null && (
-        <button
-          type="button"
-          className="link"
-          onClick={() => void refreshBasket().catch(() => {})}
-        >
-          Tekrar dene
-        </button>
-      )}
+      <button
+        type="button"
+        className="link"
+        onClick={() => void refreshBasket().catch(() => {})}
+      >
+        Tekrar dene
+      </button>
     </div>
   );
 

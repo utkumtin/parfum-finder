@@ -98,7 +98,6 @@
   "96": "test_updater.py",
   "97": "product_label",
   "98": "select_field",
-  "99": "SiteValidation",
   "100": "playwright.config.ts",
   "101": "setup.ts",
   "102": "enum",
@@ -106,12 +105,7 @@
   "104": "ws.test.ts",
   "105": "search_spellings",
   "106": "Q: In the Windows application, when I release a new version, I click the ‘Update’ button to install the update, and the new update is downloaded. However, the application then closes and the installer does not launch. By pressing Win + R and then running the downloaded installer from the ‘%temp%’ directory, I am able to install the update without any issues. So I assume there is no block from Windows. I’m still experiencing this issue even though I’ve added it to the whitelist via Windows Defender. Could you please check if there’s an error in the code?",
-  "107": "FakeWebSocket",
-  "108": "apply_variant_rules",
   "109": "_NoRootParser",
-  "110": "Badge.tsx",
   "111": "ParfumFinderApp",
-  "112": "_with_candidate_identity",
-  "113": "tui/app.py",
   "115": "parfum-search-desktop.md"
 }

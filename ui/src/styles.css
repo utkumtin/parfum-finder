@@ -235,6 +235,10 @@ input {
 .tab[aria-current="page"] {
   color: var(--text);
   background: transparent;
+  transition: color var(--tabs-dur) var(--tabs-ease);
+}
+.tab[aria-current="page"]:hover:not(:disabled) {
+  background: transparent;
 }
 .tab-pill {
   position: absolute;
@@ -246,7 +250,9 @@ input {
   border-radius: 999px;
   box-shadow: inset 0 1px 0 var(--hi), 0 1px 2px rgba(8, 5, 10, 0.45);
   transform: translateX(0);
-  transition: transform var(--tabs-dur) var(--tabs-ease);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease);
   will-change: transform;
   z-index: 0;
   pointer-events: none;

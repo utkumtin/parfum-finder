@@ -3,7 +3,7 @@
 
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import {
   ensureBasket,
@@ -19,6 +19,12 @@ import {
 } from "./helpers/server";
 
 let server: FakeServer;
+let restoreGetAnimations: (() => void) | null = null;
+
+afterEach(() => {
+  restoreGetAnimations?.();
+  restoreGetAnimations = null;
+});
 
 beforeEach(() => {
   server = installFakeServer();
@@ -61,10 +67,11 @@ describe("App startup", () => {
 });
 
 describe("App tabs", () => {
-  it("positions the pill, switches width immediately, and corrects observed resizes", async () => {
+  it("animates position and width together, and corrects observed resizes", async () => {
     const observed: Element[] = [];
     let observerCallback: ResizeObserverCallback | null = null;
     let widthCorrection = 0;
+    let animationState: "idle" | "running" | "pending" = "idle";
     class FakeResizeObserver {
       constructor(callback: ResizeObserverCallback) {
         observerCallback = callback;
@@ -73,6 +80,30 @@ describe("App tabs", () => {
       disconnect = vi.fn();
     }
     vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    const originalGetAnimations = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "getAnimations",
+    );
+    restoreGetAnimations = () => {
+      if (originalGetAnimations) {
+        Object.defineProperty(HTMLElement.prototype, "getAnimations", originalGetAnimations);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "getAnimations");
+      }
+    };
+    Object.defineProperty(HTMLElement.prototype, "getAnimations", {
+      configurable: true,
+      value: vi.fn(() =>
+        animationState === "idle"
+          ? []
+          : [
+              {
+                playState: animationState === "running" ? "running" : "idle",
+                pending: animationState === "pending",
+              },
+            ],
+      ),
+    });
     vi.spyOn(HTMLElement.prototype, "offsetLeft", "get").mockImplementation(function (
       this: HTMLElement,
     ) {
@@ -98,11 +129,13 @@ describe("App tabs", () => {
     const firstTab = tabButtons[0];
     const pill = tabs.querySelector<HTMLElement>(".tab-pill");
     if (pill === null || firstTab === undefined) throw new Error("tab geometry is missing");
+    const transitionSetter = vi.spyOn(pill.style, "transition", "set");
     expect(observed).toEqual([tabs, ...tabButtons]);
     expect(observed).not.toContain(pill);
     expect(pill.style.transform).toBe("translateX(8px)");
     expect(pill.style.width).toBe(`${firstTab.offsetWidth}px`);
 
+    animationState = "running";
     await userEvent.click(screen.getByRole("button", { name: "İstek listesi" }));
     expect(pill.style.transform).toBe("translateX(208px)");
     expect(pill.style.width).toBe(
@@ -110,12 +143,25 @@ describe("App tabs", () => {
     );
     expect(pill.style.transition).toBe("");
 
+    transitionSetter.mockClear();
     widthCorrection = 12;
     act(() => observerCallback?.([], {} as ResizeObserver));
     expect(pill.style.width).toBe(
       `${screen.getByRole("button", { name: "İstek listesi" }).offsetWidth}px`,
     );
     expect(pill.style.transition).toBe("");
+    expect(transitionSetter).not.toHaveBeenCalled();
+
+    animationState = "pending";
+    widthCorrection = 18;
+    act(() => observerCallback?.([], {} as ResizeObserver));
+    expect(transitionSetter).not.toHaveBeenCalled();
+
+    animationState = "idle";
+    widthCorrection = 24;
+    act(() => observerCallback?.([], {} as ResizeObserver));
+    expect(transitionSetter.mock.calls.map(([value]) => value)).toEqual(["none", ""]);
+
   });
 
   it("corrects active pill geometry across basket and wishlist digit boundaries", async () => {

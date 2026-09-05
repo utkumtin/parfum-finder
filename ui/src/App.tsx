@@ -74,31 +74,32 @@ export function App() {
     const widthChanged = pill.style.width !== nextWidth;
     if (!transformChanged && !widthChanged) return;
 
-    const previousTransition = pill.style.transition;
-    if (widthChanged) {
-      // Width changes are geometry corrections, not motion. This also keeps
-      // count digit changes from animating the pill itself.
-      pill.style.transition = "none";
+    // Browsers keep an in-flight transition's rendered value as the start
+    // frame when both targets are changed together. ResizeObserver callbacks
+    // therefore retarget the motion instead of cancelling it.
+    const activeAnimations = pill.getAnimations?.().some(
+      (animation) => animation.playState === "running" || animation.pending,
+    );
+    if (animate || activeAnimations) {
+      pill.style.transform = nextTransform;
       pill.style.width = nextWidth;
-      void pill.offsetWidth;
-      pill.style.transition = previousTransition;
+      return;
     }
 
-    if (transformChanged) {
-      if (!animate) {
-        pill.style.transition = "none";
-        pill.style.transform = nextTransform;
-        void pill.offsetWidth;
-        pill.style.transition = previousTransition;
-      } else {
-        pill.style.transform = nextTransform;
-      }
-    }
+    // Settled geometry corrections are immediate, including count changes.
+    const previousTransition = pill.style.transition;
+    pill.style.transition = "none";
+    pill.style.transform = nextTransform;
+    pill.style.width = nextWidth;
+    void pill.offsetWidth;
+    pill.style.transition = previousTransition;
   }, []);
 
   useLayoutEffect(() => {
     const animate =
-      hasPositionedTabPill.current && lastPillView.current !== null && lastPillView.current !== view;
+      hasPositionedTabPill.current &&
+      lastPillView.current !== null &&
+      lastPillView.current !== view;
     measureTabPill(animate);
     hasPositionedTabPill.current = true;
     lastPillView.current = view;

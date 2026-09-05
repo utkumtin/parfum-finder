@@ -83,19 +83,28 @@ boşaltır. Veritabanı her koşuda yeni bir geçici dosyadır.
 
 - 900 ve 1280 CSS pikselinde, 62rem (992px) responsive kırılımının iki yanında
   aktif sekme pilinin sekme çubuğunun içinde kalması;
-  normal modda yalnızca `transform` için 250 ms geçiş ve `will-change: transform`;
+  normal modda `transform` ve `width` için birlikte 250 ms geçiş ve
+  `will-change: transform`;
   azaltılmış harekette geçişin `none` olması.
-- Ekranlar ısındıktan sonra en az 10 sekme geçişinde Chromium CDP
+- Azaltılmış hareket açıkken, ekranlar ısındıktan sonra en az 10 sekme geçişinde Chromium CDP
   `LayoutCount` deltası toplanır ve ortalamanın 3 veya altında olduğu doğrulanır.
   Chromium dışı bir çalışma ortamı CDP alanını vermiyorsa test açıkça atlanır.
+  Bu eşik ekran değişiminin layout maliyetini ölçer. Normal harekette pilin
+  genişlik geçişi de her karede layout gerektirir; ilk yerel ölçümde ortalama
+  18,1 layout/geçiş görüldü. Eski transform-only davranışın 3 sınırı normal
+  harekete uygulanmaz; animasyon sürekliliği ayrı ara-kare testiyle doğrulanır.
 - API üzerinden 100 ve 500 deterministik istek listesi satırı oluşturulması.
   Her senaryoda özet satırı sayısı, DOM düğüm sayısı, Chromium'un verdiği heap ve
   layout sayaçları, ayrıntı açma süresi ve sepete geçiş süresi raporlanır.
 - Kapalı ayrıntı satırlarında `.t-acc-panel-inner` bulunmaması, açınca bir panelin
   görünmesi ve tekrar kapatınca içeriğin DOM'dan çıkması.
-- 1280×800'de kapalı ve açık büyük liste, sepet, bayat önbellek yenileme uyarısı
+- 1280×800'de kapalı ve açık büyük liste, sepet, yavaş önbellek okuması
   ve reduced-motion durumları için ekran görüntüsü eklenmesi; tarayıcı
   console/page error/failed request ve wishlist ağ isteği kontrolleri.
+- İstek listesi/sepet → arama ve arama/istek listesi → sepet yönlerinde
+  pilin ara konum ve genişlik ölçümleri; hızlı yön değiştirme, klavye ve aktif
+  hover davranışı. Önbellekli sepetin arka plan okumasında yerinde kalması,
+  okuma hatasının görünür olması ve yeniden denemenin çalışması.
 
 Heap (`performance.memory`) ve layout (`Performance.getMetrics`) sayaçları her
 tarayıcıda bulunmayabilir; bu durumda değer `null` olarak raporlanır. Etkileşim
@@ -119,14 +128,22 @@ Linux Chromium testi WebView2'nin gerçek GPU, sürücü, pencere bileşimi veya
 makinesinde:
 
 1. Uygulamayı 1280×800 pencerede, kullanılan Windows ölçeklemesiyle açın.
-2. 100 ve 500 satırlı istek listesiyle istek listesi → sepet geçişini en az on
-   kez tekrarlayın; görünür loading flash, aktif pil geometrisi ve ayrıntı açma/
-   kapama davranışını kontrol edin.
+2. Boş ve dolu ekranlarda istek listesi → arama, sepet → arama, arama → sepet
+   ve istek listesi → sepet geçişlerini, hızlı yön değiştirmeyi, hover ve
+   klavye kullanımını kontrol edin. 100 ve 500 satırlı istek listesiyle geçişi
+   en az on kez tekrarlayın. Aktif pilin yalnızca son konumunu değil, ara
+   karelerdeki konumunu ve genişliğini de kontrol edin; 9→10 ve 99→100 sayaç
+   değişimlerini de deneyin.
 3. Edge DevTools Performance kaydında frame, Layout, Paint, Composite ve sepet
    isteğinin süresini kaydedin. Reduced-motion sistem ayarıyla tekrar edin.
 4. WebView2 runtime sürümünü, GPU/sürücü bilgisini ve görüntü ölçeklemesini
    not edin. Bu iz ve exact Windows doğrulaması bu Linux çalışma alanında
    mevcut değildir.
+5. Önbellekli sepetin yavaş bir arka plan okumasında satırları ve karşılaştırma
+   kartlarını yerinde tuttuğunu, yükleme uyarısı/anonsu çıkarmadığını doğrulayın.
+   Başarısız okumada eski içerik ve çalışan `Tekrar dene` eylemi kalmalıdır.
+   İlk yükleme ve kullanıcının başlattığı mağaza fiyatı tazelemesi ayrı ilerleme
+   ve hata bildirimlerini korumalıdır.
 
 Base commit için son yeşil [CI](https://github.com/utkumtin/parfum-finder/actions/runs/33717433422)
 ve [Build Windows](https://github.com/utkumtin/parfum-finder/actions/runs/33717453957)
